@@ -50,6 +50,7 @@ OFFICIAL_EXPECTED = {
     "-j3_FJ6jYPs": ["riko", "shibuki", "yuni"],  # DAY 3
     "xd5Af-zq3ME": ["mashiro", "nana", "hina"],  # DAY 2
     "n-Vs17eSiB4": ["huya", "tabi"],  # DAY 1
+    "JdeMEG5qXvw": ["shibuki"],  # 부키야너는정말최고야 (별명)
     "UCWNF1dQCrk": ["all"],  # 츄~♥️♥️- [스텔라 핫클립]
     "FJWPiAKBv7s": ["all"],  # 단체 수영복 신의상 공개
 }

@@ -18,9 +18,11 @@ ALL = "all"
 # 한글 이름을 품은 흔한 단어 — 이름 매칭 전에 지운다 (예: 바나나 ⊃ 나나, 유니폼 ⊃ 유니)
 BLOCKLIST = ("바나나", "유니폼", "유니콘", "유니크", "유니온", "유니티", "유니버설", "리코더", "리제로")
 
-# 별명. 확인된 표기만 넣는다 (근거: kangji의 유튜브 핸들 @GANGZI1 · X @GANGZIIII — members.json links).
-# 공식 채널 제목의 '부키야…' 같은 별명은 확인 전이라 넣지 않았고, 그런 제목은 'all'이 된다.
-ALIASES: dict[str, tuple[str, ...]] = {"kangji": ("gangzi",)}
+# 별명. 확인된 표기만 넣는다. 한글 별명은 '단어 시작'에서만 매칭한다(앞 글자가 한글이면 제외) — 가부키의 '부키'를 막기 위해.
+# - kangji: gangzi — 유튜브 핸들 @GANGZI1 · X @GANGZIIII (members.json links)
+# - shibuki: 부키 — 공식 채널 핫클립 설명란에서 시부키를 '부키'로 줄여 쓴다
+#   ('03:20 부키 - 부키 벌레', '린, 부키, 리코 - 귀하다', '시부키 - 압축 부키')
+ALIASES: dict[str, tuple[str, ...]] = {"kangji": ("gangzi",), "shibuki": ("부키",)}
 
 _HANGUL = "가-힣"
 _PARTICLES = "이랑|한테|에게|이|가|은|는|을|를|의|도|와|과|에|랑|만"
@@ -36,7 +38,7 @@ def _strip_accents(text: str) -> str:
     return unicodedata.normalize("NFC", "".join(c for c in decomposed if unicodedata.category(c) != "Mn"))
 
 
-def _pattern(name: str) -> re.Pattern:
+def _pattern(name: str, *, word_start: bool = False) -> re.Pattern:
     parts = name.split()
     if name.isascii():  # 영문: 단어 경계 (Rin ≠ Rinse, Marine)
         body = r"\s+".join(re.escape(p) for p in parts)
@@ -44,6 +46,8 @@ def _pattern(name: str) -> re.Pattern:
     body = r"\s*".join(re.escape(p) for p in parts)
     if len(parts) == 1 and len(name) == 1 and "가" <= name <= "힣":  # 한 글자 한글 이름 (린)
         return re.compile(rf"(?<![{_HANGUL}a-z0-9]){body}(?:(?![{_HANGUL}])|(?=(?:{_PARTICLES})))")
+    if word_start:  # 한글 별명: 단어 시작에서만 (가부키 ⊅ 부키). 뒤에는 조사·어미가 붙어도 된다 (부키야, 부키는)
+        return re.compile(rf"(?<![{_HANGUL}a-z0-9]){body}")
     return re.compile(body)
 
 
@@ -60,8 +64,8 @@ class TagIndex:
     blocklist: tuple[str, ...]
 
 
-def _terms(names: set[str], key: str) -> list[_Term]:
-    return [_Term(n, key, _pattern(n)) for n in sorted(names, key=len, reverse=True) if n]
+def _terms(names: set[str], key: str, *, word_start: bool = False) -> list[_Term]:
+    return [_Term(n, key, _pattern(n, word_start=word_start)) for n in sorted(names, key=len, reverse=True) if n]
 
 
 def build_index(members: dict) -> TagIndex:
@@ -83,8 +87,8 @@ def build_index(members: dict) -> TagIndex:
             tokens = full.split()
             if len(tokens) > 1:  # 성·이름 따로 ('아카네', '리제' / 'Akane', 'Lize')
                 names |= {_norm(tokens[0]), _norm(tokens[-1])}
-        names |= {_norm(a) for a in ALIASES.get(key, ())}
         people += _terms(names, key)
+        people += _terms({_norm(a) for a in ALIASES.get(key, ())}, key, word_start=True)
 
     ordered = sorted(groups, key=lambda t: -len(t.text)) + sorted(people, key=lambda t: -len(t.text))
     return TagIndex(terms=tuple(ordered), blocklist=tuple(_norm(w) for w in BLOCKLIST))

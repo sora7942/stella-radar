@@ -108,14 +108,54 @@ REAL_OFFICIAL_TITLES = [
     ("츄~♥️♥️- [스텔라 핫클립]", ["all"]),
     ("🏖️스텔라와 함께하는 여름 휴가🏝️  - [단체 수영복 신의상 공개]", ["all"]),
     ("주거랏!!!!!!!!  - [스텔라 핫클립]", ["all"]),
-    # 별명(부키)은 아직 사전에 없다 → all. 알려진 한계이며, 별명이 확인되면 ALIASES에 추가한다
-    ("부키야너는정말최고야(박수짝짝)  - [스텔라 핫클립]", ["all"]),
+    ("부키야너는정말최고야(박수짝짝)  - [스텔라 핫클립]", ["shibuki"]),  # 별명 '부키'
 ]
 
 
 @pytest.mark.parametrize("title, expected", REAL_OFFICIAL_TITLES)
 def test_real_official_titles(index, title, expected):
     assert tags(index, title) == expected
+
+
+# --- 별명 (ALIASES) ---------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("부키야너는정말최고야", ["shibuki"]),  # 단어 시작 + 조사·어미가 바로 붙는 형태
+        ("부키는 최고", ["shibuki"]),
+        ("부키", ["shibuki"]),
+        ("03:20 부키 - 부키 벌레", ["shibuki"]),  # 공식 핫클립 설명란 표기 (두 번 나와도 한 명)
+        ("[린, 부키, 리코] 귀하다", ["rin", "shibuki", "riko"]),  # 등장 순서
+        ("시부키 - 압축 부키", ["shibuki"]),  # 풀 이름과 별명이 함께 있어도 한 명
+        ("텐코 시부키", ["shibuki"]),
+        ("(부키) 신의상", ["shibuki"]),  # 괄호 뒤
+    ],
+)
+def test_alias_matches(index, text, expected):
+    assert tags(index, text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "가부키 공연 후기",  # 歌舞伎 — '부키'를 품은 실제 단어. 앞 글자가 한글이라 제외
+        "가부키초 여행",
+        "아부키 도시락",
+        "내 동생 정부키",  # 단어 중간은 매칭하지 않는다 (알려진 한계: 이런 말장난은 all)
+    ],
+)
+def test_alias_does_not_match_inside_words(index, text):
+    assert tags(index, text) == ["all"]
+
+
+def test_alias_keys_all_exist_in_members(members):
+    # 오타로 존재하지 않는 멤버 key에 별명을 달면 build_index가 조용히 무시하므로 여기서 막는다
+    assert set(tagging.ALIASES) <= set(members["members"])
+
+
+def test_alias_does_not_break_full_name_or_group(index):
+    assert tags(index, "클리셰 부키") == ["cliche", "shibuki"]
+    assert tags(index, "시부키") == ["shibuki"]
 
 
 # --- 공식 공지 제목 ------------------------------------------------------------------
