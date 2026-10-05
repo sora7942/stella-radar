@@ -1,0 +1,265 @@
+{
+ "_note": "사람이 직접 고치는 파일. 업데이터는 읽기만 한다. 순서 = 화면 표시 순서",
+ "groups": [
+  {
+   "key": "boss",
+   "label": "강지",
+   "full": "대표 · 강지",
+   "note": "스텔라이브 설립자 · 대표"
+  },
+  {
+   "key": "everys",
+   "label": "에버리스",
+   "full": "1기생 에버리스",
+   "en": "EVERYS",
+   "note": "2025.09.20 결성"
+  },
+  {
+   "key": "universe",
+   "label": "유니버스",
+   "full": "2기생 유니버스",
+   "en": "UNIVERSE",
+   "note": "2023.06 데뷔"
+  },
+  {
+   "key": "cliche",
+   "label": "클리셰",
+   "full": "3기생 클리셰",
+   "en": "cliché",
+   "note": "2024.05.18 데뷔"
+  }
+ ],
+ "official": {
+  "yt_id": "UC2b4WRE5BZ6SIUWBeJU8rwg",
+  "links": {
+   "site": "https://stellive.me/",
+   "youtube": "https://www.youtube.com/@stellive_official",
+   "x": "https://twitter.com/StelLive_kr",
+   "cafe": "https://cafe.naver.com/tteokbokk1/",
+   "shop": "https://fanding.kr/@stellive/shop",
+   "graduation": "https://stellive.me/graduation"
+  }
+ },
+ "members": {
+  "kangji": {
+   "n": "강지",
+   "en": "Kangji",
+   "c": "#B8861E",
+   "g": "boss",
+   "bd": "11-15",
+   "fan": null,
+   "yt_id": "UCIVFv8AiQLqM9oLHTixrNYw",
+   "chzzk_id": null,
+   "links": {
+    "youtube": "https://www.youtube.com/@GANGZI1",
+    "chzzk": "https://chzzk.naver.com/search?query=%EA%B0%95%EC%A7%80",
+    "x": "https://x.com/GANGZIIII",
+    "cafe": "https://cafe.naver.com/tteokbokk1/"
+   },
+   "official_img": null,
+   "debut": null,
+   "art": null,
+   "clip": null
+  },
+  "yuni": {
+   "n": "아야츠노 유니",
+   "en": "Ayatsuno Yuni",
+   "c": "#9B6BD3",
+   "g": "everys",
+   "bd": "05-21",
+   "debut": "2023-01-08",
+   "fan": "아르냥",
+   "yt_id": "UClbYIn9LDbbFZ9w2shX3K0g",
+   "chzzk_id": "45e71a76e949e16a34764deb962f9d9f",
+   "links": {
+    "profile": "https://stellive.me/yuni",
+    "youtube": "https://www.youtube.com/@ayatsunoyuni",
+    "x": "https://twitter.com/AyatsunoYuni",
+    "chzzk": "https://chzzk.naver.com/45e71a76e949e16a34764deb962f9d9f"
+   },
+   "official_img": "https://stellive.me/files/attach/images/yuni/yuni.png",
+   "art": null,
+   "clip": null
+  },
+  "huya": {
+   "n": "사키하네 후야",
+   "en": "Sakihane Huya",
+   "c": "#6A4BC4",
+   "g": "everys",
+   "bd": "07-07",
+   "debut": "2025-09-20",
+   "fan": "바쿠",
+   "yt_id": "UC0YQnenKBCu5sGb7H61n6HA",
+   "chzzk_id": "36ddb9bb4f17593b60f1b63cec86611d",
+   "links": {
+    "profile": "https://stellive.me/huya",
+    "youtube": "https://www.youtube.com/channel/UC0YQnenKBCu5sGb7H61n6HA",
+    "x": "https://x.com/SakihaneHuya",
+    "chzzk": "https://chzzk.naver.com/36ddb9bb4f17593b60f1b63cec86611d"
+   },
+   "official_img": "https://stellive.me/files/attach/images/huya/huya.png",
+   "art": null,
+   "clip": null
+  },
+  "hina": {
+   "n": "시라유키 히나",
+   "en": "Shirayuki Hina",
+   "c": "#4F93C9",
+   "g": "universe",
+   "bd": "01-05",
+   "fan": "해둥이",
+   "art": "#_hinart",
+   "clip": "#hinaclip_",
+   "yt_id": "UC1afpiIuBDcjYlmruAa0HiA",
+   "chzzk_id": "b044e3a3b9259246bc92e863e7d3f3b8",
+   "links": {
+    "profile": "https://stellive.me/hina",
+    "youtube": "https://www.youtube.com/@shirayukihina",
+    "x": "https://twitter.com/Shirayukihina_",
+    "chzzk": "https://chzzk.naver.com/b044e3a3b9259246bc92e863e7d3f3b8"
+   },
+   "official_img": "https://stellive.me/files/attach/images/hina/hina.png",
+   "debut": null
+  },
+  "mashiro": {
+   "n": "네네코 마시로",
+   "en": "Neneko Mashiro",
+   "c": "#7E869E",
+   "g": "universe",
+   "bd": "02-22",
+   "fan": "마로",
+   "art": "#shiroart",
+   "clip": "#shiroclip",
+   "yt_id": "UC_eeSpMBz8PG4ssdBPnP07g",
+   "chzzk_id": "4515b179f86b67b4981e16190817c580",
+   "links": {
+    "profile": "https://stellive.me/mashiro",
+    "youtube": "https://www.youtube.com/@neneko_mashiro",
+    "x": "https://twitter.com/NenekoMashiro",
+    "chzzk": "https://chzzk.naver.com/4515b179f86b67b4981e16190817c580"
+   },
+   "official_img": "https://stellive.me/files/attach/images/mashiro/mashiro.png",
+   "debut": null
+  },
+  "lize": {
+   "n": "아카네 리제",
+   "en": "Akane Lize",
+   "c": "#C8352E",
+   "g": "universe",
+   "bd": "10-01",
+   "fan": "피엔나",
+   "art": "#Lize_art",
+   "clip": "#Lize_live",
+   "yt_id": "UC7-m6jQLinZQWIbwm9W-1iw",
+   "chzzk_id": "4325b1d5bbc321fad3042306646e2e50",
+   "links": {
+    "profile": "https://stellive.me/lize",
+    "youtube": "https://www.youtube.com/@akanelize",
+    "x": "https://twitter.com/AkaneLize",
+    "chzzk": "https://chzzk.naver.com/4325b1d5bbc321fad3042306646e2e50"
+   },
+   "official_img": "https://stellive.me/files/attach/images/lize/lize.png",
+   "debut": null
+  },
+  "tabi": {
+   "n": "아라하시 타비",
+   "en": "Arahashi Tabi",
+   "c": "#2C9A78",
+   "g": "universe",
+   "bd": "09-07",
+   "fan": "뿡댕이",
+   "art": "#tabiart",
+   "clip": "#tabiclip",
+   "yt_id": "UCAHVQ44O81aehLWfy9O6Elw",
+   "chzzk_id": "a6c4ddb09cdb160478996007bff35296",
+   "links": {
+    "profile": "https://stellive.me/tabi",
+    "youtube": "https://www.youtube.com/@arahashitabi",
+    "x": "https://twitter.com/ArahashiTabi",
+    "chzzk": "https://chzzk.naver.com/a6c4ddb09cdb160478996007bff35296"
+   },
+   "official_img": "https://stellive.me/files/attach/images/tabi/tabi.png",
+   "debut": null
+  },
+  "shibuki": {
+   "n": "텐코 시부키",
+   "en": "Tenko Shibuki",
+   "c": "#D9771F",
+   "g": "cliche",
+   "bd": "03-21",
+   "fan": "이나리",
+   "art": "#shibuki_art",
+   "clip": "#shibuki_clip",
+   "yt_id": "UCYxLMfeX1CbMBll9MsGlzmw",
+   "chzzk_id": "64d76089fba26b180d9c9e48a32600d9",
+   "links": {
+    "profile": "https://stellive.me/shibuki",
+    "youtube": "https://www.youtube.com/channel/UCYxLMfeX1CbMBll9MsGlzmw",
+    "x": "https://twitter.com/TenkoShibuki",
+    "chzzk": "https://chzzk.naver.com/64d76089fba26b180d9c9e48a32600d9"
+   },
+   "official_img": "https://stellive.me/files/attach/images/shibuki/shibuki.png",
+   "debut": null
+  },
+  "rin": {
+   "n": "아오쿠모 린",
+   "en": "Aokumo Rin",
+   "c": "#3D6FD1",
+   "g": "cliche",
+   "bd": "05-03",
+   "fan": "쿠리미",
+   "art": "#kumorinart",
+   "clip": "#kumorin_clip",
+   "yt_id": "UCQmcltnre6aG9SkDRYZqFIg",
+   "chzzk_id": "516937b5f85cbf2249ce31b0ad046b0f",
+   "links": {
+    "profile": "https://stellive.me/rin",
+    "youtube": "https://www.youtube.com/channel/UCQmcltnre6aG9SkDRYZqFIg",
+    "x": "https://twitter.com/AokumoRin",
+    "chzzk": "https://chzzk.naver.com/516937b5f85cbf2249ce31b0ad046b0f"
+   },
+   "official_img": "https://stellive.me/files/attach/images/rin/rin.png",
+   "debut": null
+  },
+  "nana": {
+   "n": "하나코 나나",
+   "en": "Hanako Nana",
+   "c": "#D0569F",
+   "g": "cliche",
+   "bd": "08-07",
+   "fan": "페토",
+   "art": "#Nanart_",
+   "clip": "#Nanaclip_",
+   "yt_id": "UCcA21_PzN1EhNe7xS4MJGsQ",
+   "chzzk_id": "4d812b586ff63f8a2946e64fa860bbf5",
+   "links": {
+    "profile": "https://stellive.me/nana",
+    "youtube": "https://www.youtube.com/channel/UCcA21_PzN1EhNe7xS4MJGsQ",
+    "x": "https://twitter.com/HanakoNana_",
+    "chzzk": "https://chzzk.naver.com/4d812b586ff63f8a2946e64fa860bbf5"
+   },
+   "official_img": "https://stellive.me/files/attach/images/nana/nana.png",
+   "debut": null
+  },
+  "riko": {
+   "n": "유즈하 리코",
+   "en": "Yuzuha Riko",
+   "c": "#A87F0A",
+   "g": "cliche",
+   "bd": "04-13",
+   "fan": "치코",
+   "art": "#riko_art",
+   "clip": "#rikoclip",
+   "yt_id": "UCj0c1jUr91dTetIQP2pFeLA",
+   "chzzk_id": "8fd39bb8de623317de90654718638b10",
+   "links": {
+    "profile": "https://stellive.me/riko",
+    "youtube": "https://www.youtube.com/channel/UCj0c1jUr91dTetIQP2pFeLA",
+    "x": "https://twitter.com/YuzuhaRiko",
+    "chzzk": "https://chzzk.naver.com/8fd39bb8de623317de90654718638b10"
+   },
+   "official_img": "https://stellive.me/files/attach/images/riko/riko.png",
+   "debut": null
+  }
+ }
+}

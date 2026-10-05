@@ -1,0 +1,329 @@
+{
+ "_note": "대표곡 큐레이션. 사람이 직접 고친다. yt가 null이면 페이지가 catalog.json에서 같은 제목을 찾아 썸네일·링크를 채운다",
+ "items": [
+  {
+   "date": "2026-09",
+   "title": "SYNC 100%",
+   "who": [
+    "lize"
+   ],
+   "kind": "콜라보·OST",
+   "note": "PLATiNA :: LAB 콜라보",
+   "yt": null
+  },
+  {
+   "date": "2026-07-24",
+   "title": "Colorful Strokes",
+   "who": [
+    "cliche"
+   ],
+   "kind": "유닛",
+   "note": "클리셰 1st EP",
+   "tracks": "악당주의보 · 베리베리스트로베리 · Hush Trap · Maid My Way",
+   "yt": null
+  },
+  {
+   "date": "2026-07-24",
+   "title": "악당주의보",
+   "who": [
+    "riko"
+   ],
+   "kind": "솔로",
+   "note": "Colorful Strokes 수록",
+   "yt": "P_oxx3_VpIY"
+  },
+  {
+   "date": "2026-07-24",
+   "title": "베리베리스트로베리",
+   "who": [
+    "shibuki"
+   ],
+   "kind": "솔로",
+   "note": "Colorful Strokes 수록",
+   "yt": null
+  },
+  {
+   "date": "2026-07-24",
+   "title": "Hush Trap",
+   "who": [
+    "nana"
+   ],
+   "kind": "솔로",
+   "note": "Colorful Strokes 수록",
+   "yt": null
+  },
+  {
+   "date": "2026-07-24",
+   "title": "Maid My Way",
+   "who": [
+    "rin"
+   ],
+   "kind": "솔로",
+   "note": "Colorful Strokes 수록",
+   "yt": null
+  },
+  {
+   "date": "2026-06-11",
+   "title": "마음악보",
+   "who": [
+    "universe"
+   ],
+   "kind": "유닛",
+   "note": "유니버스 2nd Single",
+   "yt": null
+  },
+  {
+   "date": "2026-05-19",
+   "title": "유성우",
+   "who": [
+    "cliche"
+   ],
+   "kind": "유닛",
+   "note": "클리셰 2nd Single",
+   "yt": null
+  },
+  {
+   "date": "2026-05-08",
+   "title": "STAR TRAIL",
+   "who": [
+    "all"
+   ],
+   "kind": "단체",
+   "note": "스텔라이브 1st EP",
+   "tracks": "STAR TRAIL · Twinkle · 히로인이 되고싶어 · 별을 쫓던 빛에게",
+   "yt": null
+  },
+  {
+   "date": "2026",
+   "title": "불꽃",
+   "who": [
+    "rin",
+    "nana"
+   ],
+   "kind": "콜라보·OST",
+   "note": "2026 대한민국 e스포츠 리그 이터널 리턴 주제가",
+   "yt": null
+  },
+  {
+   "date": "2025-11-12",
+   "title": "슈퍼삐질게하는법",
+   "who": [
+    "yuni"
+   ],
+   "kind": "솔로",
+   "note": "유니 1st EP",
+   "yt": null
+  },
+  {
+   "date": "2025-09",
+   "title": "Ready to Fire!",
+   "who": [
+    "lize"
+   ],
+   "kind": "콜라보·OST",
+   "note": "World of Tanks 콜라보",
+   "yt": null
+  },
+  {
+   "date": "2025-09",
+   "title": "DIVE 2 FIGHT",
+   "who": [
+    "lize"
+   ],
+   "kind": "콜라보·OST",
+   "note": "2XKO 콜라보",
+   "yt": null
+  },
+  {
+   "date": "2025-06-21",
+   "title": "Colorful Tempo",
+   "who": [
+    "shibuki"
+   ],
+   "kind": "콜라보·OST",
+   "note": "팬 창작 게임 OST",
+   "yt": null
+  },
+  {
+   "date": "2025-05-18",
+   "title": "언노운 마더구스",
+   "who": [
+    "cliche"
+   ],
+   "kind": "커버",
+   "note": "클리셰 커버",
+   "yt": null
+  },
+  {
+   "date": "2025-05-05",
+   "title": "Tell Your World",
+   "who": [
+    "all"
+   ],
+   "kind": "커버",
+   "note": "스텔라이브 단체 커버",
+   "yt": null
+  },
+  {
+   "date": "2025-04-23",
+   "title": "꿈의 신호",
+   "who": [
+    "hina"
+   ],
+   "kind": "솔로",
+   "note": "히나 로고송",
+   "yt": null
+  },
+  {
+   "date": "2025-04",
+   "title": "도깨비꽃",
+   "who": [
+    "shibuki"
+   ],
+   "kind": "콜라보·OST",
+   "note": "TAK 콜라보",
+   "yt": null
+  },
+  {
+   "date": "2025",
+   "title": "Lulala! Lululala!",
+   "who": [
+    "riko"
+   ],
+   "kind": "콜라보·OST",
+   "note": "게임 OST",
+   "yt": null
+  },
+  {
+   "date": "2024-12-11",
+   "title": "여로",
+   "who": [
+    "tabi"
+   ],
+   "kind": "솔로",
+   "note": "타비 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-11",
+   "title": "눈꽃",
+   "who": [
+    "kangji"
+   ],
+   "kind": "솔로",
+   "note": "강지 4th Single",
+   "yt": null
+  },
+  {
+   "date": "2024-10-16",
+   "title": "봄꿈",
+   "who": [
+    "mashiro"
+   ],
+   "kind": "솔로",
+   "note": "마시로 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-09-11",
+   "title": "하나 (夏拏)",
+   "who": [
+    "hina"
+   ],
+   "kind": "솔로",
+   "note": "히나 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-09",
+   "title": "Festa!",
+   "who": [
+    "lize"
+   ],
+   "kind": "솔로",
+   "note": "리제 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-08-24",
+   "title": "Our Tales",
+   "who": [
+    "cliche"
+   ],
+   "kind": "유닛",
+   "note": "클리셰 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-06-19",
+   "title": "SUPADOPA",
+   "who": [
+    "yuni"
+   ],
+   "kind": "솔로",
+   "note": "유니 2nd Single",
+   "yt": null
+  },
+  {
+   "date": "2024-06-09",
+   "title": "소리가 나는 쪽으로",
+   "who": [
+    "universe"
+   ],
+   "kind": "커버",
+   "note": "유니버스 커버",
+   "yt": null
+  },
+  {
+   "date": "2024-04-30",
+   "title": "Stars Align",
+   "who": [
+    "universe"
+   ],
+   "kind": "유닛",
+   "note": "유니버스 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2024-04-21",
+   "title": "Dear My Fairy",
+   "who": [
+    "hina",
+    "mashiro"
+   ],
+   "kind": "유닛",
+   "note": "유닛 싱글",
+   "yt": null
+  },
+  {
+   "date": "2024-04-03",
+   "title": "Hit On Shot",
+   "who": [
+    "all"
+   ],
+   "kind": "유닛",
+   "note": "유닛 싱글",
+   "yt": null
+  },
+  {
+   "date": "2024-02-21",
+   "title": "Milky Way",
+   "who": [
+    "all"
+   ],
+   "kind": "단체",
+   "note": "스텔라이브 1st Single",
+   "yt": null
+  },
+  {
+   "date": "2023-07-20",
+   "title": "내꺼 하는 법",
+   "who": [
+    "yuni"
+   ],
+   "kind": "솔로",
+   "note": "유니 1st Single",
+   "yt": null
+  }
+ ]
+}

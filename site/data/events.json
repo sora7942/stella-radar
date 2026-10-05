@@ -1,0 +1,26 @@
+{
+ "_note": "사람이 직접 고치는 일정(팝업, 콘서트, 예약 오픈 등). start/end는 YYYY-MM-DD 또는 +09:00 ISO",
+ "items": [
+  {
+   "id": "ev-popup-rsv",
+   "start": "2026-10-12T20:00:00+09:00",
+   "title": "STELLA MODE:ON 팝업 네이버 예약 오픈",
+   "who": [
+    "all"
+   ],
+   "note": "네이버 ID당 최대 2매",
+   "url": "https://naver.me/5UVS4zG8"
+  },
+  {
+   "id": "ev-popup",
+   "start": "2026-10-23",
+   "end": "2026-11-01",
+   "title": "2026 STELLIVE POP-UP STELLA MODE:ON",
+   "who": [
+    "all"
+   ],
+   "note": "서울 광진구 광나루로 441 · 10:00–20:00",
+   "url": "https://stellive.me/news/13905"
+  }
+ ]
+}
