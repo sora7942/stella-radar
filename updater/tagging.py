@@ -62,6 +62,7 @@ class _Term:
 class TagIndex:
     terms: tuple[_Term, ...]  # 그룹 먼저, 각각 긴 것부터
     blocklist: tuple[str, ...]
+    artists: dict  # 정규화한 이름 전체 일치 → who key (아티스트 문자열 파싱용: 멤버 영문·한글명, 유닛명, STELLIVE → all)
 
 
 def _terms(names: set[str], key: str, *, word_start: bool = False) -> list[_Term]:
@@ -90,8 +91,21 @@ def build_index(members: dict) -> TagIndex:
         people += _terms(names, key)
         people += _terms({_norm(a) for a in ALIASES.get(key, ())}, key, word_start=True)
 
+    artists: dict[str, str] = {}
+    for key, m in members["members"].items():
+        artists[_norm(m["en"])] = key
+        artists[_norm(m["n"])] = key
+    for g in members.get("groups", []):
+        if g["key"] == "boss":
+            continue
+        for name in (g["label"], g.get("en") or ""):
+            if name:
+                artists[_norm(name)] = g["key"]
+                artists[_strip_accents(_norm(name))] = g["key"]
+    artists.update({"stellive": ALL, "스텔라이브": ALL})
+
     ordered = sorted(groups, key=lambda t: -len(t.text)) + sorted(people, key=lambda t: -len(t.text))
-    return TagIndex(terms=tuple(ordered), blocklist=tuple(_norm(w) for w in BLOCKLIST))
+    return TagIndex(terms=tuple(ordered), blocklist=tuple(_norm(w) for w in BLOCKLIST), artists=artists)
 
 
 def tag_text(text: str, index: TagIndex) -> list[str]:
@@ -113,3 +127,33 @@ def tag_text(text: str, index: TagIndex) -> list[str]:
         if key not in keys:
             keys.append(key)
     return keys or [ALL]
+
+
+# ---------------------------------------------------------------- 아티스트 문자열 (공식 음악 사이트)
+_ARTIST_SPLIT = re.compile(r"\s+[xX×]\s+|\s*[&,]\s*")  # 'A x B', 'A & B', 'A,B' (단어 속 x는 구분자가 아님)
+
+
+@dataclass(frozen=True)
+class ArtistInfo:
+    who: list[str]  # 멤버·그룹 key / 'all' — 등장 순서, 중복 제거. 졸업·외부 아티스트는 들어가지 않는다
+    members: list[str]
+    groups: list[str]
+    all: bool  # STELLIVE
+    tokens: int  # 구분자로 나눈 아티스트 수 (졸업·외부 포함)
+
+
+def parse_artist(artist: str, index: TagIndex) -> ArtistInfo:
+    """'Neneko Mashiro x Tenko Shibuki' → who=['mashiro','shibuki']. 영문명 전체 일치만 인정한다 (대소문자·&nbsp; 무시)."""
+    who: list[str] = []
+    tokens = 0
+    for raw in _ARTIST_SPLIT.split(artist or ""):
+        name = " ".join(_norm(raw).split())
+        if not name:
+            continue
+        tokens += 1
+        key = index.artists.get(name)
+        if key and key not in who:
+            who.append(key)
+    members = [k for k in who if k not in (ALL, "everys", "universe", "cliche")]
+    groups = [k for k in who if k in ("everys", "universe", "cliche")]
+    return ArtistInfo(who=who, members=members, groups=groups, all=ALL in who, tokens=tokens)

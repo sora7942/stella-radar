@@ -101,6 +101,46 @@ def test_repo_seed_news_survives_merge_untouched():
         assert by_id[s["id"]] == s  # added 포함 한 글자도 안 바뀐다
 
 
+# ============================ merge_catalog ===================================
+def cat(id_, date, **kw):
+    base = {"id": str(id_), "title": f"곡 {id_}", "artist": "Akane Lize", "who": ["lize"], "category": "COVER",
+            "kind": "커버", "date": date, "yt": "x", "url": f"https://stellive.me/music/{id_}"}
+    base.update(kw)
+    return base
+
+
+def test_catalog_new_items_are_added_and_reported_fresh():
+    merged, fresh = state.merge_catalog([cat(1, "2026-01-01")], [cat(2, "2026-02-01")])
+    assert [c["id"] for c in merged] == ["2", "1"]
+    assert [c["id"] for c in fresh] == ["2"]
+
+
+def test_catalog_existing_wins_over_new_with_same_id():
+    old = cat(1, "2026-01-01", title="원래 제목")
+    merged, fresh = state.merge_catalog([old], [cat(1, "2026-01-01", title="바뀐 제목")])
+    assert merged == [old] and fresh == []
+
+
+def test_catalog_sorted_by_date_then_id_desc_with_numeric_ids():
+    items = [cat(9, "2026-05-01"), cat(10, "2026-05-01"), cat(2, "2026-06-01"), cat(100, "2025-01-01")]
+    merged, _ = state.merge_catalog([], items)
+    assert [c["id"] for c in merged] == ["2", "10", "9", "100"]  # 같은 날짜는 번호 큰 것(숫자 비교, '9' > '10' 아님)이 먼저
+
+
+def test_catalog_is_idempotent_and_does_not_mutate_inputs():
+    new = [cat(1, "2026-01-01"), cat(2, "2026-02-01")]
+    snapshot = copy.deepcopy(new)
+    first, _ = state.merge_catalog([], new)
+    second, fresh = state.merge_catalog(first, new)
+    assert second == first and fresh == [] and new == snapshot
+
+
+def test_catalog_has_no_size_cap():
+    items = [cat(i, "2026-01-01") for i in range(1, 401)]
+    merged, _ = state.merge_catalog([], items)
+    assert len(merged) == 400  # news와 달리 카탈로그는 자르지 않는다
+
+
 # ============================ load_previous ===================================
 BASE = "https://site.test/stella-radar/"
 

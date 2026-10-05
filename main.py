@@ -1,8 +1,8 @@
 """stella-radar 업데이터. 수집 → site/data/ 갱신 (→ 디스코드 발송: 5단계에서 추가).
 
-    python main.py --dry-run                 # 파일은 쓰되 디스코드로는 보내지 않는다
-    python main.py --dry-run --only youtube  # 일부 소스만
-    python main.py --local-state             # 이전 상태를 배포본 대신 로컬 site/data/에서 읽는다 (로컬 반복 실험용)
+    python main.py --dry-run                      # 파일은 쓰되 디스코드로는 보내지 않는다
+    python main.py --dry-run --only youtube,news  # 일부 소스만
+    python main.py --local-state                  # 이전 상태를 배포본 대신 로컬 site/data/에서 읽는다 (로컬 반복 실험용)
 
 종료 코드: 0 = 정상(일부 소스 실패는 로그만 남기고 계속), 1 = 계속하면 데이터가 망가질 상황(이전 상태 읽기 실패, 모든 소스 실패),
 2 = 인자 오류. 1이면 파일을 쓰지 않으므로 워크플로는 배포를 건너뛴다.
@@ -14,10 +14,11 @@ import logging
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from updater import config, http, state, tagging, timeutil
-from updater.sources import youtube_rss
+from updater.sources import stellive_music, stellive_news, youtube_rss
 
 log = logging.getLogger("main")
 
@@ -26,13 +27,16 @@ log = logging.getLogger("main")
 class Context:
     members: dict
     index: tagging.TagIndex
+    now: datetime
     get: callable
     sleep: callable
+    prev_catalog: list = field(default_factory=list)
 
 
 @dataclass
 class SourceResult:
     news_items: list = field(default_factory=list)
+    catalog_items: list | None = None  # None = 이 소스는 catalog를 건드리지 않음 (빈 리스트 = 건드렸지만 새 곡 없음)
     errors: list = field(default_factory=list)
 
 
@@ -44,8 +48,21 @@ def run_youtube(ctx: Context) -> SourceResult:
     return SourceResult(news_items=items, errors=errors)
 
 
-# 이름 → 실행 함수. 단계가 늘면 news, music, chzzk, avatar를 여기에 추가한다
-SOURCES = {"youtube": run_youtube}
+def run_news(ctx: Context) -> SourceResult:
+    return SourceResult(news_items=stellive_news.collect(ctx.index, get=ctx.get))
+
+
+def run_music(ctx: Context) -> SourceResult:
+    res = stellive_music.collect(ctx.prev_catalog, ctx.index, now=ctx.now, get=ctx.get, sleep=ctx.sleep)
+    return SourceResult(
+        news_items=res.news_items,
+        catalog_items=res.catalog_items,
+        errors=[f"상세 읽기 실패: {i}" for i in res.failed],
+    )
+
+
+# 이름 → 실행 함수 (실행 순서). 단계가 늘면 chzzk, avatar를 여기에 추가한다
+SOURCES = {"youtube": run_youtube, "news": run_news, "music": run_music}
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -59,7 +76,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     unknown = [n for n in names if n not in SOURCES]
     if unknown:
         p.error(f"알 수 없는 소스: {', '.join(unknown)} (가능: {', '.join(SOURCES)})")
-    args.sources = names
+    args.sources = [n for n in SOURCES if n in names]  # 항상 정해진 실행 순서대로
     return args
 
 
@@ -74,24 +91,34 @@ def main(
     args = parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
     data_dir = Path(data_dir)
-    now_iso = timeutil.to_kst_iso(now())  # 이번 실행의 기준 시각 (added의 값)
+    started = now()
+    now_iso = timeutil.to_kst_iso(started)  # 이번 실행의 기준 시각 (added·updatedAt의 값)
 
     members = state.read_json(data_dir / "members.json")
-    ctx = Context(members=members, index=tagging.build_index(members), get=get, sleep=sleep)
+    ctx = Context(members=members, index=tagging.build_index(members), now=started, get=get, sleep=sleep)
+
+    def load(name):
+        return state.load_previous(name, local_dir=data_dir, get=get, sleep=sleep, local_only=args.local_state)
 
     try:
-        prev_news = state.load_previous("news", local_dir=data_dir, get=get, sleep=sleep, local_only=args.local_state)
+        prev_news = load("news")
+        if "music" in args.sources:  # 음악을 안 돌릴 때는 catalog 상태가 필요 없다
+            ctx.prev_catalog = load("catalog")["items"]
     except state.StateLoadError as e:
         log.error("이전 상태를 읽지 못해 중단합니다 (배포는 건너뜁니다): %s", e)
         return 1
 
     results: dict[str, SourceResult] = {}
-    for name in args.sources:
+    for i, name in enumerate(args.sources):
+        if i:
+            sleep(config.REQUEST_DELAY)  # 소스 사이에도 간격 (같은 사이트에 연달아 가지 않게)
         try:
             results[name] = SOURCES[name](ctx)
-            log.info("소스 %s: 항목 %d개%s", name, len(results[name].news_items),
-                     f", 일부 실패 {len(results[name].errors)}건" if results[name].errors else "")
-        except Exception as e:  # 소스 하나의 실패가 전체를 멈추지 않는다
+            r = results[name]
+            log.info("소스 %s: 소식 %d개%s%s", name, len(r.news_items),
+                     f", 새 곡 {len(r.catalog_items)}개" if r.catalog_items is not None else "",
+                     f", 일부 실패 {len(r.errors)}건" if r.errors else "")
+        except Exception as e:  # 소스 하나의 실패가 전체를 멈추지 않는다 (해당 소스의 이전 데이터는 그대로 남는다)
             log.error("소스 %s 실패: %s: %s", name, type(e).__name__, e)
 
     if not results:
@@ -101,12 +128,17 @@ def main(
     collected = [it for r in results.values() for it in r.news_items]
     merged, fresh = state.merge_news(prev_news["items"], collected, now_iso=now_iso)
     state.write_json(data_dir / "news.json", {"updatedAt": now_iso, "items": merged})
-
     log.info("news.json: 전체 %d개 (새 항목 %d개) · updatedAt %s", len(merged), len(fresh), now_iso)
     for it in fresh[:10]:
         log.info("  + [%s] %s — %s", it["cat"], it["title"], it["id"])
     if len(fresh) > 10:
         log.info("  … 외 %d건", len(fresh) - 10)
+
+    music = results.get("music")
+    if music is not None:
+        catalog, new_songs = state.merge_catalog(ctx.prev_catalog, music.catalog_items or [])
+        state.write_json(data_dir / "catalog.json", {"updatedAt": now_iso, "items": catalog})
+        log.info("catalog.json: 전체 %d곡 (이번 +%d곡)", len(catalog), len(new_songs))
     return 0
 
 

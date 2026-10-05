@@ -152,3 +152,24 @@ def merge_news(
 
     merged = sorted(by_id.values(), key=lambda it: (_sort_key(it), it["id"]), reverse=True)
     return merged[:limit], fresh
+
+
+def _catalog_key(it: dict):
+    num = it["id"]
+    return (it.get("date") or "", int(num) if str(num).isdigit() else -1, str(num))
+
+
+def merge_catalog(previous: list[dict], new_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    """catalog 병합 → (date 내림차순·같은 날짜는 번호(숫자) 큰 순, 이번에 처음 들어온 항목들). 자르지 않는다.
+    id가 같으면 기존 항목이 이긴다 — 이미 받은 곡은 다시 받지 않으므로 한 번 정해진 값을 유지한다."""
+    by_id: dict[str, dict] = {}
+    for it in previous:
+        by_id.setdefault(it["id"], it)
+    fresh: list[dict] = []
+    for it in new_items:
+        if it["id"] in by_id:
+            continue
+        entry = copy.deepcopy(it)
+        by_id[entry["id"]] = entry
+        fresh.append(entry)
+    return sorted(by_id.values(), key=_catalog_key, reverse=True), fresh
