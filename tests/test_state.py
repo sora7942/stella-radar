@@ -1,0 +1,224 @@
+import copy
+import json
+
+import pytest
+import requests
+
+from conftest import FakeGet, make_response
+from updater import config, state
+
+NOW = "2026-10-06T10:00:00+09:00"
+
+
+def item(id_, date, **kw):
+    base = {"id": id_, "date": date, "cat": "영상", "who": ["lize"], "title": f"title {id_}", "url": f"https://x/{id_}", "source": "src"}
+    base.update(kw)
+    return base
+
+
+# ============================ merge_news =====================================
+def test_new_item_gets_added_now_and_is_reported_fresh():
+    merged, fresh = state.merge_news([], [item("yt-a", "2026-10-06T09:00:00+09:00")], now_iso=NOW)
+    assert merged[0]["added"] == NOW
+    assert [f["id"] for f in fresh] == ["yt-a"]
+
+
+def test_inputs_are_not_mutated():
+    new = [item("yt-a", "2026-10-06T09:00:00+09:00")]
+    snapshot = copy.deepcopy(new)
+    state.merge_news([], new, now_iso=NOW)
+    assert new == snapshot
+
+
+def test_duplicate_id_existing_wins_and_added_is_kept():
+    old = item("yt-a", "2026-10-01T09:00:00+09:00", added="2026-10-01T09:30:00+09:00", title="원래 제목", who=["lize"])
+    newer = item("yt-a", "2026-10-01T09:00:00+09:00", title="바뀐 제목", who=["rin"])
+    merged, fresh = state.merge_news([old], [newer], now_iso=NOW)
+    assert len(merged) == 1
+    assert merged[0]["added"] == "2026-10-01T09:30:00+09:00"  # 절대 안 바뀐다
+    assert merged[0]["title"] == "원래 제목"
+    assert merged[0]["who"] == ["lize"]
+    assert fresh == []
+
+
+def test_duplicate_within_new_items_first_wins():
+    a1 = item("yt-a", "2026-10-06T09:00:00+09:00", title="first")
+    a2 = item("yt-a", "2026-10-06T09:00:00+09:00", title="second")
+    merged, fresh = state.merge_news([], [a1, a2], now_iso=NOW)
+    assert [m["title"] for m in merged] == ["first"]
+    assert len(fresh) == 1
+
+
+def test_sorted_by_date_desc_with_mixed_date_formats():
+    items = [
+        item("a", "2026-10-03T23:59:59+09:00"),
+        item("b", "2026-10-04"),  # 날짜만 = 그날 00:00 KST
+        item("c", "2026-10-04T09:00:00+09:00"),
+        item("d", "2026-10-05"),
+    ]
+    merged, _ = state.merge_news([], items, now_iso=NOW)
+    assert [m["id"] for m in merged] == ["d", "c", "b", "a"]
+
+
+def test_sort_compares_instants_not_strings():
+    # 문자열 비교로는 +00:00 이 앞서지만 실제로는 +09:00 쪽이 더 이르다
+    items = [item("kst", "2026-10-04T08:00:00+09:00"), item("utc", "2026-10-04T00:00:00+00:00")]
+    merged, _ = state.merge_news([], items, now_iso=NOW)
+    assert [m["id"] for m in merged] == ["utc", "kst"]
+
+
+def test_trimmed_to_limit_keeping_newest():
+    prev = [item(f"old-{i}", f"2026-01-{(i % 28) + 1:02d}T00:00:00+09:00", added="2026-01-01") for i in range(250)]
+    new = [item(f"new-{i}", f"2026-10-{(i % 28) + 1:02d}T12:00:00+09:00") for i in range(100)]
+    merged, fresh = state.merge_news(prev, new, now_iso=NOW)
+    assert len(merged) == config.NEWS_MAX_ITEMS == 300
+    assert all(m["id"].startswith("new-") for m in merged[:100])  # 새 항목이 모두 살아남는다
+    assert len(fresh) == 100
+
+
+def test_fresh_includes_items_trimmed_away():
+    prev = [item(f"p{i}", "2026-10-05T00:00:00+09:00", added="x") for i in range(3)]
+    merged, fresh = state.merge_news(prev, [item("ancient", "2020-01-01")], now_iso=NOW, limit=3)
+    assert "ancient" not in [m["id"] for m in merged]
+    assert [f["id"] for f in fresh] == ["ancient"]  # 잘렸어도 '이번에 처음 본 항목'
+
+
+def test_merge_is_idempotent():
+    new = [item("yt-a", "2026-10-06T09:00:00+09:00"), item("yt-b", "2026-10-05")]
+    first, _ = state.merge_news([], new, now_iso=NOW)
+    second, fresh = state.merge_news(first, new, now_iso="2026-10-06T10:30:00+09:00")
+    assert second == first
+    assert fresh == []
+
+
+def test_repo_seed_news_survives_merge_untouched():
+    seed = json.loads((config.DATA_DIR / "news.json").read_text(encoding="utf-8"))["items"]
+    merged, fresh = state.merge_news(seed, [], now_iso=NOW)
+    assert {m["id"] for m in merged} == {s["id"] for s in seed}
+    assert fresh == []
+    by_id = {m["id"]: m for m in merged}
+    for s in seed:
+        assert by_id[s["id"]] == s  # added 포함 한 글자도 안 바뀐다
+
+
+# ============================ load_previous ===================================
+BASE = "https://site.test/stella-radar/"
+
+
+def load(name, get, tmp_path, **kw):
+    sleeps = kw.pop("sleeps", [])
+    return state.load_previous(
+        name, site_url=BASE, local_dir=tmp_path, get=get, sleep=sleeps.append, now=lambda: 1234.0, **kw
+    )
+
+
+def write_local(tmp_path, name, doc):
+    (tmp_path / f"{name}.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+
+
+REMOTE_NEWS = {"updatedAt": "2026-10-06T09:30:00+09:00", "items": [item("yt-remote", "2026-10-06")]}
+LOCAL_NEWS = {"updatedAt": None, "items": [item("sl-seed", "2026-10-01")]}
+
+
+def test_remote_success_is_used_and_url_is_cache_busted(tmp_path):
+    write_local(tmp_path, "news", LOCAL_NEWS)
+    get = FakeGet(make_response(200, json.dumps(REMOTE_NEWS)))
+    doc = load("news", get, tmp_path)
+    assert doc["items"][0]["id"] == "yt-remote"
+    assert get.calls == [f"{BASE}data/news.json?t=1234"]
+
+
+def test_404_falls_back_to_local_without_retry(tmp_path):
+    write_local(tmp_path, "news", LOCAL_NEWS)
+    get = FakeGet(make_response(404, "not found"))
+    doc = load("news", get, tmp_path)
+    assert doc["items"][0]["id"] == "sl-seed"
+    assert len(get.calls) == 1
+
+
+def test_404_and_no_local_file_gives_empty_default(tmp_path):
+    for name, key in (("news", "items"), ("catalog", "items"), ("status", "members")):
+        doc = load(name, FakeGet(make_response(404)), tmp_path)
+        assert doc["updatedAt"] is None and not doc[key]
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+def test_5xx_is_retried_then_fails_instead_of_falling_back(tmp_path, status):
+    write_local(tmp_path, "news", LOCAL_NEWS)  # 로컬 시드가 있어도 되돌아가면 안 된다
+    get, sleeps = FakeGet(make_response(status)), []
+    with pytest.raises(state.StateLoadError):
+        load("news", get, tmp_path, sleeps=sleeps)
+    assert len(get.calls) == config.STATE_LOAD_ATTEMPTS == 3
+    assert sleeps == [1.0, 2.0]  # 지수 백오프
+
+
+@pytest.mark.parametrize("exc", [requests.ConnectionError("boom"), requests.Timeout("slow")])
+def test_network_errors_are_retried_then_fail(tmp_path, exc):
+    get = FakeGet(exc)
+    with pytest.raises(state.StateLoadError):
+        load("news", get, tmp_path)
+    assert len(get.calls) == 3
+
+
+def test_recovers_if_a_retry_succeeds(tmp_path):
+    get = FakeGet(make_response(503), make_response(200, json.dumps(REMOTE_NEWS)))
+    doc = load("news", get, tmp_path)
+    assert doc["items"][0]["id"] == "yt-remote"
+    assert len(get.calls) == 2
+
+
+def test_non_404_client_error_fails_immediately(tmp_path):
+    get = FakeGet(make_response(403))
+    with pytest.raises(state.StateLoadError):
+        load("news", get, tmp_path)
+    assert len(get.calls) == 1
+
+
+@pytest.mark.parametrize("body", ["<html>Pages 점검 중</html>", "{ not json", "[1, 2, 3]", '{"items": "nope"}'])
+def test_bad_body_is_a_failure_not_a_fallback(tmp_path, body):
+    get = FakeGet(make_response(200, body))
+    with pytest.raises(state.StateLoadError):
+        load("news", get, tmp_path)
+    assert len(get.calls) == 3
+
+
+def test_status_shape_is_validated(tmp_path):
+    get = FakeGet(make_response(200, json.dumps({"updatedAt": None, "items": []})))  # members 없음
+    with pytest.raises(state.StateLoadError):
+        load("status", get, tmp_path)
+
+
+def test_local_only_never_touches_network(tmp_path):
+    write_local(tmp_path, "news", LOCAL_NEWS)
+
+    def boom(*a, **k):
+        raise AssertionError("원격 호출 금지")
+
+    doc = state.load_previous("news", site_url=BASE, local_dir=tmp_path, get=boom, local_only=True)
+    assert doc["items"][0]["id"] == "sl-seed"
+
+
+def test_site_url_without_trailing_slash(tmp_path):
+    get = FakeGet(make_response(200, json.dumps(REMOTE_NEWS)))
+    state.load_previous("news", site_url="https://site.test/stella-radar", local_dir=tmp_path, get=get, now=lambda: 1.0)
+    assert get.calls == ["https://site.test/stella-radar/data/news.json?t=1"]
+
+
+# ============================ write_json ======================================
+def test_write_json_utf8_no_ascii_escape_and_atomic(tmp_path):
+    path = tmp_path / "news.json"
+    state.write_json(path, {"updatedAt": NOW, "items": [{"title": "아카네 리제 ✦"}]})
+    text = path.read_text(encoding="utf-8")
+    assert "아카네 리제 ✦" in text and "\\u" not in text
+    assert text.endswith("\n")
+    assert json.loads(text)["items"][0]["title"] == "아카네 리제 ✦"
+    assert [p.name for p in tmp_path.iterdir()] == ["news.json"]  # 임시 파일이 남지 않는다
+
+
+def test_write_json_failure_leaves_original_intact(tmp_path):
+    path = tmp_path / "news.json"
+    state.write_json(path, {"ok": True})
+    with pytest.raises(TypeError):
+        state.write_json(path, {"bad": object()})  # 직렬화 실패
+    assert json.loads(path.read_text(encoding="utf-8")) == {"ok": True}
+    assert [p.name for p in tmp_path.iterdir()] == ["news.json"]
