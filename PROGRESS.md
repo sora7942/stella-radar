@@ -4,7 +4,7 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 
 ## 현재 위치
 **전 단계(0~7) 완료. 운영 중.** 사이트 https://sora7942.github.io/stella-radar/ 는 **외부 cron(cron-job.org)이 30분마다 `workflow_dispatch`를 호출**해 갱신된다(GitHub `schedule`은 이 저장소에서 한 번도 돌지 않아 보조로만 남김). 로컬 `main`과 `origin/main`은 이 문서 커밋까지 같다.
-미해결 문제 2개(아래 "알려진 문제"): ① 치지직 후야 채널이 Actions에서 계속 HTTP 500 ② GitHub `schedule` 미작동(원인 미확정, 외부 cron으로 우회).
+미해결 문제 2개(아래 "알려진 문제"): ① 치지직 후야 방송이 Actions에서 v2만 HTTP 500(원인 확인: 해외 시청 제한 code 9004, v3 대체를 로컬 커밋으로 구현 — Actions 반영 대기) ② GitHub `schedule` 미작동(원인 미확정, 외부 cron으로 우회).
 
 ## SPEC v1.1 진행 (기능 0 → 1 → 2 → 3)
 계획 파일: `~/.claude/plans/pasted-content-id-2204-spec-v1-1-md-groovy-pudding.md`. 규칙: 기능마다 멈추고 검증 결과를 보여준 뒤 확인, 단계마다 로컬 커밋, **push는 매번 먼저 묻는다.** 새 세션은 이 파일 → `SPEC.md` → `SPEC-v1.1.md` → `CLAUDE.md` 순서로 읽는다.
@@ -12,12 +12,25 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 | 단계 | 내용 | 상태 · 커밋 |
 |---|---|---|
 | 0-a | 비밀 스캔에 `github_pat_`/`ghp_`류/`sk-ant-` 패턴, `.env` 대조·conftest에 `ANTHROPIC_API_KEY` | 완료 `d64c1c4` (가짜 토큰으로 일부러 깨뜨려 2건 모두 잡힘 확인) |
-| 0-b | SPEC 9장·CLAUDE.md·README의 cron 문구를 외부 cron 주 실행 구조로, SPEC-v1.1 굿즈 토글 문구 수정 | 이 커밋 |
-| 0-c | 치지직 5xx 1회 재시도 + 같은 멤버 연속 3회 실패 시 `::warning::`(`status.json` 멤버 `liveFails`) | 이 커밋. 테스트 619→656개, 변형 7종(4xx 재시도·재시도 제거·리셋 누락·임계 off-by-one·실패 때 live 패치·전부 실패를 성공으로 셈·0 필드 미삭제)을 모두 테스트가 잡음. 로컬 실요청 11명 정상 |
-| 0-d | 치지직 대체 엔드포인트 시험(Actions IP, `probe/chzzk` 임시 브랜치) | 예정 (push 전에 먼저 묻는다) |
+| 0-b | SPEC 9장·CLAUDE.md·README의 cron 문구를 외부 cron 주 실행 구조로, SPEC-v1.1 굿즈 토글 문구 수정 | 완료 `f7e6300` |
+| 0-c | 치지직 5xx 재시도 + 같은 멤버 연속 3회 실패 시 `::warning::`(`status.json` 멤버 `liveFails`) | 완료 `498ec7e`. 테스트 619→656개, 변형 7종을 모두 테스트가 잡음. 로컬 실요청 11명 정상 |
+| 0-d | 치지직 대체 엔드포인트 시험(Actions IP, `probe/chzzk` 임시 브랜치) → **v2 우선, 5xx면 v3 대체 채택**(사용자 결정). "5xx 재시도"는 "다음 엔드포인트 → 전부 5xx면 한 바퀴 더"로 바뀜 | 완료(로컬 커밋, 이 커밋). 시험 run 37483326938. 테스트 656→670개, 변형 7종 모두 잡음. `probe/chzzk` 원격 브랜치는 정리 전 |
 | 1 | 대표곡 10곡 유튜브 영상 후보 표 → 사용자가 고른 ID만 반영 | 예정 |
 | 2 | 쇼츠 판별((a)/(b) 비교표 후 선택) + 피드 분류 필터·쇼츠 UI | 예정 |
 | 3 | 공지 본문 추출 확인 → Claude 일정 추출 → `auto_events.json` → 달력 | 예정 |
+
+**0-d 시험 결과 (2026-10-07 Actions run 37483326938, 후야 방송 중, 후보 6개 × 헤더 2종 × 후야·유니·강지)**
+
+| 엔드포인트 | 한국 IP | Actions 후야 | Actions 유니·강지 |
+|---|---|---|---|
+| E0 `polling/v2/live-status` (현행) | 200 | **500 · code 9004 해외 시청 불가** | 200 |
+| E1 `polling/v3/live-status` | 200 | **200 (OPEN)** | 200 |
+| E2 `service/v1/live-detail` | 500 (9004 "앱 업데이트 후에…") | 500 (같음) | 500 — 폐기된 엔드포인트 |
+| E3 `service/v2/live-detail` | 200 | 500 · code 9004 | 200 |
+| E4 `service/v3/live-detail` | 200 | 200 | 200 |
+| E5 `service/v1/channel` (`openLive`만) | 200 | 200 | 200 |
+
+`Origin`/`Referer` 헤더는 결과를 바꾸지 않았다. v3 live-status의 `content`는 v2와 키 51개가 같고(`channelId`·`status`·`openDate`·`closeDate`·`liveTitle` 값 동일) 같은 파서로 읽힌다 → 실제 v3 응답을 `tests/fixtures/chzzk_live_v3_close.json`으로 저장. 시험 스크립트와 워크플로는 `probe/chzzk` 브랜치(커밋 `097be44`)에만 있고 `main`에는 없다.
 
 **확정된 결정 (v1.1)**: 일정 추가 알림은 출처 공지가 2일 이내일 때만 · Claude 호출만 `timeout=30`(CLAUDE.md Rules에 예외 명시) · 수동·자동 일정 중복은 같은 시작일끼리만 비교(같은 시작일 AND (같은 url 또는 제목 포함)) · index.html 테스트는 순수 로직 구역을 node로 실행 · **굿즈 일정 보기 토글은 달력뿐 아니라 다가오는 일정 패널·"다음:" 문구에도 적용**(소식 탭 패널 머리에도 같은 상태의 작은 토글).
 
@@ -151,7 +164,7 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 - 외부 cron 실행에서도 중복 없음: 22:50 실행은 방송 시작 알림 1건 발송(`메시지 1개 발송, 0개 실패`), 바로 다음 23:00 실행은 새 항목 0건·알림 0건 → **같은 방송을 다시 알리지 않았다.**
 
 ## 알려진 문제 (미해결)
-1. **치지직 후야 채널이 Actions에서 계속 HTTP 500.** 20:14·22:51·23:01 실행 모두 `치지직 실패 — 사키하네 후야: HTTPError: 500`(나머지 10명은 정상). 같은 시각 이 PC에서는 `live-status` 200·`status: OPEN`(후야는 방송 중, '에반게리온…')이라 **Actions(해외 IP)에서만** 나는 문제다. 18:28·18:32 실행(후야 방송 전)에는 11명 모두 정상이었다. 영향: 실패한 멤버는 이전 값이 유지되므로 배포된 `status.json`의 후야는 `{"on": false, "checkedAt": "18:32:51"}`에 멈춰 **후야의 LIVE 표시와 방송 시작 알림이 누락**된다(다른 멤버는 정상). 원인 미확인 — 방송 중인 채널에만 나는지, 5xx 재시도로 풀리는지, 해외 IP 문제인지 가려야 한다. **조치(v1.1 기능 0-c, 로컬 커밋)**: 치지직 5xx 1회 재시도 + 같은 멤버 연속 3회 실패 시 Actions 주석 경고(`liveFails`). 재시도로 풀리는지는 Actions에서 봐야 안다(push 전). 대체 엔드포인트는 0-d에서 `probe/chzzk` 브랜치로 시험한다. (2026-10-06 23:53 로컬 실요청: 후야 방송 중, 11명 모두 200.)
+1. **치지직 후야 채널이 Actions에서 계속 HTTP 500 — 원인 확인, 대체 구현은 로컬 커밋(Actions 반영 대기).** 20:14·22:51·23:01 실행 모두 `치지직 실패 — 사키하네 후야: HTTPError: 500`(나머지 10명은 정상). 같은 시각 이 PC에서는 `live-status` 200·`status: OPEN`이었다. 영향: 실패한 멤버는 이전 값이 유지되므로 배포된 `status.json`의 후야는 `{"on": false, "checkedAt": "18:32:51"}`에 멈춰 **후야의 LIVE 표시와 방송 시작 알림이 누락**된다(다른 멤버는 정상). **원인(2026-10-07 `probe/chzzk` Actions 시험)**: 응답이 `HTTP 500 · code 9004 "해외 시청 불가능한 컨텐츠 입니다."` — 후야의 방송이 해외 시청 제한이라 **v2 live-status가 해외 IP에서 의도적으로 막는 것**이다(일시 오류가 아님 → 같은 엔드포인트 재시도는 소용없다). 같은 해외 IP에서 `polling/v3`·`service/v3/live-detail`은 200이었다. **조치(v1.1 기능 0-c·0-d, 로컬 커밋)**: v2가 5xx면 v3로 대체(`config.CHZZK_LIVE_STATUS_URLS`), 둘 다 5xx면 1초 뒤 한 바퀴 더, 같은 멤버 연속 3회 실패 시 Actions 주석 경고(`liveFails`). **남은 것: 이 코드를 push해 Actions에서 후야가 실제로 v3로 읽히는지 로그("다음 엔드포인트 시도")로 확인.** 방송 단위 제한이라 다른 멤버도 해외 제한 방송을 켜면 같은 일이 생긴다(v3 대체가 그 경우도 덮는다). 아직 모르는 것: v3도 같은 방식으로 막히는 방송이 있는지.
 2. **GitHub `schedule` 미작동**(위 7단계 ①). 외부 cron으로 우회 중. 외부 cron이 멈추면(서비스 장애·토큰 만료) 사이트 갱신이 멈춘다.
 
 ## 운영 메모

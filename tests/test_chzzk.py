@@ -184,62 +184,114 @@ def scripted(per_id):
     return get
 
 
-def test_a_5xx_is_retried_once_after_a_pause_and_a_recovery_counts_as_a_success():
-    get = scripted({"ID_LIZE": [http_error(500), "open"]})
+V2, V3 = config.CHZZK_LIVE_STATUS_URLS
+
+
+def urls_for(get, cid):
+    return [u for u in get.calls if f"/channels/{cid}/" in u]
+
+
+def test_the_endpoint_list_is_v2_first_then_v3_and_the_old_name_is_the_default():
+    assert V2.endswith("/polling/v2/channels/{channel_id}/live-status") and V3.endswith("/polling/v3/channels/{channel_id}/live-status")
+    assert config.CHZZK_LIVE_STATUS_URL == V2
+
+
+def test_a_5xx_on_v2_falls_back_to_v3_right_away_without_waiting():
+    get = scripted({"ID_LIZE": [http_error(500), "open"]})  # v2는 500, 같은 멤버의 다음 요청(v3)은 정상
     sleeps = []
     patches, errors = run(get, sleeps)
     assert errors == [] and patches["lize"]["live"]["on"] is True and "liveFails" not in patches["lize"]
-    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 2 and len(get.calls) == 3  # lize 2번 + tabi 1번
-    assert sleeps == [config.CHZZK_RETRY_DELAY, config.REQUEST_DELAY]  # 재시도 전 1초, 멤버 사이 0.5초
+    assert urls_for(get, "ID_LIZE") == [V2.format(channel_id="ID_LIZE"), V3.format(channel_id="ID_LIZE")]  # v2 → v3, 이 순서로 딱 2번
+    assert urls_for(get, "ID_TABI") == [V2.format(channel_id="ID_TABI")]  # 정상 멤버는 v2 한 번뿐이다
+    assert sleeps == [config.REQUEST_DELAY]  # 재시도 대기(1초) 없이 멤버 사이 0.5초만
 
 
-def test_a_5xx_that_persists_fails_after_exactly_one_retry():
-    get = scripted({"ID_LIZE": [http_error(500)]})  # 계속 500
+def test_the_geo_blocked_member_is_read_from_v3_with_the_same_parser():
+    """후야 사례: v2는 HTTP 500 code 9004(해외 시청 불가), v3는 200. 같은 파서로 방송 중 상태가 나온다."""
+    blocked = requests.HTTPError("500", response=make_response(500, json.dumps({"code": 9004, "message": "해외 시청 불가능한 컨텐츠 입니다.", "content": None})))
+    get = scripted({"ID_LIZE": [blocked, "open"]})
     patches, errors = run(get)
-    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 2  # 처음 + 재시도 1번, 더 없다
+    assert errors == [] and patches["lize"]["live"] == {
+        "on": True, "title": "합성 방송 제목 (테스트용)", "url": config.CHZZK_LIVE_PAGE_URL.format(channel_id="ID_LIZE"),
+        "since": "2026-10-06T20:30:10+09:00", "checkedAt": NOW_ISO,
+    }
+
+
+def test_the_real_v3_closed_response_parses_like_the_v2_one():
+    v3, v2 = doc("chzzk_live_v3_close.json"), doc("chzzk_live_close.json")
+    assert set(v3["content"]) == set(v2["content"])  # 키 51개가 같다 (그래서 같은 파서를 쓴다)
+    assert chzzk.parse_live(v3, LIZE_ID) == {"on": False}
+
+
+def test_a_5xx_that_persists_on_every_endpoint_fails_after_one_more_round():
+    get = scripted({"ID_LIZE": [http_error(500)]})  # v2·v3 모두 계속 500
+    sleeps = []
+    patches, errors = run(get, sleeps)
+    lize = [V2, V3, V2, V3]
+    assert urls_for(get, "ID_LIZE") == [u.format(channel_id="ID_LIZE") for u in lize]  # 한 바퀴 + 재시도 한 바퀴, 더 없다
+    assert sleeps == [config.CHZZK_RETRY_DELAY, config.REQUEST_DELAY]  # 바퀴 사이 1초, 멤버 사이 0.5초
     assert patches["lize"] == {"liveFails": 1} and len(errors) == 1 and "아카네 리제" in errors[0]
     assert "live" in patches["tabi"]  # 다른 멤버는 영향 없다
 
 
-@pytest.mark.parametrize("status", [502, 503, 599])
-def test_every_5xx_status_is_retried(status):
+@pytest.mark.parametrize("status", [500, 502, 503, 599])
+def test_every_5xx_status_moves_on_to_the_next_endpoint(status):
     get = scripted({"ID_LIZE": [http_error(status), "ok"]})
     patches, errors = run(get)
-    assert errors == [] and "live" in patches["lize"]
+    assert errors == [] and "live" in patches["lize"] and len(urls_for(get, "ID_LIZE")) == 2
 
 
 @pytest.mark.parametrize("failure", [
     http_error(403), http_error(404), http_error(429),
     requests.ConnectionError("blocked"), requests.Timeout("slow"),
 ])
-def test_4xx_and_connection_errors_are_not_retried(failure):
-    get = scripted({"ID_LIZE": [failure, "ok"]})  # 두 번째 결과가 'ok'여도 재시도하지 않으니 못 본다
+def test_4xx_and_connection_errors_are_not_retried_and_do_not_try_the_next_endpoint(failure):
+    get = scripted({"ID_LIZE": [failure, "ok"]})  # 두 번째 결과가 'ok'여도 재시도·대체하지 않으니 못 본다
     sleeps = []
     patches, errors = run(get, sleeps)
-    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1
+    assert urls_for(get, "ID_LIZE") == [V2.format(channel_id="ID_LIZE")]
     assert patches["lize"] == {"liveFails": 1} and len(errors) == 1
     assert sleeps == [config.REQUEST_DELAY]  # 재시도 대기 없이 멤버 사이 간격만
 
 
-def test_a_200_with_a_broken_body_is_not_retried():
+def test_a_200_with_a_broken_body_is_not_retried_and_does_not_try_the_next_endpoint():
     get = getter(bad_body={"ID_LIZE": b"<html>blocked</html>"})
     patches, errors = run(get)
-    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1 and patches["lize"] == {"liveFails": 1}
+    assert urls_for(get, "ID_LIZE") == [V2.format(channel_id="ID_LIZE")] and patches["lize"] == {"liveFails": 1}
 
 
-def test_retries_can_be_turned_off_and_the_default_is_one():
+def test_the_extra_round_can_be_turned_off_and_the_default_is_one():
     assert config.CHZZK_RETRY_5XX == 1 and config.CHZZK_RETRY_DELAY == 1.0
-    get = scripted({"ID_LIZE": [http_error(500), "ok"]})
-    patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=get, sleep=lambda s: None, retries=0)
-    assert patches["lize"] == {"liveFails": 1} and sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1
+    get = scripted({"ID_LIZE": [http_error(500)]})
+    sleeps = []
+    patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=get, sleep=sleeps.append, retries=0)
+    assert patches["lize"] == {"liveFails": 1}
+    assert urls_for(get, "ID_LIZE") == [V2.format(channel_id="ID_LIZE"), V3.format(channel_id="ID_LIZE")]  # 후보는 그래도 둘 다 본다
+    assert config.CHZZK_RETRY_DELAY not in sleeps  # 재시도 바퀴가 없으니 1초 대기도 없다
 
 
-def test_retry_log_does_not_contain_the_request_url(caplog):
-    get = scripted({"ID_LIZE": [http_error(500), "ok"]})
+def test_logs_say_which_status_and_code_but_never_the_url_or_the_message(caplog):
+    body = json.dumps({"code": 9004, "message": "해외 시청 불가능한 컨텐츠 입니다."})
+    get = scripted({"ID_LIZE": [requests.HTTPError("500 for url https://api.chzzk.naver.com/x", response=make_response(500, body)), "ok"]})
     with caplog.at_level("INFO"):
         run(get)
-    retry_lines = [r.getMessage() for r in caplog.records if "재시도" in r.getMessage()]
-    assert retry_lines == ["치지직 HTTP 500 — 재시도 1/1: 아카네 리제"]
+    lines = [r.getMessage() for r in caplog.records if "엔드포인트" in r.getMessage()]
+    assert lines == ["치지직 아카네 리제: HTTP 500 (code 9004) — 다음 엔드포인트 시도"]
+    assert "api.chzzk" not in caplog.text and "해외 시청" not in caplog.text
+
+
+def test_the_round_retry_is_logged_without_the_url(caplog):
+    with caplog.at_level("INFO"):
+        run(scripted({"ID_LIZE": [http_error(500)]}))
+    assert "치지직 아카네 리제: 모든 엔드포인트가 5xx — 재시도 1/1" in caplog.text and "api.chzzk" not in caplog.text
+
+
+@pytest.mark.parametrize("body, expected", [
+    (json.dumps({"code": 9004}), 9004), (b"", None), (b"<html>", None), (json.dumps({"code": "9004"}), None),
+    (json.dumps({"code": True}), None), (json.dumps([9004]), None), (json.dumps({"message": "x"}), None),
+])
+def test_the_api_code_is_read_defensively(body, expected):
+    assert chzzk._api_code(make_response(500, body)) == expected
 
 
 # ============================ 연속 실패 횟수 · 경고 =============================
@@ -260,6 +312,14 @@ def test_the_streak_counts_up_from_the_previous_value_and_warns_from_the_third()
 
 def test_the_warning_threshold_is_three_runs():
     assert config.CHZZK_FAIL_WARN_STREAK == 3
+
+
+def test_the_streak_reason_includes_the_chzzk_code_when_the_error_body_has_one():
+    seen = []
+    body = json.dumps({"code": 9004, "message": "해외 시청 불가능한 컨텐츠 입니다."})
+    blocked = requests.HTTPError("500", response=make_response(500, body))
+    run_with_prev(scripted({"ID_LIZE": [blocked]}), {"lize": {"liveFails": 2}}, lambda *a: seen.append(a))  # v2·v3 모두 막힌 경우
+    assert seen == [("아카네 리제", 3, "HTTP 500, code 9004")]  # 메시지 문구는 사유에 넣지 않는다
 
 
 def test_a_non_http_failure_reports_the_exception_type_as_the_reason():

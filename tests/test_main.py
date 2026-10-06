@@ -46,10 +46,12 @@ class Net:
     live = {치지직 채널 ID: True(방송 중)}, chzzk_fail = 실패시킬 치지직 채널 ID, page_fail = 실패시킬 유튜브 채널 ID."""
 
     def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
-                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None, chzzk_5xx=(), chzzk_flaky=()):
+                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None, chzzk_5xx=(), chzzk_flaky=(),
+                 chzzk_v2_geo_blocked=()):
         self.calls = []
-        self.chzzk_5xx = set(chzzk_5xx)  # 항상 HTTP 500을 내는 치지직 채널 ID
-        self.chzzk_flaky, self._flaked = set(chzzk_flaky), set()  # 첫 요청만 HTTP 500이고 재시도부터 정상인 채널 ID
+        self.chzzk_5xx = set(chzzk_5xx)  # v2·v3 모두 항상 HTTP 500을 내는 치지직 채널 ID
+        self.chzzk_flaky, self._flaked = set(chzzk_flaky), set()  # 첫 요청만 HTTP 500이고 다음 요청부터 정상인 채널 ID
+        self.chzzk_v2_geo_blocked = set(chzzk_v2_geo_blocked)  # v2만 HTTP 500 code 9004(해외 시청 불가)이고 v3는 정상인 채널 ID
         self.api = api  # fakeapi.FakeApi. None이면 YouTube API 호출이 오면 실패시킨다 (키가 없을 땐 API를 부르면 안 된다)
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
         self.live, self.chzzk_fail, self.page_fail = set(live), set(chzzk_fail), set(page_fail)
@@ -86,10 +88,12 @@ class Net:
                 raise requests.ConnectionError("down")
             og = f'<meta property="og:image" content="https://yt3.googleusercontent.com/{cid}=s900-c-k-c0x00ffffff-no-rj">'
             return make_response(200, f"<html><head><title>t</title></head><body>{og}</body></html>")
-        if url.startswith("https://api.chzzk.naver.com/polling/v2/channels/"):
+        if url.startswith(("https://api.chzzk.naver.com/polling/v2/channels/", "https://api.chzzk.naver.com/polling/v3/channels/")):
             cid = url.split("/channels/")[1].split("/")[0]
             if cid in self.chzzk_fail:
                 raise requests.ConnectionError("blocked")
+            if "/polling/v2/" in url and cid in self.chzzk_v2_geo_blocked:  # 후야 사례: v2만 HTTP 500 code 9004(해외 시청 불가), v3는 정상
+                raise requests.HTTPError("500 Server Error", response=make_response(500, json.dumps({"code": 9004, "message": "해외 시청 불가능한 컨텐츠 입니다.", "content": None})))
             if cid in self.chzzk_5xx or (cid in self.chzzk_flaky and cid not in self._flaked):
                 self._flaked.add(cid)
                 raise requests.HTTPError("500 Server Error", response=make_response(500))
@@ -398,14 +402,31 @@ def test_only_chzzk_with_every_request_failing_still_exits_1_and_writes_nothing(
     assert (data_dir / "status.json").read_bytes() == before
 
 
-def test_a_5xx_is_retried_inside_a_run_and_leaves_no_failure_count(data_dir):
+def test_a_5xx_falls_back_to_the_next_endpoint_inside_a_run_and_leaves_no_failure_count(data_dir):
     _, _, chzzk_ids = people(data_dir)
     lize = chzzk_ids["lize"]
     net = Net(live={lize}, chzzk_flaky={lize})
     assert run(data_dir, net, T1, "--only", "chzzk") == 0
-    assert net.calls_to(config.CHZZK_LIVE_STATUS_URL.format(channel_id=lize)) == [config.CHZZK_LIVE_STATUS_URL.format(channel_id=lize)] * 2
+    v2, v3 = (u.format(channel_id=lize) for u in config.CHZZK_LIVE_STATUS_URLS)
+    assert net.calls_to("https://api.chzzk.naver.com") .count(v2) == 1 and net.calls_to("https://api.chzzk.naver.com").count(v3) == 1
     entry = read(data_dir, "status")["members"]["lize"]
     assert entry["live"]["on"] is True and entry["live"]["checkedAt"] == T1 and "liveFails" not in entry
+
+
+def test_a_member_geo_blocked_on_v2_is_read_from_v3_and_the_others_cost_no_extra_requests(data_dir, caplog, capsys):
+    """후야 사례(Actions에서 v2만 HTTP 500 code 9004): v3로 상태를 읽어 LIVE 표시와 방송 시작 알림이 정상으로 나온다."""
+    _, _, chzzk_ids = people(data_dir)
+    huya = chzzk_ids["huya"]
+    net = Net(live={huya}, chzzk_v2_geo_blocked={huya})
+    with caplog.at_level("INFO"):
+        assert run(data_dir, net, T1, "--only", "chzzk") == 0
+    chzzk_calls = net.calls_to("https://api.chzzk.naver.com")
+    assert len(chzzk_calls) == len(chzzk_ids) + 1  # 11명 × v2 한 번 + 후야 v3 한 번
+    assert [c for c in chzzk_calls if "/polling/v3/" in c] == [config.CHZZK_LIVE_STATUS_URLS[1].format(channel_id=huya)]
+    entry = read(data_dir, "status")["members"]["huya"]
+    assert entry["live"]["on"] is True and entry["live"]["checkedAt"] == T1 and entry["live"]["since"] == "2026-10-06T20:30:10+09:00" and "liveFails" not in entry
+    assert "치지직 사키하네 후야: HTTP 500 (code 9004) — 다음 엔드포인트 시도" in caplog.text
+    assert "사키하네 후야 · 방송 시작" in capsys.readouterr().out  # 방송 시작 알림도 정상으로 나온다 (dry-run 출력)
 
 
 def chzzk_run(data_dir, net, clock, *, actions):

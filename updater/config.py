@@ -60,10 +60,17 @@ AVATAR_SIZE = 240
 # og:image가 이 호스트일 때만 아바타로 인정한다 (동의·오류 페이지의 기본 이미지가 프로필로 들어가는 것 방지)
 AVATAR_HOSTS = ("googleusercontent.com", "ggpht.com")
 
-CHZZK_LIVE_STATUS_URL = "https://api.chzzk.naver.com/polling/v2/channels/{channel_id}/live-status"  # 비공식 API
+# 비공식 API. 앞에서부터 시도하고, HTTP 5xx일 때만 다음 후보로 넘어간다 (4xx·연결 오류·응답 형식 오류는 넘어가지 않는다).
+# v2가 해외 IP(Actions)에서 방송 단위로 막히는 일이 있다: 후야 방송이 HTTP 500 code 9004 "해외 시청 불가능한 컨텐츠 입니다."로 막혔고,
+# 같은 요청이 polling/v3에서는 200이었다(2026-10-07 Actions 시험). v3의 content는 v2와 키 51개가 같아 같은 파서를 쓴다
+CHZZK_LIVE_STATUS_URLS = (
+    "https://api.chzzk.naver.com/polling/v2/channels/{channel_id}/live-status",
+    "https://api.chzzk.naver.com/polling/v3/channels/{channel_id}/live-status",
+)
+CHZZK_LIVE_STATUS_URL = CHZZK_LIVE_STATUS_URLS[0]  # 기본 엔드포인트
 CHZZK_LIVE_PAGE_URL = "https://chzzk.naver.com/live/{channel_id}"
-CHZZK_RETRY_5XX = 1  # HTTP 5xx면 이만큼 더 시도한다. 4xx·연결 오류·응답 형식 오류는 재시도하지 않는다
-CHZZK_RETRY_DELAY = 1.0  # 초. 5xx 재시도 전 대기
+CHZZK_RETRY_5XX = 1  # 모든 후보가 5xx일 때 후보 전체를 이만큼 더 돈다 (그 전에 CHZZK_RETRY_DELAY초 대기)
+CHZZK_RETRY_DELAY = 1.0  # 초
 CHZZK_FAIL_WARN_STREAK = 3  # 같은 멤버의 확인이 이 횟수(실행 단위)만큼 연속 실패하면 Actions ::warning:: 주석
 
 # 기본으로 돌리는 소스. 치지직이 Actions(해외 IP)에서 막히면 여기서 "chzzk"만 뺀다 (CLAUDE.md). --only는 이 목록과 무관하게 지정한 것만 돌린다

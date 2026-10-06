@@ -6,7 +6,9 @@
   다음 성공 때 off→on으로 보여서 이미 알린 방송 시작 알림이 또 나간다
 - 실패한 멤버는 `liveFails`(연속 실패 실행 수)만 올린다. 성공하면 0으로 되돌려 병합 단계(state.merge_status)가 필드를 지운다.
   연속 실패가 CHZZK_FAIL_WARN_STREAK에 닿으면 호출자가 준 on_streak로 알린다 (Actions 주석 등)
-- HTTP 5xx는 CHZZK_RETRY_5XX번 더 시도한다 (비공식 API가 일시적으로 500을 내는 일이 있다). 4xx·연결 오류는 재시도하지 않는다
+- HTTP 5xx면 다음 후보 엔드포인트(config.CHZZK_LIVE_STATUS_URLS: v2 → v3)로 바로 넘어간다. 후야 방송이 Actions(해외 IP)에서 v2만
+  HTTP 500 code 9004("해외 시청 불가능한 컨텐츠")로 막혔고 v3는 통과했다. 후보가 전부 5xx면 1초 뒤 후보 전체를 CHZZK_RETRY_5XX번 더 돈다.
+  4xx·연결 오류·응답 형식 오류는 넘어가지 않는다
 - chzzk_id가 없는 멤버는 건너뛴다
 """
 from __future__ import annotations
@@ -51,25 +53,42 @@ def parse_live(doc, channel_id: str) -> dict:
     return live
 
 
-def _fetch(url: str, label: str, *, get, retries: int, retry_delay: float, sleep) -> dict:
-    """live-status JSON. HTTP 5xx만 retries번 더 시도하고(그 사이 retry_delay초 대기), 그 밖의 오류는 바로 던진다."""
-    attempt = 0
-    while True:
-        try:
-            return get(url).json()
-        except requests.HTTPError as e:
-            status = e.response.status_code if e.response is not None else None
-            if status is None or status < 500 or attempt >= retries:
-                raise
-            attempt += 1
-            log.info("치지직 HTTP %d — 재시도 %d/%d: %s", status, attempt, retries, label)
+def _api_code(response) -> int | None:
+    """오류 응답 본문 {"code": 9004, …}의 정수 code. 읽을 수 없으면 None. 메시지·본문은 돌려주지 않는다."""
+    try:
+        code = response.json().get("code")
+    except Exception:
+        return None
+    return code if isinstance(code, int) and not isinstance(code, bool) else None
+
+
+def _fetch(channel_id: str, label: str, *, get, retries: int, retry_delay: float, sleep) -> dict:
+    """live-status JSON. 후보 엔드포인트를 앞에서부터 시도하고, HTTP 5xx일 때만 다음 후보로 넘어간다.
+    후보가 전부 5xx면 retry_delay초 뒤 후보 전체를 retries번 더 돈다. 그 밖의 오류(4xx·연결·형식)는 바로 던진다."""
+    last: requests.HTTPError | None = None
+    for round_ in range(retries + 1):
+        if round_:
+            log.info("치지직 %s: 모든 엔드포인트가 5xx — 재시도 %d/%d", label, round_, retries)
             sleep(retry_delay)
+        for template in config.CHZZK_LIVE_STATUS_URLS:
+            try:
+                return get(template.format(channel_id=channel_id)).json()
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                if status is None or status < 500:
+                    raise
+                last = e
+                code = _api_code(e.response)
+                log.info("치지직 %s: HTTP %d%s — 다음 엔드포인트 시도", label, status, f" (code {code})" if code is not None else "")
+    assert last is not None
+    raise last
 
 
 def _reason(e: Exception) -> str:
-    """주석·로그에 쓰는 짧은 실패 사유: HTTP 상태 또는 예외 종류 (URL·본문은 넣지 않는다)."""
+    """주석·로그에 쓰는 짧은 실패 사유: HTTP 상태(+치지직 code) 또는 예외 종류 (URL·본문은 넣지 않는다)."""
     if isinstance(e, requests.HTTPError) and e.response is not None:
-        return f"HTTP {e.response.status_code}"
+        code = _api_code(e.response)
+        return f"HTTP {e.response.status_code}" + (f", code {code}" if code is not None else "")
     return type(e).__name__
 
 
@@ -112,8 +131,7 @@ def collect(
         requested += 1
         before = _previous_fails(prev_status, key)
         try:
-            doc = _fetch(config.CHZZK_LIVE_STATUS_URL.format(channel_id=channel_id), m["n"],
-                         get=get, retries=retries, retry_delay=retry_delay, sleep=sleep)
+            doc = _fetch(channel_id, m["n"], get=get, retries=retries, retry_delay=retry_delay, sleep=sleep)
             patch = {"live": {**parse_live(doc, channel_id), "checkedAt": now_iso}}
             if before:
                 patch["liveFails"] = 0  # 연속 실패가 끊겼다
