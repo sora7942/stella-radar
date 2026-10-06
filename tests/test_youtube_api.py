@@ -211,14 +211,97 @@ def test_daily_limit_exceeded_counts_as_quota_too(index):
 
 
 @pytest.mark.parametrize("status, body", [
-    (403, {"error": {"errors": [{"reason": "rateLimitExceeded"}]}}),       # 일시적 속도 제한은 RSS로 돌리지 않는다
-    (403, "youtube_api_error_nokey.json"),                                  # 키 없음(forbidden)
-    (400, "youtube_api_error_badkey.json"),                                 # 키 거부
+    (403, {"error": {"errors": [{"reason": "rateLimitExceeded"}]}}),       # 일시적 속도 제한 — 키 문제도 할당량도 아니다
+    (403, {"error": {"errors": [{"reason": "userRateLimitExceeded"}]}}),
+    (400, {"error": {"errors": [{"reason": "invalidParameter"}]}}),
+    (400, b"<html>bad</html>"),                                             # reason이 없는 400은 키 거부로 보지 않는다
+    (404, {"error": {"errors": [{"reason": "channelNotFound"}]}}),
+    (500, b"<html>oops</html>"),
+    (503, {"error": {"errors": [{"reason": "backendError"}]}}),
 ])
-def test_other_api_errors_are_channel_failures_not_quota(index, status, body):
+def test_other_api_errors_are_channel_failures_not_a_reason_to_switch_to_rss(index, status, body):
     res = collect([CH_LIZE], index, FakeApi(fail={("channels", None): http_error(status, body)}))
-    assert not res.quota_exceeded and res.remaining == [] and res.items == []
+    assert not res.quota_exceeded and res.key_rejected is None and res.remaining == [] and res.items == []
     assert any("재생목록" in e or "HTTP" in e for e in res.errors)
+
+
+# ============================ 키 거부 → RSS 대체 ================================
+@pytest.mark.parametrize("status, body, detail", [
+    (400, "youtube_api_error_badkey.json", "HTTP 400 badRequest"),          # 실제 응답: 엉터리 키
+    (403, "youtube_api_error_nokey.json", "HTTP 403 forbidden"),            # 실제 응답: 키 없음
+    (403, {"error": {"errors": [{"reason": "accessNotConfigured"}]}}, "HTTP 403 accessNotConfigured"),  # YouTube Data API가 꺼져 있음
+    (403, {"error": {"errors": [{"reason": "ipRefererBlocked"}]}}, "HTTP 403 ipRefererBlocked"),        # 키의 IP·리퍼러 제한
+    (400, {"error": {"errors": [{"reason": "keyInvalid"}]}}, "HTTP 400 keyInvalid"),
+    (401, {"error": {"errors": [{"reason": "unauthorized"}]}}, "HTTP 401 unauthorized"),
+    (401, b"<html>nope</html>", "HTTP 401 -"),
+    (403, b"<html>blocked</html>", "HTTP 403 -"),                           # 프록시·차단 페이지처럼 reason이 없는 403
+])
+def test_a_rejected_key_is_classified_and_handed_to_rss(status, body, detail):
+    with pytest.raises(api.KeyRejected) as ei:
+        api._call(FakeApi(fail={("channels", None): http_error(status, body)}), "channels", {}, KEY)
+    assert str(ei.value) == detail and not isinstance(ei.value, api.QuotaExceeded)
+
+
+def test_key_rejection_on_the_first_call_hands_every_channel_to_rss(index):
+    fake = FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")})
+    res = collect(THREE, index, fake)
+    assert res.key_rejected == "HTTP 400 badRequest" and not res.quota_exceeded
+    assert res.remaining == THREE and res.items == [] and fake.endpoints() == ["channels"]  # 더 부르지 않는다
+    assert_no_key(res.key_rejected, res.errors)
+
+
+def test_key_rejection_midway_keeps_earlier_channels_and_hands_the_rest_to_rss(index):
+    fake = FakeApi(reject_after=1)
+    res = collect(THREE, index, fake)
+    assert res.key_rejected == "HTTP 403 forbidden" and res.remaining == [CH_LIZE, CH_OFFICIAL]
+    assert len(res.items) == 15 and all(it["source"] == "강지 유튜브" for it in res.items)
+    assert fake.endpoints() == ["channels", "playlistItems", "playlistItems"]
+
+
+def test_key_rejection_while_re_resolving_a_stale_cache_is_handled_too(index):
+    fake = FakeApi(stale={"UU_STALE_OLD_ID_"}, fail={("channels", None): http_error(403, "youtube_api_error_nokey.json")})
+    res = collect([CH_LIZE, CH_OFFICIAL], index, fake, cached={"lize": "UU_STALE_OLD_ID_", "official": uploads_of(OFFICIAL)})
+    assert res.key_rejected == "HTTP 403 forbidden" and res.remaining == [CH_LIZE, CH_OFFICIAL]
+
+
+def test_quota_exceeded_is_not_reported_as_a_key_problem(index):
+    res = collect(THREE, index, FakeApi(quota_after=1))
+    assert res.quota_exceeded and res.key_rejected is None
+
+
+# ============================ search.list는 부를 수 없다 ========================
+def test_only_the_two_one_unit_endpoints_are_allowed():
+    assert config.YOUTUBE_API_ENDPOINTS == ("channels", "playlistItems")  # 둘 다 호출당 1유닛
+
+
+@pytest.mark.parametrize("endpoint", ["search", "videos", "activities", "commentThreads", "../search", "channels/../search"])
+def test_any_other_endpoint_is_refused_before_a_request_is_sent(endpoint):
+    calls = []
+
+    def get(url, **kw):
+        calls.append(url)
+        raise AssertionError("요청이 나가면 안 된다")
+
+    with pytest.raises(ValueError, match="허용되지 않은"):
+        api._call(get, endpoint, {"part": "id"}, KEY)
+    assert calls == []
+
+
+def test_a_full_collect_only_ever_calls_the_allowed_endpoints(index):
+    for fake in (FakeApi(), FakeApi(quota_after=1), FakeApi(reject_after=1), FakeApi(stale={uploads_of(LIZE)})):
+        collect(THREE, index, fake, cached={"lize": uploads_of(LIZE)} if fake.stale else None)
+        assert set(fake.endpoints()) <= set(config.YOUTUBE_API_ENDPOINTS)
+
+
+def test_no_updater_code_references_the_search_endpoint():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    offenders = []
+    for path in [root / "main.py", root / "send_alerts.py", *(root / "updater").rglob("*.py")]:
+        text = path.read_text(encoding="utf-8")
+        if '"search"' in text or "'search'" in text or "/search?" in text or "youtube/v3/search" in text:
+            offenders.append(str(path.relative_to(root)))
+    assert offenders == []  # 정규식 .search() 호출은 상관없다. API 엔드포인트 문자열만 본다
 
 
 # ============================ 다른 실패 · 격리 ================================
@@ -231,8 +314,8 @@ def test_one_failing_channel_does_not_stop_the_others_and_is_logged_by_name(inde
 
 
 @pytest.mark.parametrize("fixture, status, expected_type, message", [
-    ("youtube_api_error_badkey.json", 400, api.ApiError, "HTTP 400 badRequest"),      # 실제 응답: 엉터리 키
-    ("youtube_api_error_nokey.json", 403, api.ApiError, "HTTP 403 forbidden"),        # 실제 응답: 키 없음 — 403이어도 할당량 초과가 아니다
+    ("youtube_api_error_badkey.json", 400, api.KeyRejected, "HTTP 400 badRequest"),    # 실제 응답: 엉터리 키
+    ("youtube_api_error_nokey.json", 403, api.KeyRejected, "HTTP 403 forbidden"),      # 실제 응답: 키 없음 — 403이어도 할당량 초과가 아니라 키 문제
     ("youtube_api_error_quota.json", 403, api.QuotaExceeded, "HTTP 403 quotaExceeded"),  # 합성
     ("youtube_api_error_playlist_not_found.json", 404, api.PlaylistNotFound, "HTTP 404 playlistNotFound"),  # 합성
 ])

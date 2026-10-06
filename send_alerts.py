@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-from updater import config, discord, http, redact
+from updater import annotate, config, discord, http, redact
 
 log = logging.getLogger("send_alerts")
 
@@ -55,12 +55,10 @@ def main(argv=None, *, post=http.post_json, sleep=time.sleep, alerts_file: Path 
     redact.configure_logging()  # 웹훅 URL은 등록해 두면 로그 출력 직전에 한 번 더 가려진다
     environ = os.environ if environ is None else environ
     path = Path(alerts_file or config.ALERTS_FILE)  # 호출 시점에 읽는다 (테스트가 바꿀 수 있게)
-    on_actions = environ.get("GITHUB_ACTIONS") == "true"
 
     def warn(text: str) -> None:  # text에는 웹훅 URL이 들어가면 안 된다
         log.warning(text)
-        if on_actions:
-            print(f"::warning title=디스코드 알림::{text}")
+        annotate.warning("디스코드 알림", text, environ=environ)  # Actions 실행 요약에도 보이게
 
     if not path.exists():
         log.info("보낼 알림이 없습니다 (알림 파일 없음)")

@@ -6,6 +6,9 @@
 - 채널마다 playlistItems.list(maxResults=15, part=snippet,contentDetails)로 최신 영상을 가져온다. 비용은 호출당 1유닛.
 - 게시 시각은 contentDetails.videoPublishedAt(영상 자체의 게시 시각). snippet.publishedAt은 '재생목록에 추가된 시각'이라 쓰지 않는다.
   삭제·비공개 영상은 videoPublishedAt이 없으므로 건너뛴다. 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않으며 그대로 포함한다.
+- RSS로 대체하는 경우는 둘이다: ① 할당량 초과(QuotaExceeded), ② 키 거부(KeyRejected: 400 badRequest·401·403 forbidden 등 — 키가 틀렸거나
+  API가 꺼졌거나 키 제한에 걸린 경우). 어느 쪽이든 거기서 API 호출을 멈추고 못 한 채널을 remaining에 담는다. 5xx·네트워크 오류 같은 그 밖의 실패는 채널별 실패로 남긴다.
+- 호출은 channels.list·playlistItems.list(호출당 1유닛)뿐이다. search.list(호출당 100유닛)는 config.YOUTUBE_API_ENDPOINTS에 없어서 부를 수 없다.
 - **API 키는 URL이 아니라 X-Goog-Api-Key 헤더로만 보낸다.** 오류는 HTTP 상태와 Google의 reason 코드만 기록하고, 예외 메시지·응답 본문은
   쓰지 않는다(`raise … from None`으로 원래 예외도 숨긴다). 키가 로그·예외 메시지에 섞이지 않게 하는 것이 이 모듈의 불변 조건이다.
 """
@@ -22,7 +25,9 @@ from .youtube_rss import WATCH_URL, Channel
 
 log = logging.getLogger(__name__)
 
-_QUOTA_REASONS = {"quotaExceeded", "dailyLimitExceeded"}  # 이때만 RSS로 대체한다 (rateLimitExceeded 등 일시적 제한은 다음 실행에 다시 시도)
+_QUOTA_REASONS = {"quotaExceeded", "dailyLimitExceeded"}  # 할당량 초과 → RSS로 대체 (rateLimitExceeded 등 일시적 제한은 다음 실행에 다시 시도)
+# 키 거부 → RSS로 대체 + Actions 주석. 400 badRequest("API key not valid")·403 forbidden(키 없음)·accessNotConfigured(API 꺼짐)·ipRefererBlocked(키 제한) 등
+_KEY_REJECTED_REASONS = {"badRequest", "keyInvalid", "forbidden", "accessNotConfigured", "ipRefererBlocked", "dailyLimitExceededUnreg", "unauthorized"}
 _CHANNELS_PER_CALL = 50  # channels.list의 id 상한
 
 
@@ -34,6 +39,10 @@ class QuotaExceeded(ApiError):
     """일일 할당량 초과 → 남은 채널은 RSS로 수집한다."""
 
 
+class KeyRejected(ApiError):
+    """API 키가 거부됐다(틀림·API 꺼짐·키 제한 등) → 남은 채널은 RSS로 수집하고 사람에게 알린다."""
+
+
 class PlaylistNotFound(ApiError):
     """캐시된 업로드 재생목록 ID가 더는 유효하지 않다."""
 
@@ -43,8 +52,9 @@ class Result:
     items: list = field(default_factory=list)
     errors: list = field(default_factory=list)
     uploads: dict = field(default_factory=dict)  # 이번에 새로 구한(바뀐) 캐시: {멤버 key 또는 "official": 업로드 재생목록 ID}
-    remaining: list = field(default_factory=list)  # 할당량 초과로 처리하지 못한 채널 → RSS 대상
+    remaining: list = field(default_factory=list)  # 할당량 초과·키 거부로 처리하지 못한 채널 → RSS 대상
     quota_exceeded: bool = False
+    key_rejected: str | None = None  # 키가 거부됐으면 "HTTP 403 forbidden" 같은 상태·reason (키 값·응답 본문은 없다)
 
 
 def cache_key(channel: Channel) -> str:
@@ -58,7 +68,17 @@ def _reason(response) -> str | None:
         return None
 
 
+def _key_rejected(status: int | None, reason: str | None) -> bool:
+    if status == 401:
+        return True
+    if status == 403:  # reason이 없는 403(예: 프록시·차단 페이지)도 키·접근 문제로 본다. 속도 제한(rateLimitExceeded 등)은 아니다
+        return reason is None or reason in _KEY_REJECTED_REASONS
+    return status == 400 and reason in {"badRequest", "keyInvalid"}
+
+
 def _call(get, endpoint: str, params: dict, api_key: str) -> dict:
+    if endpoint not in config.YOUTUBE_API_ENDPOINTS:  # search.list(호출당 100유닛) 같은 비싼 호출을 막는다 — 요청을 보내기 전에
+        raise ValueError(f"허용되지 않은 YouTube API 엔드포인트: {endpoint}")
     url = f"{config.YOUTUBE_API_URL}/{endpoint}?{urlencode(params)}"  # 키는 URL에 넣지 않는다
     try:
         return get(url, headers={config.YOUTUBE_API_KEY_HEADER: api_key}).json()
@@ -70,6 +90,8 @@ def _call(get, endpoint: str, params: dict, api_key: str) -> dict:
             raise QuotaExceeded(detail) from None
         if status == 404 and reason == "playlistNotFound":
             raise PlaylistNotFound(detail) from None
+        if _key_rejected(status, reason):
+            raise KeyRejected(detail) from None
         raise ApiError(detail) from None
     except (requests.RequestException, ValueError) as e:  # 연결·타임아웃·JSON 오류. 종류만 남긴다 (메시지에 URL이 있을 수 있다)
         raise ApiError(type(e).__name__) from None
@@ -124,6 +146,15 @@ def parse_playlist(data: dict, channel: Channel, index: tagging.TagIndex) -> lis
     return items
 
 
+def _hand_over(res: Result, error: ApiError, remaining: list[Channel]) -> None:
+    """할당량 초과·키 거부: API 호출을 멈추고 남은 채널을 RSS 대상으로 넘긴다."""
+    if isinstance(error, QuotaExceeded):
+        res.quota_exceeded = True
+    else:
+        res.key_rejected = str(error)
+    res.remaining = remaining
+
+
 def collect(channels: list[Channel], index: tagging.TagIndex, *, api_key: str, cached: dict[str, str] | None = None, get=http.get) -> Result:
     """모든 채널 수집. 채널 하나의 실패는 다른 채널을 막지 않는다. 할당량이 초과되면 거기서 멈추고 못 한 채널을 remaining에 담는다.
     같은 영상은 먼저 나온 채널(개인 채널 우선)이 이긴다."""
@@ -135,8 +166,8 @@ def collect(channels: list[Channel], index: tagging.TagIndex, *, api_key: str, c
     if need:
         try:
             resolved = resolve_uploads([c.yt_id for c in need], api_key, get)
-        except QuotaExceeded:
-            res.quota_exceeded, res.remaining = True, list(channels)
+        except (QuotaExceeded, KeyRejected) as e:
+            _hand_over(res, e, list(channels))
             return res
         except ApiError as e:
             log.warning("유튜브 API 채널 정보(channels.list) 실패 — %s", e)
@@ -165,8 +196,8 @@ def collect(channels: list[Channel], index: tagging.TagIndex, *, api_key: str, c
                 res.uploads[cache_key(channel)] = fresh
                 data = fetch_playlist(fresh, api_key, get)
             parsed = parse_playlist(data, channel, index)
-        except QuotaExceeded:
-            res.quota_exceeded, res.remaining = True, list(channels[n:])
+        except (QuotaExceeded, KeyRejected) as e:
+            _hand_over(res, e, list(channels[n:]))
             break
         except ApiError as e:
             msg = f"{channel.source}: {e}"

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from updater import alerts, config, discord, http, redact, state, tagging, timeutil
+from updater import alerts, annotate, config, discord, http, redact, state, tagging, timeutil
 from updater.sources import chzzk, stellive_music, stellive_news, youtube_api, youtube_avatar, youtube_rss
 
 log = logging.getLogger("main")
@@ -41,6 +41,7 @@ class Context:
     prev_catalog: list = field(default_factory=list)
     prev_status: dict = field(default_factory=dict)  # status.json의 이전 'members'
     youtube_api_key: str | None = None  # 없으면 RSS로 수집한다. 로그·메시지에 절대 넣지 않는다
+    environ: dict = field(default_factory=dict)  # Actions 주석(::warning::) 출력 여부 판단용
 
 
 @dataclass
@@ -52,8 +53,9 @@ class SourceResult:
 
 
 def run_youtube(ctx: Context) -> SourceResult:
-    """YouTube Data API가 기본, RSS는 키가 없거나 할당량이 초과됐을 때만 (남은 채널만) 쓴다.
-    그 밖의 API 실패(키 거부 등)는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다."""
+    """YouTube Data API가 기본. RSS는 ① 키가 없거나 ② 할당량이 초과됐거나 ③ 키가 거부됐을 때만, 그것도 API로 못 한 채널만 쓴다.
+    ③은 사람이 조치해야 하므로 Actions 실행 요약에 ::warning:: 주석("YouTube API 키 확인 필요")을 남긴다.
+    그 밖의 API 실패(5xx·네트워크 등)는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다."""
     channels = youtube_rss.channels_from_members(ctx.members)
     items: list = []
     errors: list = []
@@ -69,6 +71,10 @@ def run_youtube(ctx: Context) -> SourceResult:
                  f", 실패 {len(errors)}건" if errors else "")
         if res.quota_exceeded:
             log.warning("YouTube API 할당량 초과 — 남은 %d개 채널은 RSS로 수집합니다", len(rss_channels))
+        if res.key_rejected:  # 상태·reason만 담긴다 (키 값 없음)
+            log.warning("YouTube API 키 확인 필요 (%s) — 남은 %d개 채널은 RSS로 수집합니다", res.key_rejected, len(rss_channels))
+            annotate.warning("YouTube API", f"YouTube API 키 확인 필요 ({res.key_rejected}) — 영상은 RSS로 대체 수집했습니다. "
+                             "키가 맞는지, YouTube Data API v3가 켜져 있는지, 키 제한(IP·API)을 확인하세요", environ=ctx.environ)
     else:
         log.info("YOUTUBE_API_KEY가 없어 RSS로 수집합니다")
     if rss_channels:
@@ -185,7 +191,7 @@ def main(
 
     members = state.read_json(data_dir / "members.json")
     ctx = Context(members=members, index=tagging.build_index(members), now=started, now_iso=now_iso, get=get, sleep=sleep,
-                  youtube_api_key=api_key)
+                  youtube_api_key=api_key, environ=environ)
 
     def load(name):
         return state.load_previous(name, local_dir=data_dir, get=get, sleep=sleep, local_only=args.local_state)

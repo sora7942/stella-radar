@@ -662,10 +662,11 @@ API_URL = config.YOUTUBE_API_URL
 SECRET_FILES = ("news", "catalog", "status", "members")
 
 
-def api_run(data_dir, net, clock=T1, *extra, key=KEY, dry=True):
-    """YouTube API 키를 환경변수로 넘겨 실행 (키가 None이면 환경에 없는 것과 같다)."""
+def api_run(data_dir, net, clock=T1, *extra, key=KEY, dry=True, actions=False):
+    """YouTube API 키를 환경변수로 넘겨 실행 (키가 None이면 환경에 없는 것과 같다). actions=True면 GitHub Actions 환경을 흉내 낸다."""
     argv = (["--dry-run"] if dry else []) + list(extra)
-    return app.main(argv, get=net, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None, environ={"YOUTUBE_API_KEY": key} if key else {})
+    environ = {**({"YOUTUBE_API_KEY": key} if key else {}), **({"GITHUB_ACTIONS": "true"} if actions else {})}
+    return app.main(argv, get=net, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None, environ=environ)
 
 
 def written_text(data_dir):
@@ -749,13 +750,74 @@ def test_quota_exceeded_midway_uses_rss_only_for_the_channels_left(data_dir, cap
     assert len(ids) == len(set(ids)) and any(i["source"] == "강지 유튜브" for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-"))
 
 
-def test_a_rejected_key_does_not_fall_back_to_rss(data_dir, caplog):
-    fake = FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")})
+KEY_REJECTIONS = [
+    ("youtube_api_error_badkey.json", 400, "HTTP 400 badRequest"),   # 실제 응답: 엉터리 키
+    ("youtube_api_error_nokey.json", 403, "HTTP 403 forbidden"),     # 실제 응답: 키 없음
+    ({"error": {"errors": [{"reason": "accessNotConfigured"}]}}, 403, "HTTP 403 accessNotConfigured"),  # API가 꺼져 있음
+    ({"error": {"errors": [{"reason": "ipRefererBlocked"}]}}, 403, "HTTP 403 ipRefererBlocked"),        # 키 제한에 걸림
+]
+
+
+@pytest.mark.parametrize("body, status, detail", KEY_REJECTIONS)
+def test_a_rejected_key_falls_back_to_rss_and_leaves_a_warning_annotation_on_actions(data_dir, capsys, caplog, body, status, detail):
+    fake = FakeApi(fail={("channels", None): http_error(status, body)})
     net = Net(api=fake)
     with caplog.at_level("INFO"):
-        assert api_run(data_dir, net, T1, "--only", "youtube") == 1  # 영상 소스 하나뿐인데 전부 실패 → 모든 소스 실패(exit 1)
-    assert net.calls_to(RSS_URL) == []  # 할당량 초과도 키 없음도 아니므로 RSS로 돌리지 않는다
-    assert "HTTP 400 badRequest" in caplog.text or "업로드 재생목록을 찾지 못함" in caplog.text
+        assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 0  # 대체했으니 실패가 아니다
+    assert len(net.calls_to(RSS_URL)) == 12 and fake.endpoints() == ["channels"]  # API는 한 번만 부르고 12개 채널 모두 RSS로
+    assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"])
+    out = capsys.readouterr().out
+    assert f"::warning title=YouTube API::YouTube API 키 확인 필요 ({detail})" in out  # Actions 실행 요약에 보이는 주석
+    assert out.count("::warning") == 1  # 주석은 한 번, 한 줄
+    assert f"YouTube API 키 확인 필요 ({detail}) — 남은 12개 채널은 RSS로 수집합니다" in caplog.text
+    assert KEY not in out + caplog.text
+
+
+def test_the_key_warning_annotation_is_printed_only_on_actions(data_dir, capsys):
+    api_run(data_dir, Net(api=FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")})), T1, "--only", "youtube")
+    assert "::warning" not in capsys.readouterr().out  # 로컬에서는 로그 경고만
+
+
+def test_a_key_rejected_midway_uses_rss_only_for_the_channels_left(data_dir, capsys):
+    fake = FakeApi(reject_after=3)  # 강지·유니·후야까지 API, 히나부터 키 거부
+    net = Net(api=fake)
+    members_ = read(data_dir, "members")
+    left = [members_["members"][k]["yt_id"] for k in list(members_["members"])[3:] if members_["members"][k].get("yt_id")] + [OFFICIAL_YT_ID]
+    assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 0
+    assert [u.split("channel_id=")[1] for u in net.calls_to(RSS_URL)] == left and len(left) == 9
+    assert "::warning title=YouTube API::YouTube API 키 확인 필요 (HTTP 403 forbidden)" in capsys.readouterr().out
+    ids = [i["id"] for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
+    assert len(ids) == len(set(ids))
+
+
+def test_quota_exceeded_falls_back_but_is_not_a_key_warning(data_dir, capsys):
+    api_run(data_dir, Net(api=FakeApi(fail={("channels", None): http_error(403, "youtube_api_error_quota.json")})), T1, "--only", "youtube", actions=True)
+    assert "::warning" not in capsys.readouterr().out  # 할당량 초과는 사람이 고칠 일이 아니라 로그 경고만
+
+
+@pytest.mark.parametrize("failure", [http_error(500, b"<html>oops</html>"), http_error(403, {"error": {"errors": [{"reason": "rateLimitExceeded"}]}}), requests.ConnectionError("down")])
+def test_other_failures_neither_switch_to_rss_nor_annotate(data_dir, capsys, failure):
+    fake = FakeApi(fail={("playlistItems", uploads_of(LIZE_YT)): failure})
+    net = Net(api=fake)
+    assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 0
+    assert net.calls_to(RSS_URL) == [] and "::warning" not in capsys.readouterr().out
+
+
+def test_the_key_annotation_never_contains_the_key(data_dir, capsys, caplog):
+    leaky = http_error(400, {"error": {"errors": [{"reason": "badRequest", "message": f"bad key {KEY}"}]}})  # 응답 본문에 키가 들어 있어도
+    with caplog.at_level("DEBUG"):
+        api_run(data_dir, Net(api=FakeApi(fail={("channels", None): leaky})), T1, "--only", "youtube", actions=True)
+    out = capsys.readouterr()
+    assert KEY not in out.out + out.err + caplog.text + written_text(data_dir)
+
+
+def test_with_every_key_rejection_and_no_rss_at_all_the_run_still_fails_cleanly(data_dir):
+    """키가 거부됐는데 RSS도 전부 실패하면 (이전과 같이) 소스 실패 — 파일은 건드리지 않는다."""
+    net = Net(api=FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")}), fail_channels={
+        c for c in [read(data_dir, "members")["official"]["yt_id"], *[m["yt_id"] for m in read(data_dir, "members")["members"].values() if m.get("yt_id")]]})
+    before = (data_dir / "news.json").read_bytes()
+    assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 1
+    assert (data_dir / "news.json").read_bytes() == before
 
 
 def test_one_failing_channel_is_isolated_and_logged_without_rss(data_dir, caplog):

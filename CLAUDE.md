@@ -43,7 +43,7 @@
 
 ## Gotchas
 - 아티팩트 시절 데이터를 그대로 가져왔다: 노래 대표곡 `songs.json`의 `yt`는 대부분 null이고, 사이트가 catalog에서 제목으로 찾아 채운다
-- 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나 할당량이 초과됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키가 거부되는 등 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이라 `search.list`(호출당 100유닛) 같은 비싼 호출은 쓰지 않는다
+- 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나, 할당량이 초과됐거나, 키가 거부됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키 거부는 Actions 주석 "YouTube API 키 확인 필요"로 알린다. 5xx·네트워크 같은 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS` 허용 목록)
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - GitHub Actions cron은 UTC 기준이고 몇 분씩 늦게 실행되며, 부하가 크면 건너뛰기도 한다

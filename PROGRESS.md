@@ -66,7 +66,7 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 - 검증: 465개 테스트. 일부러 깨뜨려 보는 7가지(dry-run·no-discord가 파일을 남김, 시작 때 옛 파일 미삭제, 발송 뒤 미삭제, 파일 검증 제거, 웹훅 없을 때 파일 삭제, 실패를 종료 코드로 전달)를 테스트가 모두 잡았다. 실제 데이터로 `main.py` → `out/alerts.json`(389바이트, 웹훅 문자열 없음, `site/` 안에는 없음) → `send_alerts.py --dry-run`이 그 파일만 읽어 같은 내용을 보여 주는 것까지 확인했다. 로컬에서는 `send_alerts.py`를 `--dry-run`으로만 돌렸다.
 
 ## 유튜브 영상 수집: YouTube Data API 기본, RSS는 대체 (단계 5++, 사용자 결정)
-**결정**: 영상 수집은 YouTube Data API가 기본이고, RSS는 **키가 없거나 할당량이 초과됐을 때만** 쓴다(할당량이 중간에 초과되면 못 한 채널만). RSS 코드(`youtube_rss.py`)는 그대로 남겼다. 키가 거부되는 등 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다(사용자 지시가 "키 없음·할당량 초과일 때만"이라서. 키 거부도 대체하고 싶으면 `main.run_youtube` 한 곳).
+**결정**: 영상 수집은 YouTube Data API가 기본이고, RSS는 ① 키가 없을 때 ② 할당량 초과 ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked`; 사용자가 나중에 추가)일 때만 쓴다. ②③이 중간에 일어나면 못 한 채널만 RSS로. ③은 Actions 실행 요약에 `::warning::`("YouTube API 키 확인 필요 (HTTP … )")를 남긴다(`updater/annotate.py`, 로컬은 로그 경고만). 5xx·네트워크·속도 제한(`rateLimitExceeded`) 같은 그 밖의 실패는 RSS로 돌리지 않고 채널별 실패로 남긴다. RSS 코드(`youtube_rss.py`)는 그대로 남겼다. **`search.list`는 확인용으로만 썼고 업데이터 코드에 없다** — 호출은 `channels.list`·`playlistItems.list`뿐이고, `config.YOUTUBE_API_ENDPOINTS` 허용 목록에 없는 엔드포인트는 요청 전에 거부된다(테스트로 고정, 코드 전체에 `"search"` 엔드포인트 문자열이 없음도 테스트).
 
 **구현**: `updater/sources/youtube_api.py`
 - `channels.list(part=contentDetails)`로 업로드 재생목록 ID를 구해 `status.json`에 캐시(멤버 key별 `uploads`, 공식 채널은 `official` 키). 캐시가 있으면 `channels.list`를 부르지 않고, 캐시된 ID가 `playlistNotFound`면 그 채널만 다시 구해 한 번 재시도한다.

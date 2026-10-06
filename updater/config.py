@@ -36,6 +36,8 @@ YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3"
 YOUTUBE_API_KEY_ENV = "YOUTUBE_API_KEY"  # 환경변수 (GitHub Secret / 로컬 .env). 업데이터(main.py)만 읽는다
 YOUTUBE_API_KEY_HEADER = "X-Goog-Api-Key"  # 키는 URL이 아니라 이 헤더로만 보낸다 (URL은 예외 메시지·로그에 남기 쉽다)
 YOUTUBE_API_MAX_RESULTS = 15  # 채널당 최신 영상 수 (SPEC 5장)
+# 업데이터가 부를 수 있는 API 엔드포인트(호출당 1유닛). search.list는 호출당 100유닛이라 여기 없고, 목록에 없는 엔드포인트는 요청 전에 거부된다
+YOUTUBE_API_ENDPOINTS = ("channels", "playlistItems")
 YOUTUBE_FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 
 OFFICIAL_SOURCE_LABEL = "공식 홈페이지"  # news 항목의 source 문구 (공지·음악 공통)

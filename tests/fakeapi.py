@@ -33,9 +33,10 @@ EMPTY_PLAYLIST = {"kind": "youtube#playlistItemListResponse", "items": [], "page
 
 class FakeApi:
     """fail[("channels", None)] 또는 fail[("playlistItems", 재생목록 ID)]에 예외를 넣으면 그 호출이 실패한다.
-    quota_after=N이면 playlistItems 호출 N번까지는 성공하고 그다음부터 할당량 초과(403 quotaExceeded)."""
+    quota_after=N이면 playlistItems 호출 N번까지는 성공하고 그다음부터 할당량 초과(403 quotaExceeded).
+    reject_after=N이면 같은 식으로 N번 뒤부터 키 거부(403 forbidden — 실제 '키 없음' 응답)."""
 
-    def __init__(self, *, playlists=None, fail=None, quota_after=None, missing_channels=(), stale=None):
+    def __init__(self, *, playlists=None, fail=None, quota_after=None, reject_after=None, missing_channels=(), stale=None):
         self.calls: list[tuple[str, dict]] = []
         self.playlists = {
             uploads_of(LIZE): fx("youtube_api_playlist_lize.json"),
@@ -44,7 +45,7 @@ class FakeApi:
             **(playlists or {}),
         }
         self.fail = fail or {}
-        self.quota_after, self.missing_channels = quota_after, set(missing_channels)
+        self.quota_after, self.reject_after, self.missing_channels = quota_after, reject_after, set(missing_channels)
         self.stale = set(stale or ())  # 이 재생목록 ID는 playlistNotFound (낡은 캐시 시험)
         self.playlist_calls = 0
 
@@ -66,6 +67,8 @@ class FakeApi:
             self.playlist_calls += 1
             if self.quota_after is not None and self.playlist_calls > self.quota_after:
                 raise http_error(403, "youtube_api_error_quota.json")
+            if self.reject_after is not None and self.playlist_calls > self.reject_after:
+                raise http_error(403, "youtube_api_error_nokey.json")
             pid = q["playlistId"]
             if pid in self.stale:
                 raise http_error(404, "youtube_api_error_playlist_not_found.json")
