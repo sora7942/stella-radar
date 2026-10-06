@@ -262,3 +262,36 @@ def test_write_json_failure_leaves_original_intact(tmp_path):
         state.write_json(path, {"bad": object()})  # 직렬화 실패
     assert json.loads(path.read_text(encoding="utf-8")) == {"ok": True}
     assert [p.name for p in tmp_path.iterdir()] == ["news.json"]
+
+
+# ============================ status 병합 ========================================
+def test_status_patch_updates_only_the_patched_fields_and_members():
+    prev = {
+        "lize": {"avatar": "A", "avatarCheckedAt": "T0", "live": {"on": True, "title": "t"}},
+        "tabi": {"avatar": "B", "avatarCheckedAt": "T0", "live": {"on": False}},
+    }
+    merged = state.merge_status(prev, {"lize": {"live": {"on": False}}})
+    assert merged["lize"] == {"avatar": "A", "avatarCheckedAt": "T0", "live": {"on": False}}
+    assert merged["tabi"] == prev["tabi"]
+
+
+def test_status_member_without_patch_keeps_previous_live_on():
+    """치지직 요청이 실패한 멤버는 패치가 없다 → 방송 중이던 값이 꺼짐으로 뒤집히지 않는다."""
+    prev = {"lize": {"live": {"on": True, "title": "t", "url": "u", "since": "S"}}}
+    assert state.merge_status(prev, {"tabi": {"live": {"on": False}}})["lize"] == prev["lize"]
+
+
+def test_status_new_member_is_added_and_fields_are_in_fixed_order():
+    merged = state.merge_status({}, {"lize": {"live": {"on": False}, "avatarCheckedAt": "T", "avatar": "A", "zzz": 1}})
+    assert list(merged["lize"]) == ["avatar", "avatarCheckedAt", "live", "zzz"]
+
+
+def test_status_merge_does_not_mutate_inputs_and_is_idempotent():
+    prev = {"lize": {"avatar": "A"}}
+    patch = {"lize": {"live": {"on": True}}}
+    before = copy.deepcopy((prev, patch))
+    once = state.merge_status(prev, patch)
+    assert (prev, patch) == before
+    assert state.merge_status(once, patch) == once
+    once["lize"]["live"]["on"] = False  # 결과를 고쳐도 입력 패치는 그대로 (깊은 복사)
+    assert patch["lize"]["live"]["on"] is True

@@ -42,11 +42,14 @@ def default_songs():
 
 
 class Net:
-    """가짜 네트워크: 배포본(404), 유튜브 RSS·공지(픽스처), 음악 사이트(Site)."""
+    """가짜 네트워크: 배포본(404), 유튜브 RSS·채널 페이지·공지(픽스처), 음악 사이트(Site), 치지직.
+    live = {치지직 채널 ID: True(방송 중)}, chzzk_fail = 실패시킬 치지직 채널 ID, page_fail = 실패시킬 유튜브 채널 ID."""
 
-    def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False):
+    def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
+                 live=(), chzzk_fail=(), page_fail=()):
         self.calls = []
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
+        self.live, self.chzzk_fail, self.page_fail = set(live), set(chzzk_fail), set(page_fail)
         self.site = Site(default_songs() if songs is None else songs)
 
     def __call__(self, url, **kw):
@@ -69,6 +72,19 @@ class Net:
             return make_response(200, (FIXTURES / "stellive_news_list.html").read_bytes())
         if url.startswith("https://stellive.me/music"):
             return self.site(url)
+        if url.startswith("https://www.youtube.com/channel/"):  # 채널 페이지: og:image가 </head> 뒤에 있는 실제 배치
+            cid = url.rsplit("/", 1)[1]
+            if cid in self.page_fail:
+                raise requests.ConnectionError("down")
+            og = f'<meta property="og:image" content="https://yt3.googleusercontent.com/{cid}=s900-c-k-c0x00ffffff-no-rj">'
+            return make_response(200, f"<html><head><title>t</title></head><body>{og}</body></html>")
+        if url.startswith("https://api.chzzk.naver.com/polling/v2/channels/"):
+            cid = url.split("/channels/")[1].split("/")[0]
+            if cid in self.chzzk_fail:
+                raise requests.ConnectionError("blocked")
+            d = json.loads((FIXTURES / ("chzzk_live_open.json" if cid in self.live else "chzzk_live_close.json")).read_text(encoding="utf-8"))
+            d["content"]["channelId"] = cid
+            return make_response(200, json.dumps(d))
         raise AssertionError(f"예상 밖의 URL: {url}")
 
     def calls_to(self, prefix):
@@ -121,7 +137,7 @@ def test_second_run_only_moves_updated_at(data_dir):
 def test_uses_deployed_state_first_then_local_only_on_404(data_dir):
     net = Net()
     run(data_dir, net)
-    assert any("/data/news.json?t=" in u for u in net.calls) and any("/data/catalog.json?t=" in u for u in net.calls)
+    assert all(any(f"/data/{n}.json?t=" in u for u in net.calls) for n in ("news", "catalog", "status"))
     net2 = Net()
     run(data_dir, net2, T2, "--local-state")
     assert not any("/data/" in u for u in net2.calls)
@@ -160,16 +176,16 @@ def test_music_failure_leaves_catalog_untouched_and_other_sources_continue(data_
 
 
 def test_all_sources_failing_exits_1_and_writes_nothing(data_dir):
-    before = {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog")}
+    before = {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")}
     assert run(data_dir, Net(down=True)) == 1
-    assert {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog")} == before
+    assert {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")} == before
 
 
 @pytest.mark.parametrize("status", [500, 503, 403])
 def test_unreadable_previous_state_exits_1_and_writes_nothing(data_dir, status):
-    before = {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog")}
+    before = {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")}
     assert run(data_dir, Net(state_status=status)) == 1  # 시드로 되돌아가서 덮어쓰지 않는다
-    assert {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog")} == before
+    assert {n: (data_dir / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")} == before
 
 
 def test_unreadable_catalog_state_alone_also_aborts(data_dir):
@@ -241,10 +257,140 @@ def test_backfill_run_two_does_not_treat_old_songs_as_new(data_dir):
 
 # ============================ 비밀·출력 ========================================
 def test_output_contains_no_webhook_text_and_real_data_is_untouched(data_dir, capsys, monkeypatch, caplog):
-    real_before = {n: (config.DATA_DIR / f"{n}.json").read_bytes() for n in ("news", "catalog")}
+    real_before = {n: (config.DATA_DIR / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")}
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/SECRET-ID/SECRET-TOKEN")
     with caplog.at_level("DEBUG"):
         run(data_dir, Net())
     out = capsys.readouterr()
     assert "SECRET" not in out.out + out.err + caplog.text
-    assert {n: (config.DATA_DIR / f"{n}.json").read_bytes() for n in ("news", "catalog")} == real_before  # 테스트는 tmp에만 쓴다
+    assert {n: (config.DATA_DIR / f"{n}.json").read_bytes() for n in ("news", "catalog", "status")} == real_before  # 테스트는 tmp에만 쓴다
+
+
+# ============================ 아바타·방송 상태 (status.json) =======================
+T3 = "2026-10-07T11:00:00+09:00"  # T1보다 25시간 뒤 → 아바타 갱신 주기(24시간)를 지났다
+T4 = "2026-10-07T11:30:00+09:00"
+AV_SUFFIX = "=s900-c-k-c0x00ffffff-no-rj"
+
+
+def people(data_dir):
+    m = read(data_dir, "members")["members"]
+    return m, [k for k, v in m.items() if v.get("yt_id")], {k: v["chzzk_id"] for k, v in m.items() if v.get("chzzk_id")}
+
+
+def test_status_first_run_has_avatars_and_live_for_those_with_ids(data_dir):
+    m, with_yt, chzzk_ids = people(data_dir)
+    assert run(data_dir, Net()) == 0
+    st = read(data_dir, "status")
+    assert st["updatedAt"] == T1 and set(st["members"]) == set(with_yt)
+    for k in with_yt:
+        assert st["members"][k]["avatar"] == f"https://yt3.googleusercontent.com/{m[k]['yt_id']}{AV_SUFFIX}"  # 자기 채널의 이미지
+        assert st["members"][k]["avatarCheckedAt"] == T1
+        assert ("live" in st["members"][k]) == (k in chzzk_ids)  # chzzk_id가 없는 멤버는 live를 만들어 내지 않는다
+        assert st["members"][k].get("live", {"on": False}) == {"on": False}
+    assert "https://www.youtube.com/channel/" not in json.dumps(st)  # 이미지는 링크만 저장한다 (페이지 URL이 아님)
+
+
+def test_chzzk_is_requested_only_for_members_with_an_id(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    net = Net()
+    run(data_dir, net)
+    assert sorted(net.calls_to("https://api.chzzk.naver.com")) == sorted(
+        config.CHZZK_LIVE_STATUS_URL.format(channel_id=i) for i in chzzk_ids.values())
+
+
+def test_live_on_is_recorded_with_title_url_and_since(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    run(data_dir, Net(live={chzzk_ids["lize"]}))
+    live = read(data_dir, "status")["members"]["lize"]["live"]
+    assert live["on"] is True and live["title"] == "합성 방송 제목 (테스트용)"
+    assert live["url"] == f"https://chzzk.naver.com/live/{chzzk_ids['lize']}" and live["since"] == "2026-10-06T20:30:10+09:00"
+
+
+def test_second_run_within_a_day_skips_avatar_pages_but_repolls_live(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    run(data_dir, Net(), T1)
+    net = Net(live={chzzk_ids["lize"]})
+    run(data_dir, net, T2, "--local-state")
+    assert net.calls_to("https://www.youtube.com/channel/") == []  # 24시간 이내라 채널 페이지는 요청하지 않는다
+    st = read(data_dir, "status")
+    assert st["updatedAt"] == T2
+    assert st["members"]["lize"]["avatarCheckedAt"] == T1 and st["members"]["lize"]["live"]["on"] is True
+
+
+def test_after_a_day_avatars_are_read_again(data_dir):
+    _, with_yt, _ = people(data_dir)
+    run(data_dir, Net(), T1)
+    net = Net()
+    run(data_dir, net, T3, "--local-state")
+    assert len(net.calls_to("https://www.youtube.com/channel/")) == len(with_yt)
+    assert all(e["avatarCheckedAt"] == T3 for e in read(data_dir, "status")["members"].values())
+
+
+def test_failed_avatar_page_keeps_the_old_value_and_is_retried_next_run(data_dir):
+    m, _, _ = people(data_dir)
+    run(data_dir, Net(), T1)
+    old = read(data_dir, "status")["members"]["lize"]["avatar"]
+    run(data_dir, Net(page_fail={m["lize"]["yt_id"]}), T3, "--local-state")
+    st = read(data_dir, "status")["members"]
+    assert st["lize"]["avatar"] == old and st["lize"]["avatarCheckedAt"] == T1  # 이전 값 유지, 확인 시각도 그대로
+    assert st["tabi"]["avatarCheckedAt"] == T3  # 다른 멤버는 정상 갱신
+    net = Net()
+    run(data_dir, net, T4, "--local-state")  # 확인 시각이 그대로라 다음 실행에 다시 시도한다
+    assert net.calls_to("https://www.youtube.com/channel/") == [config.YOUTUBE_CHANNEL_URL.format(channel_id=m["lize"]["yt_id"])]
+    assert read(data_dir, "status")["members"]["lize"]["avatarCheckedAt"] == T4
+
+
+def test_failed_live_request_does_not_turn_a_live_member_off(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    run(data_dir, Net(live={chzzk_ids["lize"]}), T1)
+    first = read(data_dir, "status")["members"]["lize"]["live"]
+    run(data_dir, Net(chzzk_fail={chzzk_ids["lize"]}), T2, "--local-state")
+    st = read(data_dir, "status")["members"]
+    assert st["lize"]["live"] == first  # 실패는 꺼짐이 아니다 (다음 성공 때 가짜 off→on 알림이 나지 않게)
+    assert st["tabi"]["live"] == {"on": False}  # 나머지는 정상 반영
+    run(data_dir, Net(), T3, "--local-state")  # 복구 후 실제로 꺼졌으면 off
+    assert read(data_dir, "status")["members"]["lize"]["live"] == {"on": False}
+
+
+def test_all_chzzk_requests_failing_is_a_source_failure_that_keeps_every_live_value(data_dir, caplog):
+    _, _, chzzk_ids = people(data_dir)
+    run(data_dir, Net(live={chzzk_ids["lize"]}), T1)
+    with caplog.at_level("ERROR"):
+        assert run(data_dir, Net(chzzk_fail=set(chzzk_ids.values())), T2, "--local-state") == 0  # 소스 하나의 실패는 실행을 멈추지 않는다
+    assert "소스 chzzk 실패" in caplog.text
+    st = read(data_dir, "status")
+    assert st["members"]["lize"]["live"]["on"] is True and st["updatedAt"] == T2  # 아바타는 정상이라 파일은 갱신된다
+
+
+def test_only_avatar_and_chzzk_leave_other_data_alone(data_dir):
+    catalog_before = (data_dir / "catalog.json").read_bytes()
+    items_before = read(data_dir, "news")["items"]
+    net = Net()
+    assert run(data_dir, net, T1, "--only", "chzzk,avatar") == 0
+    assert (data_dir / "catalog.json").read_bytes() == catalog_before and read(data_dir, "news")["items"] == items_before
+    assert net.calls_to("https://www.youtube.com/feeds") == [] and net.calls_to("https://stellive.me") == []
+    assert read(data_dir, "status")["members"]
+
+
+def test_sources_without_status_do_not_load_or_write_it(data_dir):
+    before = (data_dir / "status.json").read_bytes()
+    net = Net()
+    run(data_dir, net, T1, "--only", "news")
+    assert not any("status.json" in c for c in net.calls) and (data_dir / "status.json").read_bytes() == before
+
+
+def test_disabled_source_is_skipped_by_default_but_still_runnable_with_only(data_dir, monkeypatch):
+    monkeypatch.setattr(config, "ENABLED_SOURCES", tuple(s for s in config.ENABLED_SOURCES if s != "chzzk"))
+    net = Net()
+    run(data_dir, net)
+    assert net.calls_to("https://api.chzzk.naver.com") == [] and net.calls_to("https://www.youtube.com/channel/")
+    assert all("live" not in e for e in read(data_dir, "status")["members"].values())
+    net2 = Net()
+    run(data_dir, net2, T2, "--only", "chzzk", "--local-state")
+    assert net2.calls_to("https://api.chzzk.naver.com")
+
+
+def test_unreadable_status_state_aborts_when_a_status_source_runs(data_dir):
+    before = (data_dir / "news.json").read_bytes()
+    assert run(data_dir, Net(state_status={"news": 404, "catalog": 404, "status": 500}), T1, "--only", "avatar") == 1
+    assert (data_dir / "news.json").read_bytes() == before

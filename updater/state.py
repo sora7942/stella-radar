@@ -154,6 +154,24 @@ def merge_news(
     return merged[:limit], fresh
 
 
+_STATUS_FIELD_ORDER = ("avatar", "avatarCheckedAt", "live")
+
+
+def merge_status(previous: dict, patches: dict) -> dict:
+    """status.json의 members에 소스별 패치({멤버 key: {필드: 값}})를 반영한 새 dict.
+    패치에 없는 멤버·필드는 이전 값 그대로다 — 소스가 실패한 멤버는 패치가 없으므로 이전 값이 유지된다.
+    필드 순서는 고정해서 값이 같으면 파일도 같게 나온다."""
+    merged = copy.deepcopy(previous)
+    for key, patch in patches.items():
+        merged.setdefault(key, {}).update(copy.deepcopy(patch))
+
+    def ordered(fields: dict) -> dict:
+        rank = lambda f: (_STATUS_FIELD_ORDER.index(f) if f in _STATUS_FIELD_ORDER else len(_STATUS_FIELD_ORDER), f)
+        return {f: fields[f] for f in sorted(fields, key=rank)}
+
+    return {key: ordered(fields) for key, fields in merged.items()}
+
+
 def _catalog_key(it: dict):
     num = it["id"]
     return (it.get("date") or "", int(num) if str(num).isdigit() else -1, str(num))

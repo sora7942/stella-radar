@@ -16,6 +16,11 @@ def to_kst_iso(value: str | datetime) -> str:
     return dt.astimezone(config.KST).isoformat(timespec="seconds")
 
 
+def naive_kst_to_iso(value: str) -> str:
+    """치지직의 openDate처럼 오프셋 없는 KST 문자열('2026-10-06 20:30:10') → '2026-10-06T20:30:10+09:00'."""
+    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=config.KST).isoformat(timespec="seconds")
+
+
 def parse_kst(value: str) -> datetime:
     """저장된 date 값을 비교용 aware datetime으로. 'YYYY-MM-DD'는 그날 00:00 KST."""
     if len(value) == 10:

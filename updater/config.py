@@ -45,5 +45,16 @@ MUSIC_DETAIL_PER_RUN = 40  # 실행당 새로 가져오는 상세 페이지 수 
 MUSIC_TAB_MAX_PAGES = 30  # 분류 탭 한 개당 읽을 페이지 안전 상한. 넘으면 끝을 확인할 수 없으므로 실패 처리한다
 MUSIC_FEED_DAYS = 14  # catalog에 처음 들어온 곡 중 발매일이 이 기간 안이면 news 피드에도 올린다
 
+YOUTUBE_CHANNEL_URL = "https://www.youtube.com/channel/{channel_id}"
+AVATAR_REFRESH_HOURS = 24  # 프로필 사진(og:image)은 하루에 한 번만 다시 읽는다
+# og:image가 이 호스트일 때만 아바타로 인정한다 (동의·오류 페이지의 기본 이미지가 프로필로 들어가는 것 방지)
+AVATAR_HOSTS = ("googleusercontent.com", "ggpht.com")
+
+CHZZK_LIVE_STATUS_URL = "https://api.chzzk.naver.com/polling/v2/channels/{channel_id}/live-status"  # 비공식 API
+CHZZK_LIVE_PAGE_URL = "https://chzzk.naver.com/live/{channel_id}"
+
+# 기본으로 돌리는 소스. 치지직이 Actions(해외 IP)에서 막히면 여기서 "chzzk"만 뺀다 (CLAUDE.md). --only는 이 목록과 무관하게 지정한 것만 돌린다
+ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk")
+
 # --- 소식 피드 -----------------------------------------------------------------
 NEWS_MAX_ITEMS = 300  # news.json 보관 상한 (date 내림차순)

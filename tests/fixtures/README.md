@@ -14,6 +14,7 @@ stellive.me 레이아웃이 바뀌면 파서가 0건을 내고 실패하도록 �
 | `stellive_music_category_cover_p1.html` | `/music/category/279` | COVER 탭 1페이지 앞 5건 + 페이지네이션(`?page=2` 링크 있음). 탭은 20건씩 페이지가 나뉨 |
 | `youtube_rss_lize.xml` | 아카네 리제 채널 RSS | 15건 전체. `published`는 UTC |
 | `youtube_rss_official.xml` | 스텔라이브 공식 채널 RSS | 15건 전체. 제목 태깅 케이스 |
-| `youtube_channel_lize.html` | 채널 페이지 | 1.6MB 중 `og:*` meta만 |
+| `youtube_channel_lize.html` | 채널 페이지 | 1.6MB 중 `og:*` meta만. 메타가 `<head>` 안에 있는 **옛 배치** (캡처 당시) |
+| `youtube_channel_kangji.html` | 강지 채널 페이지 | 2.4MB 중 `og:*`~`fb:app_id` 메타 구역을 **한 글자도 바꾸지 않고** 가져와, 실제와 같은 배치(`</head>` **뒤**, body 안)로 조립한 축약본. 2026-10-06 실측: `</head>` 710,566번째 글자, `og:title` 764,769번째. `og:description`에 강지 치지직 채널 링크가 들어 있다. 나머지(`<title>`, `ytInitialData`)는 축약 |
 | `chzzk_live_close.json` | 치지직 live-status (리제) | 방송 종료 상태 실제 응답 |
 | `chzzk_live_open.json` | — | **합성**: 위 응답에서 `status`=`OPEN`, `liveTitle`, `openDate`, `closeDate`만 바꿈 (방송 중인 실제 응답을 캡처하지 못해서) |
