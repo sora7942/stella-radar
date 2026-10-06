@@ -3,8 +3,8 @@
 SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md` → 계획 파일(`~/.claude/plans/pasted-content-id-2971-spec-md-cozy-llama.md`) 순서로 읽는다.
 
 ## 현재 위치
-**단계 5 완료(알림 구조 변경 + 유튜브 API 수집 반영). 단계 6 시작 전 — 사용자 확인 대기.** 로컬 `main`이 `origin/main`보다 앞서 있고(push 안 함), `pytest -q` → 544 passed.
-실제 디스코드 발송은 한 번도 하지 않았다. 로컬 테스트 발송도 하지 않는다 — **6단계 Actions 첫 수동 실행에서 나가는 알림이 테스트(Secret 확인 겸)**. 로컬 `.env`의 `DISCORD_WEBHOOK_URL`은 비어 있어 로컬에서 실수로 발송될 일은 없다.
+**단계 6 준비 완료(파일 작성·로컬 검증·로컬 커밋), 원격 작업 대기 중.** 로컬 `main`이 `origin/main`보다 앞서 있다(push 안 함). 원격(GitHub)은 **아무것도 바꾸지 않았다** — Pages 미설정(404), Secret 2개(`DISCORD_WEBHOOK_URL`, `YOUTUBE_API_KEY`)는 사용자가 이미 등록해 둠.
+사용자 지시: **push, Pages 설정, 첫 수동 실행은 각각 실행 전에 묻는다. 첫 수동 실행 전에는 그 시점의 dry-run 알림 목록을 먼저 보여준다.** 로컬 테스트 발송은 하지 않는다 — 첫 수동 실행에서 나가는 알림이 테스트(Secret 확인 겸). 로컬 `.env`의 `DISCORD_WEBHOOK_URL`은 비어 있다.
 
 ## 완료한 단계
 | 단계 | 내용 | 커밋 |
@@ -19,7 +19,9 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 | 4+ | 강지 치지직 ID 반영, `official_img` 대체·`img.top` CSS 제거, `live.checkedAt`+사이트 2시간 규칙, 아바타 `=s240` 저장, RSS 실패 로그 테스트 | `b57c67f` |
 | 5 | 알림 판정(`alerts.py`, 방송 시작은 since 규칙)·임베드/발송/dry-run(`discord.py`)·`http.post_json`, main 연결 | `d4fda1f` |
 | 5+ | 알림을 배포 성공 뒤로: main은 `out/alerts.json`만 남기고, `send_alerts.py`가 그 파일만 읽어 발송 | `915d814` |
-| 5++ | 유튜브 영상을 YouTube Data API 기본으로(키 없음·할당량 초과일 때만 RSS), 업로드 재생목록 ID 캐시, 키 비노출 장치(`redact.py`)와 저장소 비밀 스캔 테스트 | 이 문서와 같은 커밋 |
+| 5++ | 유튜브 영상을 YouTube Data API 기본으로(키 없음·할당량 초과일 때만 RSS), 업로드 재생목록 ID 캐시, 키 비노출 장치(`redact.py`)와 저장소 비밀 스캔 테스트 | `035576d` |
+| 5+++ | 키 거부도 RSS로 대체 + Actions `::warning::`("YouTube API 키 확인 필요"), `search.list`는 코드에서 거부(허용 목록) | `d44fb5e` |
+| 6a | `update.yml`·`keepalive.yml`·`README.md`·워크플로 구조 테스트(로컬 작성·검증만, 원격 미반영) | 이 문서와 같은 커밋 |
 
 단계 3 검증 결과: 카탈로그 286곡(EP 7 · SINGLE 19 · COVER 252 · OTHERS 8)이 분류 탭 라벨과 일치. 연속 실행으로 40→…→286까지 채워졌고 경고·오류 0건. 정상 상태 재실행은 목록 요청 1회뿐. 브라우저(1280px·400px)에서 "공식 전체 (286)", 썸네일 60/60, 콘솔 에러 없음.
 
@@ -106,10 +108,11 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 - `who`가 빈 카탈로그 곡 25곡은 모두 졸업 멤버 아이리 칸나 곡이며 SPEC대로 `[]`.
 - 강지 `chzzk_id`는 `b5ed5db484d04faf4d150aedd362f34b` (사용자 확인 후 반영).
 
-## 다음 할 일
-단계 5 확인 후 → **6**(Actions + README, push 전 확인) → **7**(예약 실행 확인, 이전 Claude 예약 작업 끄기는 사용자가 앱에서).
-
-**6단계 준비물**: GitHub Secret `YOUTUBE_API_KEY`(사용자가 이미 등록함)와 `DISCORD_WEBHOOK_URL`. 워크플로에서 `YOUTUBE_API_KEY`는 `python main.py` 단계의 `env`에만, `DISCORD_WEBHOOK_URL`은 `python send_alerts.py` 단계의 `env`에만 넣는다. Actions(해외 IP)에서 YouTube API·치지직·유튜브 채널 페이지(아바타)가 되는지는 첫 수동 실행 로그로 실측한다.
+## 다음 할 일 — 6단계의 원격 작업 (각각 실행 전에 사용자에게 묻는다)
+1. **push** (`git push origin main`, 로컬이 앞선 커밋 전부). **주의**: push하면 `update.yml`의 `push` 트리거가 바로 한 번 돈다. Pages가 아직 꺼져 있으면 배포 단계에서 실패하고, 알림 단계는 앞 단계가 실패했으므로 건너뛰어 **알림은 나가지 않는다**(테스트로 고정). 실패 실행 1건과 GitHub 실패 메일이 생길 수 있다. 반대로 Pages를 먼저 켜고 push하면 그 자동 실행이 실제 배포와 알림 발송까지 가므로 통제된 '첫 수동 실행'이 될 수 없다 → 계획한 순서(push → Pages)를 권한다.
+2. **Pages 설정**: Source를 GitHub Actions로 (`gh api -X POST repos/sora7942/stella-radar/pages -f build_type=workflow` 또는 Settings → Pages).
+3. **첫 수동 실행** (`gh workflow run update.yml`, 알림 없이 돌리려면 `-f no_alerts=true`): 실행 **직전에 그 시점의 `--dry-run` 알림 목록을 사용자에게 먼저 보여준다**. 실행 후 `gh run watch`로 로그를 보고 확인할 것 — ① 배포·`send_alerts` 결과 ② Actions(해외 IP)에서 YouTube API·치지직·채널 페이지(아바타)가 되는지 ③ 디스코드에 알림 도착(Secret 확인) ④ 사이트가 열리고 멤버 사진·썸네일이 보이는지.
+4. 7단계: 다음 30분 예약 실행이 도는지·"마지막 관측" 갱신. 이전 Claude 예약 작업 끄기는 사용자가 앱에서.
 
 ## 단계 6에서 결정할 것
 - ~~배포 실패 시 중복 알림~~ 해결됨: 알림을 배포 성공 뒤 단계(`send_alerts.py`)로 옮겼다(위 "알림 구조").

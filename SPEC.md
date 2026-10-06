@@ -27,7 +27,8 @@ GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다
 ## 3. 저장소 구조
 ```
 stella-radar/
-├─ .github/workflows/update.yml   # 30분마다 수집 → 배포 (+ main push, 수동 실행)
+├─ .github/workflows/update.yml   # 30분마다 수집 → 배포 → (배포 성공 뒤) 알림 (+ main push, 수동 실행)
+│  └─ keepalive.yml               # 한 달에 한 번 빈 커밋 (60일 비활동으로 예약 실행이 꺼지는 것 방지)
 ├─ site/                          # 그대로 Pages에 올라가는 정적 사이트
 │  ├─ index.html                  # 완성본. 데이터 스키마(4장)만 맞추면 됨
 │  └─ data/
@@ -153,7 +154,9 @@ stella-radar/
 - 로컬 미리보기: `python -m http.server -d site 8000` → `http://localhost:8000`
 
 ## 9. GitHub Actions (`update.yml`)
-- 트리거: `schedule: cron "*/30 * * * *"`, `workflow_dispatch`, `push` (main 브랜치, `site/**` 또는 `updater/**` 변경)
+- 트리거: `schedule: cron "*/30 * * * *"`, `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함)
+- 한 잡(`update`, `environment: github-pages`, `timeout-minutes: 20`)에 모든 단계를 둔다. 액션은 공식 액션의 메이저 버전으로 고정: `checkout@v7`, `setup-python@v7`, `upload-pages-artifact@v5`, `deploy-pages@v5`
+- `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
 - 권한: `contents: read`, `pages: write`, `id-token: write`
 - 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages` → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)

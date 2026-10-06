@@ -1,0 +1,67 @@
+# 30분마다 새 소식을 모아 사이트를 다시 배포하고, 배포가 성공한 뒤에 디스코드 알림을 보낸다 (SPEC 9장).
+# - 업데이터(main.py)가 실패하면 배포와 알림은 건너뛰고 실행은 실패로 표시된다.
+# - 배포가 실패하면 알림도 나가지 않는다 (알림 단계는 앞 단계가 모두 성공했을 때만 돈다).
+# - Secret은 필요한 단계의 env에만 넣는다: YOUTUBE_API_KEY → main.py, DISCORD_WEBHOOK_URL → send_alerts.py.
+name: update
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # UTC 기준. GitHub 사정으로 몇 분씩 늦게 돌거나 건너뛰기도 한다
+  workflow_dispatch:
+    inputs:
+      no_alerts:
+        description: "디스코드 알림 없이 실행 (main.py --no-discord)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "updater/**"
+      - "main.py"
+      - "send_alerts.py"
+      - "requirements.txt"
+      - ".github/workflows/update.yml"
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 수집 (site/data 갱신 + 보낼 알림 파일 out/alerts.json)
+        run: python main.py ${{ inputs.no_alerts && '--no-discord' || '' }}
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+      - name: 알림 발송 (배포가 성공한 뒤에만)
+        run: python send_alerts.py
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

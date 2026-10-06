@@ -1,0 +1,27 @@
+# GitHub은 공개 저장소에 60일 동안 활동이 없으면 예약(cron) 실행을 자동으로 끈다.
+# update.yml은 데이터를 커밋하지 않기 때문에(SPEC 6장) 저장소에는 활동이 없다 → 한 달에 한 번 빈 커밋을 남겨 예약 실행이 꺼지지 않게 한다.
+# update.yml과 분리한 이유: 쓰기 권한(contents: write)이 필요한 것은 이 작업뿐이라, 배포 워크플로의 권한은 읽기로 둔다.
+# GITHUB_TOKEN으로 한 push는 다른 워크플로를 깨우지 않는다.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "17 3 1 * *" # 매달 1일 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 빈 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive (60일 비활동으로 예약 실행이 꺼지는 것을 막는다)"
+          git push
