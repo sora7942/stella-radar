@@ -28,6 +28,8 @@ class Clock:
 def data_dir(tmp_path):
     d = tmp_path / "data"
     shutil.copytree(ROOT / "site" / "data", d)
+    # 저장소의 catalog.json은 채워진 시드(286곡)다. 테스트는 '최초 실행·백필' 흐름을 보므로 빈 카탈로그에서 시작한다
+    (d / "catalog.json").write_text(json.dumps({"updatedAt": None, "items": []}), encoding="utf-8")
     return d
 
 
