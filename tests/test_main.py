@@ -46,8 +46,9 @@ class Net:
     live = {치지직 채널 ID: True(방송 중)}, chzzk_fail = 실패시킬 치지직 채널 ID, page_fail = 실패시킬 유튜브 채널 ID."""
 
     def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
-                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10"):
+                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None):
         self.calls = []
+        self.api = api  # fakeapi.FakeApi. None이면 YouTube API 호출이 오면 실패시킨다 (키가 없을 땐 API를 부르면 안 된다)
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
         self.live, self.chzzk_fail, self.page_fail = set(live), set(chzzk_fail), set(page_fail)
         self.open_date = open_date  # 방송 중인 멤버의 openDate (치지직은 오프셋 없는 KST 문자열). None이면 값이 없는 응답
@@ -73,6 +74,10 @@ class Net:
             return make_response(200, (FIXTURES / "stellive_news_list.html").read_bytes())
         if url.startswith("https://stellive.me/music"):
             return self.site(url)
+        if url.startswith(config.YOUTUBE_API_URL):
+            if self.api is None:
+                raise AssertionError(f"API 키가 없는데 YouTube API를 불렀다: {url}")
+            return self.api(url, **kw)
         if url.startswith("https://www.youtube.com/channel/"):  # 채널 페이지: og:image가 </head> 뒤에 있는 실제 배치
             cid = url.rsplit("/", 1)[1]
             if cid in self.page_fail:
@@ -646,3 +651,164 @@ class PostRecorder:
     def __call__(self, url, payload, **kw):
         self.calls.append((url, payload))
         return make_response(204)
+
+
+
+# ============================ 유튜브: API 기본, RSS는 대체 =======================
+from fakeapi import KANGJI as KANGJI_YT, KEY, LIZE as LIZE_YT, OFFICIAL as OFFICIAL_YT_ID, FakeApi, http_error, uploads_of  # noqa: E402
+
+RSS_URL = "https://www.youtube.com/feeds"
+API_URL = config.YOUTUBE_API_URL
+SECRET_FILES = ("news", "catalog", "status", "members")
+
+
+def api_run(data_dir, net, clock=T1, *extra, key=KEY, dry=True):
+    """YouTube API 키를 환경변수로 넘겨 실행 (키가 None이면 환경에 없는 것과 같다)."""
+    argv = (["--dry-run"] if dry else []) + list(extra)
+    return app.main(argv, get=net, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None, environ={"YOUTUBE_API_KEY": key} if key else {})
+
+
+def written_text(data_dir):
+    """이번 실행이 남긴 모든 파일의 내용 (데이터 + 알림 파일)."""
+    texts = [p.read_text(encoding="utf-8") for p in data_dir.glob("*.json")]
+    if config.ALERTS_FILE.exists():
+        texts.append(config.ALERTS_FILE.read_text(encoding="utf-8"))
+    return "\n".join(texts)
+
+
+def test_with_a_key_videos_come_from_the_api_and_rss_is_not_requested(data_dir):
+    fake = FakeApi()
+    net = Net(api=fake)
+    assert api_run(data_dir, net, T1, "--only", "youtube") == 0
+    assert net.calls_to(RSS_URL) == []  # API가 기본이라 RSS는 부르지 않는다
+    assert fake.endpoints() == ["channels"] + ["playlistItems"] * 12  # 12개 채널 = channels.list 1 + playlistItems 12
+    videos = [i for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
+    assert len(videos) == 15 + 15 + 15 and all(v["date"].endswith("+09:00") and v["added"] == T1 for v in videos)
+    assert {v["source"] for v in videos} == {"강지 유튜브", "아카네 리제 유튜브", "스텔라이브 공식 유튜브"}
+
+
+def test_every_api_call_carries_the_key_in_the_header_only(data_dir):
+    fake = FakeApi()
+    api_run(data_dir, Net(api=fake), T1, "--only", "youtube")
+    assert fake.calls and all(kw["headers"] == {"X-Goog-Api-Key": KEY} and KEY not in url and "key=" not in url for url, kw in fake.calls)
+
+
+def test_upload_playlist_ids_are_cached_in_status_and_reused_next_run(data_dir):
+    people_ = people(data_dir)[1]
+    api_run(data_dir, Net(api=FakeApi()), T1, "--only", "youtube")
+    st = read(data_dir, "status")["members"]
+    assert {k: v["uploads"] for k, v in st.items()} == {**{k: uploads_of(read(data_dir, "members")["members"][k]["yt_id"]) for k in people_}, "official": uploads_of(OFFICIAL_YT_ID)}
+    assert read(data_dir, "status")["updatedAt"] == T1
+    fake2 = FakeApi()
+    api_run(data_dir, Net(api=fake2), T2, "--only", "youtube", "--local-state")
+    assert "channels" not in fake2.endpoints() and fake2.endpoints() == ["playlistItems"] * 12  # 캐시 덕분에 channels.list를 다시 부르지 않는다
+
+
+def test_the_cache_survives_other_sources_rewriting_status(data_dir):
+    api_run(data_dir, Net(api=FakeApi()), T1, "--only", "youtube")
+    api_run(data_dir, Net(), T2, "--only", "avatar,chzzk", "--local-state")  # 아바타·방송이 status를 다시 써도
+    assert all(v.get("uploads") for v in read(data_dir, "status")["members"].values())  # 캐시는 그대로
+
+
+def test_without_a_key_rss_is_used_and_the_api_is_never_called(data_dir, caplog):
+    net = Net()  # api=None: API가 불리면 AssertionError → 소스 실패로 드러난다
+    with caplog.at_level("INFO"):
+        assert api_run(data_dir, net, T1, "--only", "youtube", key=None) == 0
+    assert net.calls_to(API_URL) == [] and net.calls_to(RSS_URL)
+    assert "YOUTUBE_API_KEY가 없어 RSS로 수집합니다" in caplog.text
+    assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"])
+    assert not any(a for a in read(data_dir, "status")["members"].values() if "uploads" in a)  # RSS 경로는 캐시를 만들지 않는다
+
+
+def test_a_blank_key_counts_as_missing(data_dir):
+    net = Net()
+    assert api_run(data_dir, net, T1, "--only", "youtube", key="   ") == 0 and net.calls_to(API_URL) == [] and net.calls_to(RSS_URL)
+
+
+def test_quota_exceeded_on_the_first_call_falls_back_to_rss_for_every_channel(data_dir, caplog):
+    fake = FakeApi(fail={("channels", None): http_error(403, "youtube_api_error_quota.json")})
+    net = Net(api=fake)
+    with caplog.at_level("WARNING"):
+        assert api_run(data_dir, net, T1, "--only", "youtube") == 0
+    assert "YouTube API 할당량 초과 — 남은 12개 채널은 RSS로 수집합니다" in caplog.text
+    assert len(net.calls_to(RSS_URL)) == 12 and fake.endpoints() == ["channels"]
+    assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"])
+
+
+def test_quota_exceeded_midway_uses_rss_only_for_the_channels_left(data_dir, caplog):
+    fake = FakeApi(quota_after=3)  # 강지·유니·후야까지 API, 히나부터 할당량 초과
+    net = Net(api=fake)
+    members_ = read(data_dir, "members")
+    left = [members_["members"][k]["yt_id"] for k in list(members_["members"])[3:] if members_["members"][k].get("yt_id")] + [OFFICIAL_YT_ID]
+    with caplog.at_level("WARNING"):
+        assert api_run(data_dir, net, T1, "--only", "youtube") == 0
+    asked = [u.split("channel_id=")[1] for u in net.calls_to(RSS_URL)]
+    assert asked == left and len(left) == 9  # 못 한 9개 채널만 RSS
+    assert "남은 9개 채널은 RSS" in caplog.text
+    ids = [i["id"] for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
+    assert len(ids) == len(set(ids)) and any(i["source"] == "강지 유튜브" for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-"))
+
+
+def test_a_rejected_key_does_not_fall_back_to_rss(data_dir, caplog):
+    fake = FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")})
+    net = Net(api=fake)
+    with caplog.at_level("INFO"):
+        assert api_run(data_dir, net, T1, "--only", "youtube") == 1  # 영상 소스 하나뿐인데 전부 실패 → 모든 소스 실패(exit 1)
+    assert net.calls_to(RSS_URL) == []  # 할당량 초과도 키 없음도 아니므로 RSS로 돌리지 않는다
+    assert "HTTP 400 badRequest" in caplog.text or "업로드 재생목록을 찾지 못함" in caplog.text
+
+
+def test_one_failing_channel_is_isolated_and_logged_without_rss(data_dir, caplog):
+    fake = FakeApi(fail={("playlistItems", uploads_of(LIZE_YT)): http_error(500, b"<html>oops</html>")})
+    net = Net(api=fake)
+    with caplog.at_level("INFO"):
+        assert api_run(data_dir, net, T1, "--only", "youtube") == 0
+    assert net.calls_to(RSS_URL) == []
+    assert "아카네 리제 유튜브: HTTP 500 -" in caplog.text and "일부 실패 1건" in caplog.text
+    assert any(i["source"] == "강지 유튜브" for i in read(data_dir, "news")["items"])
+
+
+def test_the_key_never_appears_in_logs_output_or_any_written_file(data_dir, capsys, caplog):
+    """성공·할당량 초과·키 거부·네트워크 오류·낡은 캐시: 어떤 경우에도 키가 로그·출력·파일에 없다 (예외 메시지에 키가 든 URL을 일부러 넣었다)."""
+    scenarios = [
+        FakeApi(),
+        FakeApi(quota_after=2),
+        FakeApi(fail={("channels", None): http_error(400, "youtube_api_error_badkey.json")}),
+        FakeApi(fail={("playlistItems", uploads_of(LIZE_YT)): requests.ConnectionError(f"boom https://x/?key={KEY}")}),
+        FakeApi(fail={("playlistItems", uploads_of(KANGJI_YT)): RuntimeError(f"internal {KEY}")}),
+    ]
+    with caplog.at_level("DEBUG"):
+        for fake in scenarios:
+            api_run(data_dir, Net(api=fake), T1, "--only", "youtube,news")
+            api_run(data_dir, Net(api=fake), T2, "--only", "youtube", "--local-state", dry=False)
+    out = capsys.readouterr()
+    assert KEY not in caplog.text + out.out + out.err and KEY not in written_text(data_dir)
+    assert "TESTKEY" not in written_text(data_dir)
+
+
+def test_a_secret_hidden_in_an_exception_is_masked_in_the_source_failure_log(data_dir, caplog):
+    """우리 코드가 키를 메시지에 넣지 않더라도, 예상 밖 경로(예: RuntimeError 메시지)로 새면 main이 가린다."""
+    def leaky(url, **kw):
+        raise RuntimeError(f"unexpected {KEY}")
+    net = Net(api=leaky)
+    with caplog.at_level("DEBUG"):
+        api_run(data_dir, net, T1, "--only", "youtube,news")
+    assert KEY not in caplog.text
+
+
+def test_with_a_key_the_previous_status_must_be_readable_but_not_without(data_dir):
+    state_500 = {"news": 404, "catalog": 404, "status": 500}
+    assert api_run(data_dir, Net(api=FakeApi(), state_status=state_500), T1, "--only", "youtube") == 1  # 캐시를 읽지 못하면 중단
+    assert api_run(data_dir, Net(state_status=state_500), T1, "--only", "youtube", key=None) == 0  # RSS 경로는 status가 필요 없다
+
+
+def test_api_videos_flow_into_alerts_like_rss_videos(data_dir, capsys):
+    from datetime import timedelta
+    from updater import timeutil
+    raw = json.loads((FIXTURES / "youtube_api_playlist_lize.json").read_text(encoding="utf-8"))["items"]
+    newest = max(timeutil.parse_kst(timeutil.to_kst_iso(i["contentDetails"]["videoPublishedAt"])) for i in raw)
+    clock = timeutil.to_kst_iso(newest + timedelta(minutes=30))  # 가장 최근 영상이 30분 전
+    empty = {"items": []}
+    api_run(data_dir, Net(api=FakeApi(playlists={uploads_of(KANGJI_YT): empty, uploads_of(OFFICIAL_YT_ID): empty})), clock, "--only", "youtube")
+    out = capsys.readouterr().out
+    assert "[디스코드 dry-run]" in out and "아카네 리제 · 영상" in out and "썸네일 https://i.ytimg.com/vi/" in out

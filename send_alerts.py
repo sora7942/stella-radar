@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-from updater import config, discord, http
+from updater import config, discord, http, redact
 
 log = logging.getLogger("send_alerts")
 
@@ -52,7 +52,7 @@ def main(argv=None, *, post=http.post_json, sleep=time.sleep, alerts_file: Path 
     p = argparse.ArgumentParser(description="알림 파일의 알림을 디스코드로 보낸다")
     p.add_argument("--dry-run", action="store_true", help="보낼 내용만 출력한다 (발송 안 함, 파일 유지)")
     args = p.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
+    redact.configure_logging()  # 웹훅 URL은 등록해 두면 로그 출력 직전에 한 번 더 가려진다
     environ = os.environ if environ is None else environ
     path = Path(alerts_file or config.ALERTS_FILE)  # 호출 시점에 읽는다 (테스트가 바꿀 수 있게)
     on_actions = environ.get("GITHUB_ACTIONS") == "true"
@@ -81,6 +81,7 @@ def main(argv=None, *, post=http.post_json, sleep=time.sleep, alerts_file: Path 
         warn(f"DISCORD_WEBHOOK_URL이 없어 알림 {total}건을 보내지 못했습니다 — Secret 등록을 확인하세요")
         return 0  # 파일은 남겨 둔다 (웹훅을 설정한 뒤 다시 돌릴 수 있게)
 
+    redact.register(webhook)
     sent, failed = discord.send(webhook, messages, post=post, sleep=sleep)
     log.info("디스코드: 메시지 %d개 발송, %d개 실패 (알림 %d건)", sent, failed, total)
     if failed:

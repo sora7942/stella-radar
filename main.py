@@ -17,14 +17,15 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from updater import alerts, config, discord, http, state, tagging, timeutil
-from updater.sources import chzzk, stellive_music, stellive_news, youtube_avatar, youtube_rss
+from updater import alerts, config, discord, http, redact, state, tagging, timeutil
+from updater.sources import chzzk, stellive_music, stellive_news, youtube_api, youtube_avatar, youtube_rss
 
 log = logging.getLogger("main")
 
@@ -39,6 +40,7 @@ class Context:
     sleep: callable
     prev_catalog: list = field(default_factory=list)
     prev_status: dict = field(default_factory=dict)  # status.json의 이전 'members'
+    youtube_api_key: str | None = None  # 없으면 RSS로 수집한다. 로그·메시지에 절대 넣지 않는다
 
 
 @dataclass
@@ -50,11 +52,33 @@ class SourceResult:
 
 
 def run_youtube(ctx: Context) -> SourceResult:
+    """YouTube Data API가 기본, RSS는 키가 없거나 할당량이 초과됐을 때만 (남은 채널만) 쓴다.
+    그 밖의 API 실패(키 거부 등)는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다."""
     channels = youtube_rss.channels_from_members(ctx.members)
-    items, errors = youtube_rss.collect(channels, ctx.index, get=ctx.get, sleep=ctx.sleep)
+    items: list = []
+    errors: list = []
+    patches: dict = {}
+    rss_channels = channels
+    if ctx.youtube_api_key:
+        cached = {k: v["uploads"] for k, v in ctx.prev_status.items() if isinstance(v, dict) and v.get("uploads")}
+        res = youtube_api.collect(channels, ctx.index, api_key=ctx.youtube_api_key, cached=cached, get=ctx.get)
+        items, errors = list(res.items), list(res.errors)
+        patches = {key: {"uploads": playlist} for key, playlist in res.uploads.items()}
+        rss_channels = res.remaining
+        log.info("유튜브: API로 %d개 채널 처리 (영상 %d개%s)", len(channels) - len(rss_channels), len(items),
+                 f", 실패 {len(errors)}건" if errors else "")
+        if res.quota_exceeded:
+            log.warning("YouTube API 할당량 초과 — 남은 %d개 채널은 RSS로 수집합니다", len(rss_channels))
+    else:
+        log.info("YOUTUBE_API_KEY가 없어 RSS로 수집합니다")
+    if rss_channels:
+        rss_items, rss_errors = youtube_rss.collect(rss_channels, ctx.index, get=ctx.get, sleep=ctx.sleep)
+        have = {it["id"] for it in items}
+        items += [it for it in rss_items if it["id"] not in have]  # API로 받은 항목이 먼저
+        errors += rss_errors
     if errors and not items:
-        raise RuntimeError(f"모든 채널 실패 ({len(errors)}개): {errors[0]}")
-    return SourceResult(news_items=items, errors=errors)
+        raise RuntimeError(f"모든 채널 실패 ({len(errors)}건): {errors[0]}")
+    return SourceResult(news_items=items, status_patches=patches or None, errors=errors)
 
 
 def run_news(ctx: Context) -> SourceResult:
@@ -146,9 +170,13 @@ def main(
     alerts_file: Path | str | None = None,
     now=timeutil.now_kst,
     sleep=time.sleep,
+    environ=None,
 ) -> int:
     args = parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
+    redact.configure_logging()  # 등록된 비밀(API 키)은 로그 출력 직전에 한 번 더 가린다
+    environ = os.environ if environ is None else environ
+    api_key = (environ.get(config.YOUTUBE_API_KEY_ENV) or "").strip() or None
+    redact.register(api_key)
     data_dir = Path(data_dir)
     alerts_file = Path(alerts_file or config.ALERTS_FILE)  # 호출 시점에 읽는다 (테스트가 바꿀 수 있게)
     discard_pending_alerts(alerts_file)
@@ -156,7 +184,8 @@ def main(
     now_iso = timeutil.to_kst_iso(started)  # 이번 실행의 기준 시각 (added·updatedAt의 값)
 
     members = state.read_json(data_dir / "members.json")
-    ctx = Context(members=members, index=tagging.build_index(members), now=started, now_iso=now_iso, get=get, sleep=sleep)
+    ctx = Context(members=members, index=tagging.build_index(members), now=started, now_iso=now_iso, get=get, sleep=sleep,
+                  youtube_api_key=api_key)
 
     def load(name):
         return state.load_previous(name, local_dir=data_dir, get=get, sleep=sleep, local_only=args.local_state)
@@ -165,7 +194,8 @@ def main(
         prev_news = load("news")
         if "music" in args.sources:  # 음악을 안 돌릴 때는 catalog 상태가 필요 없다
             ctx.prev_catalog = load("catalog")["items"]
-        if {"avatar", "chzzk"} & set(args.sources):  # 아바타·방송 상태를 안 돌릴 때는 status 상태가 필요 없다
+        # 아바타·방송 상태·(API로 도는) 유튜브만 status 상태가 필요하다 (업로드 재생목록 ID 캐시)
+        if {"avatar", "chzzk"} & set(args.sources) or ("youtube" in args.sources and api_key):
             ctx.prev_status = load("status")["members"]
     except state.StateLoadError as e:
         log.error("이전 상태를 읽지 못해 중단합니다 (배포는 건너뜁니다): %s", e)
@@ -183,7 +213,7 @@ def main(
                      f", 멤버 상태 {len(r.status_patches)}명" if r.status_patches is not None else "",
                      f", 일부 실패 {len(r.errors)}건" if r.errors else "")
         except Exception as e:  # 소스 하나의 실패가 전체를 멈추지 않는다 (해당 소스의 이전 데이터는 그대로 남는다)
-            log.error("소스 %s 실패: %s: %s", name, type(e).__name__, e)
+            log.error("소스 %s 실패: %s: %s", name, type(e).__name__, redact.mask(str(e)))  # 예외 메시지에 비밀이 섞였더라도 가린다
 
     if not results:
         log.error("모든 소스가 실패해 중단합니다 (파일을 쓰지 않습니다)")

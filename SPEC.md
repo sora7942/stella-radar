@@ -103,6 +103,7 @@ stella-radar/
 {"updatedAt":"...","members":{"lize":{"avatar":"https://yt3.googleusercontent.com/...","avatarCheckedAt":"...",
   "live":{"on":true,"title":"방송 제목","url":"https://chzzk.naver.com/live/<chzzk_id>","since":"...","checkedAt":"..."}}}}
 ```
+- `uploads`: 유튜브 업로드 재생목록 ID 캐시(YouTube API 수집용, 멤버 key별 + 공식 채널은 `official` 키). 캐시된 ID가 `playlistNotFound`면 그 채널만 다시 구한다
 - `avatar`: 유튜브 채널 페이지의 `og:image`. 크기 파라미터만 `=s900` → `=s240`으로 바꿔 저장한다(같은 서버·같은 이미지, `config.AVATAR_SIZE`). 하루 1번 갱신, 실패하면 이전 값 유지
 - `live`: 치지직 방송 상태. 꺼져 있으면 `{"on":false,"checkedAt":"..."}`
 - `live.checkedAt`: 치지직을 마지막으로 **성공적으로 확인한** 시각. 요청이 실패한 멤버는 이전 live 값과 이전 checkedAt이 그대로 남는다. 사이트는 checkedAt이 2시간 넘게 지났거나 없는 LIVE는 표시하지 않는다(소스를 끄거나 계속 실패해도 오래된 LIVE가 남지 않게)
@@ -114,7 +115,7 @@ stella-radar/
 ## 5. 수집 소스
 | 소스 | 방법 | 비고 |
 |---|---|---|
-| 유튜브 새 영상 | `https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>` (12개 채널) | 채널당 최신 15개. 쇼츠·라이브 다시보기·예정 프리미어 포함. 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all` |
+| 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (12개 채널 = 호출 12회 + 캐시가 없을 때 1회, 하루 약 580유닛 / 한도 10,000). 키(`YOUTUBE_API_KEY`)가 **없거나 할당량이 초과됐을 때만** RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체한다(할당량이 중간에 초과되면 못 한 채널만). 그 밖의 API 실패(키 거부 등)는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다 | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함. 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
 | 공식 공지 | `https://stellive.me/news` 목록 HTML | Rhymix 기반. 제목·날짜·카테고리·`/news/<번호>` 파싱. 첫 페이지만 |
 | 공식 음악 | `https://stellive.me/music` 목록 + `/music/<번호>` 상세 | 상세는 **처음 보는 번호만** 가져온다(실행당 최대 40개, 요청 간 0.5초). 최초 실행 때 전체(약 290곡)를 여러 번에 나눠 채움. 새 곡은 news에도 `음악`으로 추가 |
 | 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status` | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
@@ -158,6 +159,7 @@ stella-radar/
 - 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages` → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)
 - 업데이터가 실패(예외 종료)해도 배포 단계는 건너뛰고(알림도 나가지 않고), 실행은 실패로 표시 (GitHub 실패 메일). 배포가 실패하면 알림 단계도 돌지 않는다
 - Secret: `DISCORD_WEBHOOK_URL` — **`send_alerts.py` 단계의 `env`에만** 넣는다. 업데이터(`main.py`) 단계에는 노출하지 않는다
+- Secret: `YOUTUBE_API_KEY` — **`main.py` 단계의 `env`에만** 넣는다(업데이터만 읽는다). 없으면 RSS로 수집한다
 - 저장소 Settings → Pages → Source를 **GitHub Actions**로 설정 (README에 안내)
 
 ## 10. 테스트 (네트워크 없이)

@@ -154,7 +154,7 @@ def merge_news(
     return merged[:limit], fresh
 
 
-_STATUS_FIELD_ORDER = ("avatar", "avatarCheckedAt", "live")
+_STATUS_FIELD_ORDER = ("avatar", "avatarCheckedAt", "live", "uploads")  # uploads: 유튜브 업로드 재생목록 ID 캐시 (YouTube API)
 
 
 def merge_status(previous: dict, patches: dict) -> dict:

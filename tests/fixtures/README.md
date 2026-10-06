@@ -18,3 +18,18 @@ stellive.me 레이아웃이 바뀌면 파서가 0건을 내고 실패하도록 �
 | `youtube_channel_kangji.html` | 강지 채널 페이지 | 2.4MB 중 `og:*`~`fb:app_id` 메타 구역을 **한 글자도 바꾸지 않고** 가져와, 실제와 같은 배치(`</head>` **뒤**, body 안)로 조립한 축약본. 2026-10-06 실측: `</head>` 710,566번째 글자, `og:title` 764,769번째. `og:description`에 강지 치지직 채널 링크가 들어 있다. 나머지(`<title>`, `ytInitialData`)는 축약 |
 | `chzzk_live_close.json` | 치지직 live-status (리제) | 방송 종료 상태 실제 응답 |
 | `chzzk_live_open.json` | — | **합성**: 위 응답에서 `status`=`OPEN`, `liveTitle`, `openDate`, `closeDate`만 바꿈 (방송 중인 실제 응답을 캡처하지 못해서) |
+
+## YouTube Data API 응답 (2026-10-06 캡처, `youtube_api_*.json`)
+**실제 응답이고 API 키는 들어 있지 않다**(키는 요청 헤더 `X-Goog-Api-Key`로만 보냈고 응답 본문에는 나오지 않는다. 저장 전에 키 문자열·`AIza…` 형식이 없는지 검사했고, `tests/test_secrets_hygiene.py`가 저장소를 계속 검사한다). 표기만 압축(공백 없는 JSON)했다.
+
+| 파일 | 원본 | 비고 |
+|---|---|---|
+| `youtube_api_channels.json` | `channels.list?part=contentDetails&id=<12개 채널>` | 12개 채널 전부. `relatedPlaylists.uploads`가 전부 `UU`+채널 ID(앞 `UC` 제외)와 일치 |
+| `youtube_api_playlist_lize.json` | `playlistItems.list?part=snippet,contentDetails&maxResults=15` | 리제 업로드 재생목록 15개. 프리미어로 올라온 커버곡(`FzefgoF26Ac`: 예정 08:30:00Z, `videoPublishedAt`=실제 시작 08:30:07Z) 포함 |
+| `youtube_api_playlist_kangji.json` | 〃 | 강지 15개. **쇼츠** 포함 — 재생목록 항목에는 쇼츠 표시가 없다(`contentDetails`는 `videoId`·`videoPublishedAt`뿐) |
+| `youtube_api_playlist_official.json` | 〃 | 공식 채널 15개 (제목 태깅 시험) |
+| `youtube_api_videos_sample.json` | `videos.list?part=snippet,contentDetails,liveStreamingDetails,status` | 위 영상 중 라이브·프리미어 지난 방송 5개 + 쇼츠 4개. **설명·썸네일 등 쓰지 않는 필드는 뺐다.** 수집기는 `videos.list`를 쓰지 않고, 쇼츠·라이브가 어떻게 보이는지 기록하려고 둔 것 |
+| `youtube_api_error_badkey.json` | 엉터리 키로 보낸 요청 | **실제** 400 `badRequest` ("API key not valid") |
+| `youtube_api_error_nokey.json` | 키 없이 보낸 요청 | **실제** 403 `forbidden` — 403이어도 할당량 초과(`quotaExceeded`)가 아니다 |
+| `youtube_api_error_quota.json` | — | **합성**: 일일 할당량 초과를 실제로 만들 수 없어 Google의 오류 형식(`reason: quotaExceeded`)을 따라 만들었다 |
+| `youtube_api_error_playlist_not_found.json` | — | **합성**: 낡은 캐시(`playlistNotFound`, 404) 형식 |

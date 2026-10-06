@@ -3,8 +3,8 @@
 SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md` → 계획 파일(`~/.claude/plans/pasted-content-id-2971-spec-md-cozy-llama.md`) 순서로 읽는다.
 
 ## 현재 위치
-**단계 5 완료(알림을 배포 성공 뒤로 옮기는 구조 변경 반영). 단계 6 시작 전 — 유튜브 RSS가 12개 채널 모두 실패 중이라 사용자 결정 대기.** 로컬 `main`이 `origin/main`보다 앞서 있고(push 안 함), `pytest -q` → 465 passed.
-사용자 지시: RSS가 여전히 안 되면 6단계 진행 전에 결과를 보여주고 멈춘다 → 아래 "RSS 상태와 API 대체 검토". 실제 디스코드 발송은 한 번도 하지 않았다. 로컬 테스트 발송도 하지 않는다 — **6단계 Actions 첫 수동 실행에서 나가는 알림이 테스트(Secret 확인 겸)**.
+**단계 5 완료(알림 구조 변경 + 유튜브 API 수집 반영). 단계 6 시작 전 — 사용자 확인 대기.** 로컬 `main`이 `origin/main`보다 앞서 있고(push 안 함), `pytest -q` → 544 passed.
+실제 디스코드 발송은 한 번도 하지 않았다. 로컬 테스트 발송도 하지 않는다 — **6단계 Actions 첫 수동 실행에서 나가는 알림이 테스트(Secret 확인 겸)**. 로컬 `.env`의 `DISCORD_WEBHOOK_URL`은 비어 있어 로컬에서 실수로 발송될 일은 없다.
 
 ## 완료한 단계
 | 단계 | 내용 | 커밋 |
@@ -18,7 +18,8 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 | 4 | 아바타(`youtube_avatar`)·치지직(`chzzk`) 수집, `state.merge_status`, `config.ENABLED_SOURCES` | `2bdc233` |
 | 4+ | 강지 치지직 ID 반영, `official_img` 대체·`img.top` CSS 제거, `live.checkedAt`+사이트 2시간 규칙, 아바타 `=s240` 저장, RSS 실패 로그 테스트 | `b57c67f` |
 | 5 | 알림 판정(`alerts.py`, 방송 시작은 since 규칙)·임베드/발송/dry-run(`discord.py`)·`http.post_json`, main 연결 | `d4fda1f` |
-| 5+ | 알림을 배포 성공 뒤로: main은 `out/alerts.json`만 남기고, `send_alerts.py`가 그 파일만 읽어 발송 | 이 문서와 같은 커밋 |
+| 5+ | 알림을 배포 성공 뒤로: main은 `out/alerts.json`만 남기고, `send_alerts.py`가 그 파일만 읽어 발송 | `915d814` |
+| 5++ | 유튜브 영상을 YouTube Data API 기본으로(키 없음·할당량 초과일 때만 RSS), 업로드 재생목록 ID 캐시, 키 비노출 장치(`redact.py`)와 저장소 비밀 스캔 테스트 | 이 문서와 같은 커밋 |
 
 단계 3 검증 결과: 카탈로그 286곡(EP 7 · SINGLE 19 · COVER 252 · OTHERS 8)이 분류 탭 라벨과 일치. 연속 실행으로 40→…→286까지 채워졌고 경고·오류 0건. 정상 상태 재실행은 목록 요청 1회뿐. 브라우저(1280px·400px)에서 "공식 전체 (286)", 썸네일 60/60, 콘솔 에러 없음.
 
@@ -64,11 +65,26 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 - 워크플로(6단계): 같은 잡의 마지막 단계로 `python send_alerts.py`를 둔다(앞 단계가 모두 성공했을 때만 실행 = 기본 동작). Secret은 이 단계의 `env`에만 넣는다. 업데이터 단계에는 노출하지 않는다.
 - 검증: 465개 테스트. 일부러 깨뜨려 보는 7가지(dry-run·no-discord가 파일을 남김, 시작 때 옛 파일 미삭제, 발송 뒤 미삭제, 파일 검증 제거, 웹훅 없을 때 파일 삭제, 실패를 종료 코드로 전달)를 테스트가 모두 잡았다. 실제 데이터로 `main.py` → `out/alerts.json`(389바이트, 웹훅 문자열 없음, `site/` 안에는 없음) → `send_alerts.py --dry-run`이 그 파일만 읽어 같은 내용을 보여 주는 것까지 확인했다. 로컬에서는 `send_alerts.py`를 `--dry-run`으로만 돌렸다.
 
-## RSS 상태와 API 대체 검토 (2026-10-06 14:54, 사용자 지시로 6단계 전에 확인)
-- **12개 채널 모두 실패**: 404 11개, 500 1개(나나). 오후 내내(13시 전후부터) 같은 상태. 실제 Chrome으로 열어도 같은 404라서 우리 코드·요청 방식 문제가 아니다.
-- 알려진 사실(검색 결과, 2차 자료): YouTube 피드 서버가 몇 시간씩 모든 피드에 404를 내는 일이 있었고, 2025-12부터 간헐적 404가 있었으며, **데이터센터 IP(Vercel·AWS)의 서버 요청에는 채널 상태와 무관하게 404/500을 내는 사례**가 보고돼 있다. → 지금 장애가 일시적이어도, Actions(데이터센터 IP)에서는 RSS가 구조적으로 불안정할 수 있다. 6단계 첫 수동 실행의 로그로 실측해야 한다.
-- **YouTube Data API v3 대체안** (공식 문서 확인분): 기본 할당량 하루 10,000 유닛, `playlistItems.list`·`channels.list`는 호출당 1유닛(`search.list`는 별도 하루 100회 한도라 쓰지 않는다). `playlistItems.list`는 `maxResults` 최대 50. 채널의 업로드 재생목록은 `channels.list`의 `contentDetails.relatedPlaylists.uploads`로 얻는다. 12채널 × 30분 주기(하루 48회) = 576유닛/일 → 한도의 약 6%. 개발 시 확인할 것(문서 요약에서 확정하지 못함): 게시 시각 필드(`snippet.publishedAt` vs `contentDetails.videoPublishedAt`), 쇼츠·예정 프리미어·라이브 다시보기가 업로드 재생목록에 어떻게 나오는지, API 키를 헤더(`x-goog-api-key`)로 보낼 수 있는지.
-- 설계 메모: ① API 키는 Secret(`YOUTUBE_API_KEY`)이고 URL 쿼리에 넣으면 requests 예외 메시지에 키가 들어가므로(웹훅 URL과 같은 문제) 헤더로 보내거나 예외 메시지를 남기지 않아야 한다. ② 키는 Google Cloud 프로젝트 생성·API 활성화가 필요하고 사용자 작업이다(공개 저장소라 Secret 외 노출 금지, 키는 YouTube Data API v3로만 제한). ③ 업로드 재생목록 ID는 채널 ID의 `UC`를 `UU`로 바꾼 것이라고 알려져 있으나 문서에서 확인하지 못했으니 `channels.list`로 한 번 받아 `members.json`에 넣는 편이 안전하다. ④ 구현은 `youtube_rss.py`와 같은 반환 형식(news 항목)을 내는 `youtube_api.py`를 두고 RSS는 폴백으로 남기는 방식이 자연스럽다. 이번에는 구현하지 않았다.
+## 유튜브 영상 수집: YouTube Data API 기본, RSS는 대체 (단계 5++, 사용자 결정)
+**결정**: 영상 수집은 YouTube Data API가 기본이고, RSS는 **키가 없거나 할당량이 초과됐을 때만** 쓴다(할당량이 중간에 초과되면 못 한 채널만). RSS 코드(`youtube_rss.py`)는 그대로 남겼다. 키가 거부되는 등 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다(사용자 지시가 "키 없음·할당량 초과일 때만"이라서. 키 거부도 대체하고 싶으면 `main.run_youtube` 한 곳).
+
+**구현**: `updater/sources/youtube_api.py`
+- `channels.list(part=contentDetails)`로 업로드 재생목록 ID를 구해 `status.json`에 캐시(멤버 key별 `uploads`, 공식 채널은 `official` 키). 캐시가 있으면 `channels.list`를 부르지 않고, 캐시된 ID가 `playlistNotFound`면 그 채널만 다시 구해 한 번 재시도한다.
+- `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 영상. 호출 12회 + (캐시가 없을 때) 1회 → 하루 약 580유닛(한도 10,000).
+- 게시 시각은 `contentDetails.videoPublishedAt`. 삭제·비공개는 이 값이 없어 건너뛴다.
+- **키는 `X-Goog-Api-Key` 헤더로만 보낸다.** 오류는 HTTP 상태와 reason 코드만 기록하고(`raise … from None`으로 원래 예외도 숨김) 예외 메시지·응답 본문은 쓰지 않는다. `updater/redact.py`(마지막 방어선: 등록된 비밀을 로그 출력 직전에 가림 + 소스 실패 로그에서도 가림), `tests/test_secrets_hygiene.py`(커밋될 파일 전체와 로컬 `.env`의 실제 값을 스캔).
+
+**실제 응답으로 확인한 것 (2026-10-06, 12개 채널 × 15개 = 180개 영상)**
+- `X-Goog-Api-Key` 헤더만으로 200. 키 없이 보내면 403 `forbidden`, 엉터리 키는 400 `badRequest`(둘 다 실제 응답을 픽스처로 저장). 403이어도 `forbidden`은 할당량 초과가 아니다.
+- 업로드 재생목록 ID는 12개 모두 `UU`+채널 ID와 일치하고 전부 최신순. 삭제·비공개 항목은 0건.
+- `contentDetails.videoPublishedAt`은 영상 자체의 게시 시각(`videos.list`의 `snippet.publishedAt`)과 **180/180 일치**. 이 표본에서는 `snippet.publishedAt`(재생목록 추가 시각)도 180/180 같아서 두 필드의 차이는 관찰하지 못했다(그래도 `videoPublishedAt`을 쓴다 — 사용자 지시, 더 안전).
+- **쇼츠**: 재생목록 항목에 쇼츠 표시가 없다(`contentDetails`는 `videoId`·`videoPublishedAt`뿐). 일반 영상과 같은 모양으로 들어오며, 이 표본의 60초 이하 영상 42개가 그렇다. 걸러내지 않는다.
+- **라이브 다시보기·프리미어**: 5개가 `liveStreamingDetails`를 가진 영상이었고 모두 지난 방송(`liveBroadcastContent: none`)이다. 재생목록에서는 일반 영상과 구별되지 않는다. 프리미어 커버곡은 `videoPublishedAt`이 예정 시각이 아니라 **실제 시작 시각**(예: 예정 08:30:00Z → 08:30:07Z)이다.
+- **예정(upcoming) 프리미어/라이브는 실제 응답으로 보여주지 못했다**: `search.list`로 12개 채널의 예정·진행 중 이벤트를 확인했지만 지금은 전부 없었다. 예정 영상이 업로드 재생목록에 언제부터 나오는지(RSS는 예정 프리미어도 포함했다)는 **미확인**이다 — 실제로 예정 방송이 생겼을 때 확인할 것. (`search.list` 24회 = 2,400유닛을 썼다.)
+- RSS와의 교차 검증(RSS가 17:48에 12/12로 복구된 직후): 같은 영상 180개에서 게시 시각 180/180·태그 180/180·출처 180/180 일치, 제목 179/180(채널이 제목을 수정한 영상 1개).
+- 실제 실행: `--dry-run --only youtube --local-state` → API로 12개 채널·영상 180개, 2회차는 캐시를 써서 `channels.list` 없이 같은 결과, 키 없음(환경변수 비움)이면 RSS로 대체. 출력과 만들어진 파일에 키 없음.
+
+**유튜브 RSS 상태**: 14:54에는 12개 채널 모두 404/500이었으나 17:48에 12/12 정상으로 돌아왔다(원인·지속 여부는 모름). 이제 API가 기본이므로 RSS는 대체 경로다.
 
 ## 확정된 결정 (계속 지킬 것)
 **작업 방식**
@@ -93,7 +109,7 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 ## 다음 할 일
 단계 5 확인 후 → **6**(Actions + README, push 전 확인) → **7**(예약 실행 확인, 이전 Claude 예약 작업 끄기는 사용자가 앱에서).
 
-**6단계 직전 확인 결과(사용자 지시)**: RSS는 14:54에도 0/12 → 사용자에게 결과를 보여주고 멈췄다. 사용자 결정(① RSS 복구를 기다림/② 6단계를 RSS 없이 진행하고 Actions에서 실측/③ API 대체 구현)을 받은 뒤 진행한다. 위 "RSS 상태와 API 대체 검토" 참고.
+**6단계 준비물**: GitHub Secret `YOUTUBE_API_KEY`(사용자가 이미 등록함)와 `DISCORD_WEBHOOK_URL`. 워크플로에서 `YOUTUBE_API_KEY`는 `python main.py` 단계의 `env`에만, `DISCORD_WEBHOOK_URL`은 `python send_alerts.py` 단계의 `env`에만 넣는다. Actions(해외 IP)에서 YouTube API·치지직·유튜브 채널 페이지(아바타)가 되는지는 첫 수동 실행 로그로 실측한다.
 
 ## 단계 6에서 결정할 것
 - ~~배포 실패 시 중복 알림~~ 해결됨: 알림을 배포 성공 뒤 단계(`send_alerts.py`)로 옮겼다(위 "알림 구조").

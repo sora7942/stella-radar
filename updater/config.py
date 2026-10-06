@@ -31,6 +31,11 @@ USER_AGENT = (
 REQUEST_DELAY = 0.5  # 초. 같은 사이트에 연속 요청할 때 간격
 
 # --- 수집 소스 -----------------------------------------------------------------
+# 유튜브 새 영상: YouTube Data API가 기본이고, RSS는 API 키가 없거나 할당량이 초과됐을 때만 쓴다
+YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3"
+YOUTUBE_API_KEY_ENV = "YOUTUBE_API_KEY"  # 환경변수 (GitHub Secret / 로컬 .env). 업데이터(main.py)만 읽는다
+YOUTUBE_API_KEY_HEADER = "X-Goog-Api-Key"  # 키는 URL이 아니라 이 헤더로만 보낸다 (URL은 예외 메시지·로그에 남기 쉽다)
+YOUTUBE_API_MAX_RESULTS = 15  # 채널당 최신 영상 수 (SPEC 5장)
 YOUTUBE_FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 
 OFFICIAL_SOURCE_LABEL = "공식 홈페이지"  # news 항목의 source 문구 (공지·음악 공통)

@@ -36,11 +36,14 @@
 - NEVER: 테스트에서 실제 네트워크·디스코드를 호출하지 않는다
 - NEVER: 실제 디스코드 발송은 사용자가 요청할 때만 한다. 개발 중에는 `--dry-run`
 - NEVER: `DISCORD_WEBHOOK_URL`을 코드·로그·커밋에 남기지 않는다 (`.env`는 `.gitignore`). requests 예외 메시지에는 URL이 들어 있으니 발송 실패는 예외 종류·HTTP 상태만 기록한다
+- NEVER: `YOUTUBE_API_KEY`를 코드·로그·예외 메시지·커밋에 남기지 않는다. 키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보내고, API 오류는 HTTP 상태와 reason 코드만 기록한다(예외 메시지·응답 본문 금지). `updater/redact.py`가 마지막 방어선이고 `tests/test_secrets_hygiene.py`가 저장소를 스캔한다
+- 새로 만든 비밀 파일·픽스처는 커밋 전에 `pytest -q tests/test_secrets_hygiene.py`로 확인한다 (커밋될 파일 전체와 로컬 `.env`의 실제 값을 대조한다)
 - 웹훅 URL은 `send_alerts.py`만 읽는다. `main.py`는 디스코드로 보내지 않고 알림을 `out/alerts.json`(site/ 밖, `.gitignore`)에 남긴다
 - stellive.me와 유튜브에 요청을 몰아 보내지 않는다 (음악 상세는 실행당 40개, 요청 간 0.5초)
 
 ## Gotchas
 - 아티팩트 시절 데이터를 그대로 가져왔다: 노래 대표곡 `songs.json`의 `yt`는 대부분 null이고, 사이트가 catalog에서 제목으로 찾아 채운다
+- 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나 할당량이 초과됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키가 거부되는 등 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이라 `search.list`(호출당 100유닛) 같은 비싼 호출은 쓰지 않는다
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - GitHub Actions cron은 UTC 기준이고 몇 분씩 늦게 실행되며, 부하가 크면 건너뛰기도 한다

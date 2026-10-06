@@ -34,10 +34,15 @@ def _alerts_file_in_tmp(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def _no_webhook_in_env(monkeypatch):
-    """개발 PC에 DISCORD_WEBHOOK_URL이 설정돼 있어도 테스트가 그 값을 보지 못하게 한다 (실제 발송 방지).
-    웹훅이 필요한 테스트는 스스로 가짜 값을 넣는다."""
+def _no_secrets_in_env(monkeypatch):
+    """개발 PC에 DISCORD_WEBHOOK_URL·YOUTUBE_API_KEY가 설정돼 있어도 테스트가 그 값을 보지 못하게 한다 (실제 발송·실제 API 호출 방지).
+    필요한 테스트는 스스로 가짜 값을 넣는다. 로그 가림 목록(redact)도 테스트마다 비운다."""
     monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+    from updater import redact
+    redact.clear()
+    yield
+    redact.clear()
 
 
 @pytest.fixture(scope="session")
