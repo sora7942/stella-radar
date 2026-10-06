@@ -10,8 +10,9 @@
 ## Commands
 - 환경 만들기 (최초 1회): `conda create -n stella python=3.12 -y; conda activate stella; pip install -r requirements.txt`
 - 이후 작업 전: `conda activate stella`
-- 수집, 알림 없이: `python main.py --dry-run`
+- 수집, 알림 없이: `python main.py --dry-run` (알림 파일을 남기지 않고 보낼 내용만 콘솔에 출력)
 - 일부 소스만: `python main.py --dry-run --only youtube`
+- 알림 발송(배포 성공 뒤 단계): `python send_alerts.py` — `out/alerts.json`만 읽는다. 로컬에서는 `--dry-run`으로 내용만 확인
 - 사이트 미리보기: `python -m http.server -d site 8000` → http://localhost:8000
 - 테스트: `pytest -q`
 
@@ -34,7 +35,8 @@
 - NEVER: 이미지(썸네일·프로필)를 내려받아 저장소에 넣지 않는다. 항상 원본 URL로 링크만 건다
 - NEVER: 테스트에서 실제 네트워크·디스코드를 호출하지 않는다
 - NEVER: 실제 디스코드 발송은 사용자가 요청할 때만 한다. 개발 중에는 `--dry-run`
-- NEVER: `DISCORD_WEBHOOK_URL`을 코드·로그·커밋에 남기지 않는다 (`.env`는 `.gitignore`)
+- NEVER: `DISCORD_WEBHOOK_URL`을 코드·로그·커밋에 남기지 않는다 (`.env`는 `.gitignore`). requests 예외 메시지에는 URL이 들어 있으니 발송 실패는 예외 종류·HTTP 상태만 기록한다
+- 웹훅 URL은 `send_alerts.py`만 읽는다. `main.py`는 디스코드로 보내지 않고 알림을 `out/alerts.json`(site/ 밖, `.gitignore`)에 남긴다
 - stellive.me와 유튜브에 요청을 몰아 보내지 않는다 (음악 상세는 실행당 40개, 요청 간 0.5초)
 
 ## Gotchas
@@ -42,7 +44,7 @@
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - GitHub Actions cron은 UTC 기준이고 몇 분씩 늦게 실행되며, 부하가 크면 건너뛰기도 한다
-- 배포된 사이트에서 이전 상태를 읽으므로(SPEC 6장), Pages 배포가 실패하면 다음 실행은 마지막 성공 배포 기준으로 다시 수집한다 — `added`·알림 중복이 생기지 않는지 주의
+- 배포된 사이트에서 이전 상태를 읽으므로(SPEC 6장), Pages 배포가 실패하면 다음 실행은 마지막 성공 배포 기준으로 다시 수집한다. 알림은 배포 성공 뒤 단계(`send_alerts.py`)에서만 나가므로 중복 알림은 없다. 대신 그 단계가 실패하면 그 알림은 다시 시도되지 않는다(최대 한 번)
 - 유튜브 채널 이미지(yt3) 등 외부 이미지는 `referrerpolicy="no-referrer"`가 있어야 잘 뜬다 (index.html에 이미 들어 있음)
 - Windows에서 `conda run`은 한글 출력을 깨뜨린다. `conda activate` 후 실행하거나 `conda run --no-capture-output`
 

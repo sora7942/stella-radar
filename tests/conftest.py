@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 import requests
 
-ROOT = Path(__file__).resolve().parent.parent
+from updater import config
+
+ROOT =Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
@@ -23,6 +25,12 @@ def _block_network(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", blocked)
     monkeypatch.setattr(socket.socket, "connect", blocked)
     monkeypatch.setattr(socket, "create_connection", blocked)
+
+
+@pytest.fixture(autouse=True)
+def _alerts_file_in_tmp(monkeypatch, tmp_path):
+    """알림 파일(out/alerts.json)은 테스트마다 임시 폴더로 돌린다 — 테스트가 저장소의 실제 out/을 건드리지 못하게."""
+    monkeypatch.setattr(config, "ALERTS_FILE", tmp_path / "out" / "alerts.json")
 
 
 @pytest.fixture(autouse=True)

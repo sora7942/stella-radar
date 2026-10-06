@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+# 보낼 알림 (main.py가 남기고 send_alerts.py가 읽는 중간 파일 — site/ 밖, 커밋·배포 안 함)
+out/

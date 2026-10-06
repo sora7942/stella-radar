@@ -50,7 +50,8 @@ stella-radar/
 │  ├─ alerts.py                   # 알림 대상 판정 (순수 함수, 7장)
 │  └─ discord.py                  # 임베드 생성·발송·dry-run 출력
 ├─ tests/ (fixtures/ 포함)
-├─ main.py
+├─ main.py                        # 수집 → site/data 갱신 → out/alerts.json (보낼 알림)
+├─ send_alerts.py                 # 배포 성공 뒤 out/alerts.json만 읽어 디스코드로 발송
 ├─ requirements.txt
 ├─ .env.example
 ├─ CLAUDE.md
@@ -138,12 +139,15 @@ stella-radar/
   - 방송 시작: `live.since`(방송 시작 시각) 기준. 새 since가 이전에 저장된 since와 **다를 때만** 새 방송으로 알린다(같은 since면 치지직 확인 공백이 얼마나 길었든 알리지 않는다). 단, since가 지금으로부터 1시간(`ALERT_LIVE_MAX_AGE_HOURS`) 넘게 지난 방송은 늦은 알림이라 알리지 않는다. since가 없으면(또는 읽을 수 없으면) 이전 규칙: 이전 `on:false`(또는 이전 항목 없음) → 이번 `on:true`일 때만
   - 알림 판정은 `updater/alerts.py`의 순수 함수. 순서는 방송 → 공지 → 새 곡 → 영상(같은 종류는 최신순)이라 20건을 넘어 잘릴 때 급한 것이 남는다. 공지·새 곡의 "2일"은 달력 기준(날짜만 있는 값)
 - 형식: 항목 1개 = 임베드 1개 (제목 링크, 멤버 이름, 멤버 색, 유튜브면 썸네일 이미지). 한 메시지에 임베드 최대 10개, 실행당 최대 2메시지(20개), 넘치면 "외 N건"
-- `DISCORD_WEBHOOK_URL`이 없거나 `--no-discord`면 보내지 않음. 발송 실패는 경고만 남기고 배포는 계속
+- **알림은 배포가 성공한 뒤에 보낸다.** 업데이터(`main.py`)는 디스코드로 보내지 않고, 보낼 알림(웹훅 페이로드)을 `site/` 밖의 파일(`config.ALERTS_FILE` = `out/alerts.json`, `.gitignore` 대상)에 남긴다. 배포 성공 후 단계가 `python send_alerts.py`로 **그 파일만** 읽어 발송한다. 이유: 알림이 배포보다 먼저 나가면 배포 실패 때 다음 실행이 같은 항목을 다시 '처음 본 것'으로 판단해 알림이 중복된다. 대신 발송 단계가 실패하면 그 알림은 다시 시도하지 않는다(최대 한 번)
+  - `main.py`는 매 실행 시작에 알림 파일을 지운다(이전 실행·dry-run의 알림이 나중에 나가지 않게). `--dry-run`·`--no-discord`는 파일을 남기지 않는다
+  - `send_alerts.py`: 웹훅 URL(`DISCORD_WEBHOOK_URL`)은 이 스크립트만 쓴다. 웹훅이 없거나 발송이 실패해도 종료 코드는 0(배포는 이미 끝남), 경고 로그와 GitHub Actions `::warning::` 주석으로 드러낸다. 발송을 시도한 뒤에는 파일을 지워 중복 발송을 막는다. 모양이 이상한 파일은 보내지 않는다
 - 피드 표시 여부: 방송 시작은 디스코드 + 사이트 상단 LIVE 표시만, news 피드에는 넣지 않는다 (`config.LIVE_TO_FEED = False`)
 
 ## 8. 실행 옵션
-- `python main.py` : 수집 → `site/data/` 갱신 → 디스코드 발송
-- `python main.py --dry-run` : 파일은 쓰되 디스코드로 보내지 않고 보낼 내용을 콘솔에 출력
+- `python main.py` : 수집 → `site/data/` 갱신 → 보낼 알림을 `out/alerts.json`에 남김 (디스코드로 보내지 않음)
+- `python main.py --dry-run` : 데이터 파일은 쓰되 알림 파일은 남기지 않고, 보낼 내용을 콘솔에 출력
+- `python send_alerts.py` : `out/alerts.json`의 알림을 `DISCORD_WEBHOOK_URL`로 발송 (`--dry-run`이면 내용만 출력)
 - `python main.py --only youtube,news` : 일부 소스만 실행 (디버깅용)
 - 로컬 미리보기: `python -m http.server -d site 8000` → `http://localhost:8000`
 
@@ -151,9 +155,9 @@ stella-radar/
 - 트리거: `schedule: cron "*/30 * * * *"`, `workflow_dispatch`, `push` (main 브랜치, `site/**` 또는 `updater/**` 변경)
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
 - 권한: `contents: read`, `pages: write`, `id-token: write`
-- 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages`
-- 업데이터가 실패(예외 종료)해도 배포 단계는 건너뛰고, 실행은 실패로 표시 (GitHub 실패 메일)
-- Secret: `DISCORD_WEBHOOK_URL`
+- 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages` → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)
+- 업데이터가 실패(예외 종료)해도 배포 단계는 건너뛰고(알림도 나가지 않고), 실행은 실패로 표시 (GitHub 실패 메일). 배포가 실패하면 알림 단계도 돌지 않는다
+- Secret: `DISCORD_WEBHOOK_URL` — **`send_alerts.py` 단계의 `env`에만** 넣는다. 업데이터(`main.py`) 단계에는 노출하지 않는다
 - 저장소 Settings → Pages → Source를 **GitHub Actions**로 설정 (README에 안내)
 
 ## 10. 테스트 (네트워크 없이)

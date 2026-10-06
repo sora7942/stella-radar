@@ -71,6 +71,11 @@ MUSIC_ALERT_DAYS = 2  # 새 곡: 발매일이 오늘부터 이 일수 이내 (�
 # since가 없으면 이전 규칙(꺼짐→켜짐)을 쓴다
 ALERT_LIVE_MAX_AGE_HOURS = 1
 
+# 알림은 배포가 성공한 뒤에 보낸다. 업데이터(main.py)는 보낼 알림을 이 파일에 남기고, 배포 성공 후 단계가 send_alerts.py로 읽어 발송한다.
+# site/ 밖이라 Pages에 올라가지 않고, 웹훅 URL도 들어 있지 않다. .gitignore 대상
+ALERTS_DIR = ROOT / "out"
+ALERTS_FILE = ALERTS_DIR / "alerts.json"
+
 DISCORD_EMBEDS_PER_MESSAGE = 10  # 한 메시지의 임베드 상한 (디스코드 한도)
 DISCORD_MAX_MESSAGES = 2  # 실행당 메시지 상한 → 최대 20건, 넘치면 "외 N건"
 DISCORD_MESSAGE_DELAY = 1.0  # 초. 메시지 사이 간격

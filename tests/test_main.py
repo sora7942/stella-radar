@@ -418,96 +418,125 @@ def test_unreadable_status_state_aborts_when_a_status_source_runs(data_dir):
     assert (data_dir / "news.json").read_bytes() == before
 
 
-# ============================ 디스코드 알림 =====================================
+# ============================ 알림: main은 파일만 남긴다 ========================
+# 알림은 배포가 성공한 뒤에 나가야 하므로 main.py는 디스코드로 보내지 않고 config.ALERTS_FILE에 보낼 내용을 남긴다 (발송: send_alerts.py).
 HOOK = "https://discord.com/api/webhooks/123456789/SECRET-TOKEN-abcdef"
 LIZE_CLOSE_TO_VIDEOS = "2026-10-04T16:30:00+09:00"  # 리제 픽스처의 최신 영상(10-04 15:44 KST)보다 46분 뒤
 
 
-class PostSpy:
-    """http.post_json 대용. 호출을 기록하고, 미리 정한 예외가 있으면 던진다."""
-
-    def __init__(self, exc=None):
-        self.exc, self.calls = exc, []
-
-    def __call__(self, url, payload, **kw):
-        self.calls.append((url, payload))
-        if self.exc:
-            raise self.exc
-        return make_response(204)
-
-    @property
-    def embeds(self):
-        return [e for _, p in self.calls for e in p["embeds"]]
+def pending(alerts_file=None):
+    """알림 파일의 내용(없으면 None)."""
+    path = alerts_file or config.ALERTS_FILE
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
-def send_run(data_dir, net, clock, post, *extra):
-    """--dry-run 없이 실제 발송 경로(가짜 post)로 실행."""
-    return app.main([*extra], get=net, post=post, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None)
+def pending_embeds():
+    doc = pending()
+    return [e for m in doc["messages"] for e in m["embeds"]] if doc else []
 
 
-def test_dry_run_prints_the_alerts_and_never_posts_even_with_a_webhook(data_dir, monkeypatch, capsys, caplog):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
+def save_run(data_dir, net, clock, *extra):
+    """--dry-run 없이 실행 (알림 파일을 남기는 실제 경로). 디스코드는 건드리지 않는다."""
+    return app.main([*extra], get=net, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None)
+
+
+def test_real_run_leaves_the_alerts_in_a_file_and_sends_nothing(data_dir, monkeypatch, capsys, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)  # 있어도 main.py는 보지도 않는다
+    net = Net()
     with caplog.at_level("DEBUG"):
-        assert app.main(["--dry-run"], get=Net(), post=post, data_dir=data_dir, now=Clock(T1), sleep=lambda s: None) == 0
+        assert save_run(data_dir, net, T1) == 0
+    doc = pending()
+    assert doc["createdAt"] == T1 and doc["alertCount"] >= 1 and doc["messages"]
+    assert "새 커버곡" in {e["title"] for e in pending_embeds()}  # 이틀 안에 나온 새 곡
+    assert all(len(m["embeds"]) <= 10 and m["allowed_mentions"] == {"parse": []} for m in doc["messages"])
+    assert not net.calls_to("https://discord.com")  # 디스코드로는 요청하지 않았다
     out = capsys.readouterr()
-    assert post.calls == []
+    assert "SECRET" not in out.out + out.err + caplog.text + json.dumps(doc)  # 웹훅 URL은 파일에도 로그에도 없다
+    assert "send_alerts.py가 보냅니다" in caplog.text
+
+
+def test_main_never_posts_to_discord_at_all():
+    import inspect
+    assert "post" not in inspect.signature(app.main).parameters  # 발송 수단 자체를 갖지 않는다
+
+
+def test_alerts_file_is_outside_site_so_it_is_never_deployed():
+    site = (ROOT / "site").resolve()
+    assert site not in (config.ALERTS_DIR.resolve(), *config.ALERTS_DIR.resolve().parents)
+    assert "out/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+
+def test_the_alerts_file_is_not_written_into_the_site_data_dir(data_dir):
+    save_run(data_dir, Net(), T1)
+    assert pending() is not None and not [p for p in data_dir.iterdir() if "alert" in p.name.lower()]
+
+
+def test_dry_run_prints_the_alerts_and_leaves_no_file(data_dir, monkeypatch, capsys, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    with caplog.at_level("DEBUG"):
+        assert app.main(["--dry-run"], get=Net(), data_dir=data_dir, now=Clock(T1), sleep=lambda s: None) == 0
+    out = capsys.readouterr()
     assert "[디스코드 dry-run]" in out.out and "새 커버곡" in out.out
-    assert "SECRET" not in out.out + out.err + caplog.text and "webhooks" not in out.out + caplog.text
+    assert pending() is None  # 파일이 남으면 나중에 send_alerts.py가 dry-run의 알림을 실제로 보낼 수 있다
+    assert "SECRET" not in out.out + out.err + caplog.text
 
 
-def test_no_discord_flag_neither_posts_nor_prints(data_dir, monkeypatch, capsys):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
-    assert send_run(data_dir, Net(), T1, post, "--no-discord") == 0
-    assert post.calls == [] and "디스코드 dry-run" not in capsys.readouterr().out
+def test_no_discord_flag_leaves_no_file_and_prints_nothing(data_dir, capsys):
+    assert save_run(data_dir, Net(), T1, "--no-discord") == 0
+    assert pending() is None and "디스코드 dry-run" not in capsys.readouterr().out
 
 
-def test_without_a_webhook_nothing_is_posted_and_the_run_is_fine(data_dir, caplog):
-    post = PostSpy()
-    with caplog.at_level("INFO"):
-        assert send_run(data_dir, Net(), T1, post) == 0
-    assert post.calls == [] and "DISCORD_WEBHOOK_URL이 없어" in caplog.text
+def test_no_alerts_means_no_file(data_dir):
+    save_run(data_dir, Net(), T1)
+    assert pending() is not None
+    save_run(data_dir, Net(), T2, "--local-state")  # 새로 볼 것이 없다
+    assert pending() is None
 
 
-def test_real_path_posts_the_alerts_to_the_webhook(data_dir, monkeypatch, capsys, caplog):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
-    with caplog.at_level("DEBUG"):
-        assert send_run(data_dir, Net(), T1, post) == 0
-    assert post.calls and all(url == HOOK for url, _ in post.calls)
-    titles = {e["title"] for e in post.embeds}
-    assert "새 커버곡" in titles  # 이틀 안에 나온 새 곡
-    assert all(len(p["embeds"]) <= 10 and p["allowed_mentions"] == {"parse": []} for _, p in post.calls)
-    out = capsys.readouterr()
-    assert "SECRET" not in out.out + out.err + caplog.text and "webhooks" not in caplog.text + out.out
-    assert "디스코드: 메시지" in caplog.text
+def test_a_stale_file_is_discarded_even_if_the_run_fails_early(data_dir):
+    save_run(data_dir, Net(), T1)
+    assert pending() is not None
+    assert save_run(data_dir, Net(state_status=500), T2) == 1  # 이전 상태를 못 읽어 중단 (exit 1)
+    assert pending() is None  # 옛 알림이 남아 있다가 나가는 일이 없다
 
 
-def test_discord_failure_only_warns_and_the_files_are_still_written(data_dir, monkeypatch, caplog):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy(requests.ConnectionError(f"boom {HOOK}"))  # 실제 requests 예외처럼 메시지에 URL이 들어 있다
-    with caplog.at_level("DEBUG"):
-        assert send_run(data_dir, Net(), T1, post) == 0
-    assert read(data_dir, "news")["updatedAt"] == T1 and read(data_dir, "catalog")["items"]
-    assert "디스코드 발송 실패" in caplog.text and "SECRET" not in caplog.text
+def test_a_dry_run_discards_a_stale_file_too(data_dir):
+    save_run(data_dir, Net(), T1)
+    run(data_dir, Net(), T2, "--local-state")
+    assert pending() is None
 
 
-def test_a_crash_in_the_alert_stage_does_not_fail_the_run_or_leak_the_url(data_dir, monkeypatch, caplog):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy(RuntimeError(f"unexpected {HOOK}"))  # requests 예외가 아닌 예상 밖 오류
-    with caplog.at_level("INFO"):  # 상세(traceback)는 DEBUG에서만 — 기본 로그 수준에서는 종류만 보인다
-        assert send_run(data_dir, Net(), T1, post) == 0
+def test_a_crash_in_the_alert_stage_does_not_fail_the_run(data_dir, monkeypatch, caplog):
+    def boom(*a, **k):
+        raise RuntimeError(f"unexpected {HOOK}")
+    monkeypatch.setattr(app.discord, "build_messages", boom)
+    with caplog.at_level("INFO"):  # traceback 상세는 DEBUG에서만 — 기본 수준에서는 종류만 보인다
+        assert save_run(data_dir, Net(), T1) == 0
     assert "알림 처리 중 오류(RuntimeError)" in caplog.text and "SECRET" not in caplog.text
-    assert read(data_dir, "news")["updatedAt"] == T1
+    assert read(data_dir, "news")["updatedAt"] == T1 and pending() is None
 
 
-def test_second_run_has_nothing_new_to_send(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    first, second = PostSpy(), PostSpy()
-    send_run(data_dir, Net(), T1, first)
-    send_run(data_dir, Net(), T2, second, "--local-state")
-    assert first.calls and second.calls == []  # 이미 본 항목은 다시 알리지 않는다
+def test_an_unwritable_alerts_file_only_warns(data_dir, tmp_path, caplog):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("파일이라 폴더를 만들 수 없다", encoding="utf-8")
+    bad = blocker / "out" / "alerts.json"
+    with caplog.at_level("WARNING"):
+        assert app.main([], get=Net(), data_dir=data_dir, alerts_file=bad, now=Clock(T1), sleep=lambda s: None) == 0
+    assert "알림 처리 중 오류" in caplog.text and read(data_dir, "news")["updatedAt"] == T1
+
+
+def test_second_run_has_nothing_new_to_leave(data_dir):
+    save_run(data_dir, Net(), T1)
+    first = pending()
+    save_run(data_dir, Net(), T2, "--local-state")
+    assert first["messages"] and pending() is None  # 이미 본 항목은 다시 알리지 않는다
+
+
+def test_a_failed_deploy_cannot_leak_alerts_because_nothing_is_sent_here(data_dir):
+    """배포가 실패하면 send_alerts 단계가 돌지 않는다. main은 보내지 않고 파일만 남기므로, 같은 항목이 다음 실행에 다시 새 것이어도 중복 발송은 없다."""
+    net = Net()
+    save_run(data_dir, net, T1)
+    assert not net.calls_to("https://discord.com") and pending() is not None
 
 
 def test_old_videos_are_not_alerted_on_a_first_run(data_dir, capsys):
@@ -518,9 +547,9 @@ def test_old_videos_are_not_alerted_on_a_first_run(data_dir, capsys):
 
 def test_only_videos_within_six_hours_are_alerted(data_dir, capsys):
     import re
-    published = re.findall(r"<published>([^<]+)</published>", (FIXTURES / "youtube_rss_lize.xml").read_text(encoding="utf-8"))
     from datetime import timedelta
     from updater import timeutil
+    published = re.findall(r"<published>([^<]+)</published>", (FIXTURES / "youtube_rss_lize.xml").read_text(encoding="utf-8"))
     clock = timeutil.parse_kst(LIZE_CLOSE_TO_VIDEOS)
     inside = [p for p in published if clock - timeutil.parse_kst(timeutil.to_kst_iso(p)) <= timedelta(hours=6)]
     assert 1 <= len(inside) < len(published)  # 시험 데이터가 경계를 가르는지
@@ -529,79 +558,91 @@ def test_only_videos_within_six_hours_are_alerted(data_dir, capsys):
     assert f"알림 {len(inside)}건" in out and out.count("썸네일 https://i.ytimg.com/vi/") == len(inside)
 
 
-# --- 방송 시작: since 규칙 (치지직 → status → 알림) ---
+# --- 방송 시작: since 규칙 (치지직 → status → 알림 파일) ---
 def lize_id(data_dir):
     return people(data_dir)[2]["lize"]
 
 
-def live_run(data_dir, net, clock, post, *extra):
-    return send_run(data_dir, net, clock, post, "--only", "chzzk", *extra)
+def live_run(data_dir, net, clock, *extra):
+    return save_run(data_dir, net, clock, "--only", "chzzk", *extra)
 
 
-def test_live_start_is_alerted_once_with_title_link_and_member_color(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
-    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", post)  # since 20:30:10 → 10분 전
-    (e,) = post.embeds
+def test_live_start_is_left_once_with_title_link_and_member_color(data_dir):
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00")  # since 20:30:10 → 10분 전
+    (e,) = pending_embeds()
     assert e["author"]["name"] == "아카네 리제 · 방송 시작" and e["title"] == "합성 방송 제목 (테스트용)"
     assert e["url"] == f"https://chzzk.naver.com/live/{lize_id(data_dir)}" and e["color"] == 0xC8352E
     assert e["timestamp"] == "2026-10-06T20:30:10+09:00"
 
 
-def test_same_broadcast_is_not_alerted_again_even_after_a_long_gap(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+def test_same_broadcast_is_not_left_again_even_after_a_long_gap(data_dir):
     net = Net(live={lize_id(data_dir)})
-    first, later = PostSpy(), PostSpy()
-    live_run(data_dir, net, "2026-10-06T20:40:00+09:00", first)
-    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", later, "--local-state")  # 확인이 3시간 가까이 비었다가 같은 방송(같은 since)
-    assert len(first.embeds) == 1 and later.calls == []
+    live_run(data_dir, net, "2026-10-06T20:40:00+09:00")
+    assert len(pending_embeds()) == 1
+    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", "--local-state")  # 확인이 3시간 가까이 비었다가 같은 방송(같은 since)
+    assert pending() is None
 
 
-def test_a_new_broadcast_with_a_new_since_is_alerted_again(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    first, second = PostSpy(), PostSpy()
-    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", first)
-    live_run(data_dir, Net(live={lize_id(data_dir)}, open_date="2026-10-06 22:10:00"), "2026-10-06T22:20:00+09:00", second, "--local-state")
-    assert len(first.embeds) == 1 and len(second.embeds) == 1
-    assert second.embeds[0]["timestamp"] == "2026-10-06T22:10:00+09:00"
+def test_a_new_broadcast_with_a_new_since_is_left_again(data_dir):
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00")
+    live_run(data_dir, Net(live={lize_id(data_dir)}, open_date="2026-10-06 22:10:00"), "2026-10-06T22:20:00+09:00", "--local-state")
+    (e,) = pending_embeds()
+    assert e["timestamp"] == "2026-10-06T22:10:00+09:00"
 
 
-def test_a_broadcast_that_started_over_an_hour_ago_is_not_alerted(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
-    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T21:45:00+09:00", post)  # since 20:30:10 → 75분 전: 늦은 알림
-    assert post.calls == [] and read(data_dir, "status")["members"]["lize"]["live"]["on"] is True  # 방송 중 표시는 그대로
+def test_a_broadcast_that_started_over_an_hour_ago_is_not_left(data_dir):
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T21:45:00+09:00")  # since 20:30:10 → 75분 전: 늦은 알림
+    assert pending() is None and read(data_dir, "status")["members"]["lize"]["live"]["on"] is True  # 방송 중 표시는 그대로
 
 
-def test_a_failed_check_never_alerts(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    first, failed = PostSpy(), PostSpy()
+def test_a_failed_check_never_alerts(data_dir):
     ids = set(people(data_dir)[2].values())
-    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", first)
-    live_run(data_dir, Net(live={lize_id(data_dir)}, chzzk_fail=ids), "2026-10-06T20:50:00+09:00", failed, "--local-state")
-    assert len(first.embeds) == 1 and failed.calls == []
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00")
+    assert len(pending_embeds()) == 1
+    live_run(data_dir, Net(live={lize_id(data_dir)}, chzzk_fail=ids), "2026-10-06T20:50:00+09:00", "--local-state")
+    assert pending() is None
 
 
-def test_without_since_the_old_off_to_on_rule_applies(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+def test_without_since_the_old_off_to_on_rule_applies(data_dir):
     net = Net(live={lize_id(data_dir)}, open_date=None)  # openDate가 없는 응답 → since 없음
-    first, again, after_off, restarted = PostSpy(), PostSpy(), PostSpy(), PostSpy()
-    live_run(data_dir, net, "2026-10-06T20:40:00+09:00", first)
-    assert "since" not in read(data_dir, "status")["members"]["lize"]["live"]
-    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", again, "--local-state")  # 켜짐 → 켜짐
-    live_run(data_dir, Net(), "2026-10-06T23:40:00+09:00", after_off, "--local-state")  # 꺼짐
-    live_run(data_dir, net, "2026-10-06T23:50:00+09:00", restarted, "--local-state")  # 꺼짐 → 켜짐
-    assert len(first.embeds) == 1 and again.calls == [] and after_off.calls == [] and len(restarted.embeds) == 1
+    live_run(data_dir, net, "2026-10-06T20:40:00+09:00")
+    assert len(pending_embeds()) == 1 and "since" not in read(data_dir, "status")["members"]["lize"]["live"]
+    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", "--local-state")  # 켜짐 → 켜짐
+    assert pending() is None
+    live_run(data_dir, Net(), "2026-10-06T23:40:00+09:00", "--local-state")  # 꺼짐
+    assert pending() is None
+    live_run(data_dir, net, "2026-10-06T23:50:00+09:00", "--local-state")  # 꺼짐 → 켜짐
+    assert len(pending_embeds()) == 1
 
 
-def test_live_alerts_do_not_appear_when_chzzk_is_not_run(data_dir, monkeypatch):
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
-    post = PostSpy()
-    send_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", post, "--only", "avatar")
-    assert post.calls == []
+def test_live_alerts_do_not_appear_when_chzzk_is_not_run(data_dir):
+    save_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", "--only", "avatar")
+    assert pending() is None
 
 
 def test_dry_run_lists_the_live_alert_first(data_dir, capsys):
     run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", "--only", "chzzk,news")
     out = capsys.readouterr().out
     assert out.index("아카네 리제 · 방송 시작") < out.index("공지")
+
+
+# --- 두 단계가 만나는 계약: main이 남긴 파일 → send_alerts가 그대로 발송 ---
+def test_main_and_send_alerts_work_together_through_the_file_only(data_dir):
+    import send_alerts
+    net = Net()
+    assert save_run(data_dir, net, T1) == 0
+    doc = pending()
+    post = PostRecorder()
+    assert send_alerts.main([], post=post, sleep=lambda s: None, environ={"DISCORD_WEBHOOK_URL": HOOK}) == 0
+    assert [p for _, p in post.calls] == doc["messages"] and all(u == HOOK for u, _ in post.calls)  # 파일 내용이 그대로 나간다
+    assert not config.ALERTS_FILE.exists()
+    assert not net.calls_to("https://discord.com")  # main 쪽은 처음부터 끝까지 디스코드를 부르지 않았다
+
+
+class PostRecorder:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, url, payload, **kw):
+        self.calls.append((url, payload))
+        return make_response(204)
