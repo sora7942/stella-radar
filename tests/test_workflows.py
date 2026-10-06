@@ -40,7 +40,9 @@ def find(steps, needle):
 # ============================ update.yml =====================================
 def test_triggers_are_schedule_manual_and_push_to_main(update):
     on = update[0]["on"]
-    assert on["schedule"] == [{"cron": "*/30 * * * *"}]
+    assert on["schedule"] == [{"cron": "7,37 * * * *"}]
+    minutes = sorted(int(m) for m in on["schedule"][0]["cron"].split()[0].split(","))
+    assert minutes == [7, 37] and minutes[1] - minutes[0] == 30  # 30분 간격이지만 정각·30분(GitHub 고부하 시각)은 피한다
     assert on["push"]["branches"] == ["main"] and {"site/**", "updater/**"} <= set(on["push"]["paths"])
     assert on["workflow_dispatch"]["inputs"]["no_alerts"] == {"description": "디스코드 알림 없이 실행 (main.py --no-discord)", "type": "boolean", "default": False}
     assert set(on) == {"schedule", "workflow_dispatch", "push"}  # pull_request 계열 같은 다른 트리거는 없다

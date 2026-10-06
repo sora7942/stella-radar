@@ -154,7 +154,7 @@ stella-radar/
 - 로컬 미리보기: `python -m http.server -d site 8000` → `http://localhost:8000`
 
 ## 9. GitHub Actions (`update.yml`)
-- 트리거: `schedule: cron "*/30 * * * *"`, `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함)
+- 트리거: `schedule: cron "7,37 * * * *"`(30분 간격이되 정각·30분을 비킨다 — GitHub 예약 실행은 정각 부근에 몰려 지연되거나 버려질 수 있고, 실제로 `*/30`일 때 첫 예약 실행이 67분 동안 시작되지 않았다), `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함)
 - 한 잡(`update`, `environment: github-pages`, `timeout-minutes: 20`)에 모든 단계를 둔다. 액션은 공식 액션의 메이저 버전으로 고정: `checkout@v7`, `setup-python@v7`, `upload-pages-artifact@v5`, `deploy-pages@v5`
 - `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
