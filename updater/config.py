@@ -61,3 +61,19 @@ ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk")
 
 # --- 소식 피드 -----------------------------------------------------------------
 NEWS_MAX_ITEMS = 300  # news.json 보관 상한 (date 내림차순)
+
+# --- 디스코드 알림 (SPEC 7장) -----------------------------------------------------
+# '이번 실행에서 처음 본' 항목 중 아래 창 안에 있는 것만 알린다 (최초 실행 때 한꺼번에 쏟아지는 것·늦은 알림 방지)
+ALERT_VIDEO_HOURS = 6  # 유튜브 영상: 게시 시각이 지금부터 이 시간 이내
+ALERT_NOTICE_DAYS = 2  # 공식 공지: 날짜가 오늘부터 이 일수 이내 (달력 기준, 공지는 날짜만 있다)
+MUSIC_ALERT_DAYS = 2  # 새 곡: 발매일이 오늘부터 이 일수 이내 (달력 기준)
+# 방송 시작: since(방송 시작 시각)가 이전에 저장된 since와 다를 때만 새 방송이다. 그래도 since가 이보다 오래됐으면 늦은 알림이라 보내지 않는다.
+# since가 없으면 이전 규칙(꺼짐→켜짐)을 쓴다
+ALERT_LIVE_MAX_AGE_HOURS = 1
+
+DISCORD_EMBEDS_PER_MESSAGE = 10  # 한 메시지의 임베드 상한 (디스코드 한도)
+DISCORD_MAX_MESSAGES = 2  # 실행당 메시지 상한 → 최대 20건, 넘치면 "외 N건"
+DISCORD_MESSAGE_DELAY = 1.0  # 초. 메시지 사이 간격
+DISCORD_RETRY_AFTER_MAX = 10  # 초. 429(속도 제한)면 이만큼까지만 기다렸다가 한 번 더 시도한다
+DISCORD_DEFAULT_COLOR = 0xEDC15A  # 멤버 색을 못 찾을 때(그룹·단체). 사이트 강조색(다크)
+YOUTUBE_THUMBNAIL_URL = "https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"  # 사이트와 같은 썸네일 (핫링크, 저장 안 함)

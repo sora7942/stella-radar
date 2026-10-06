@@ -47,7 +47,8 @@ stella-radar/
 │  │  ├─ chzzk.py
 │  │  └─ youtube_avatar.py
 │  ├─ state.py                    # 이전 상태 불러오기, 병합·중복 제거·자르기
-│  └─ discord.py
+│  ├─ alerts.py                   # 알림 대상 판정 (순수 함수, 7장)
+│  └─ discord.py                  # 임베드 생성·발송·dry-run 출력
 ├─ tests/ (fixtures/ 포함)
 ├─ main.py
 ├─ requirements.txt
@@ -134,7 +135,8 @@ stella-radar/
   - 유튜브 영상: 게시 시각이 6시간 이내인 것만 (최초 실행 때 RSS 180개가 한꺼번에 오는 것 방지)
   - 공식 공지: 날짜가 2일 이내
   - 음악: 목록에 새로 생긴 곡(최초 전체 채우기 중에는 보내지 않음 — 이전 catalog가 비어 있으면 알림 생략)
-  - 방송 시작: 이전 `on:false` → 이번 `on:true`로 바뀐 멤버
+  - 방송 시작: `live.since`(방송 시작 시각) 기준. 새 since가 이전에 저장된 since와 **다를 때만** 새 방송으로 알린다(같은 since면 치지직 확인 공백이 얼마나 길었든 알리지 않는다). 단, since가 지금으로부터 1시간(`ALERT_LIVE_MAX_AGE_HOURS`) 넘게 지난 방송은 늦은 알림이라 알리지 않는다. since가 없으면(또는 읽을 수 없으면) 이전 규칙: 이전 `on:false`(또는 이전 항목 없음) → 이번 `on:true`일 때만
+  - 알림 판정은 `updater/alerts.py`의 순수 함수. 순서는 방송 → 공지 → 새 곡 → 영상(같은 종류는 최신순)이라 20건을 넘어 잘릴 때 급한 것이 남는다. 공지·새 곡의 "2일"은 달력 기준(날짜만 있는 값)
 - 형식: 항목 1개 = 임베드 1개 (제목 링크, 멤버 이름, 멤버 색, 유튜브면 썸네일 이미지). 한 메시지에 임베드 최대 10개, 실행당 최대 2메시지(20개), 넘치면 "외 N건"
 - `DISCORD_WEBHOOK_URL`이 없거나 `--no-discord`면 보내지 않음. 발송 실패는 경고만 남기고 배포는 계속
 - 피드 표시 여부: 방송 시작은 디스코드 + 사이트 상단 LIVE 표시만, news 피드에는 넣지 않는다 (`config.LIVE_TO_FEED = False`)

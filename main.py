@@ -1,8 +1,11 @@
-"""stella-radar 업데이터. 수집 → site/data/ 갱신 (→ 디스코드 발송: 5단계에서 추가).
+"""stella-radar 업데이터. 수집 → site/data/ 갱신 → 디스코드 발송.
 
-    python main.py --dry-run                      # 파일은 쓰되 디스코드로는 보내지 않는다
+    python main.py --dry-run                      # 파일은 쓰되 디스코드로는 보내지 않고, 보낼 내용을 콘솔에 출력한다
+    python main.py --no-discord                   # 디스코드 발송을 끈다 (출력도 없음)
     python main.py --dry-run --only youtube,news  # 일부 소스만
     python main.py --local-state                  # 이전 상태를 배포본 대신 로컬 site/data/에서 읽는다 (로컬 반복 실험용)
+
+디스코드는 환경변수 DISCORD_WEBHOOK_URL이 있을 때만 발송한다(없으면 건너뜀). 발송이 실패해도 경고만 남기고 실행은 계속한다.
 
 종료 코드: 0 = 정상(일부 소스 실패는 로그만 남기고 계속), 1 = 계속하면 데이터가 망가질 상황(이전 상태 읽기 실패, 모든 소스 실패),
 2 = 인자 오류. 1이면 파일을 쓰지 않으므로 워크플로는 배포를 건너뛴다.
@@ -11,13 +14,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from updater import config, http, state, tagging, timeutil
+from updater import alerts, config, discord, http, state, tagging, timeutil
 from updater.sources import chzzk, stellive_music, stellive_news, youtube_avatar, youtube_rss
 
 log = logging.getLogger("main")
@@ -99,10 +103,39 @@ def parse_args(argv=None) -> argparse.Namespace:
     return args
 
 
+def notify(args, members: dict, fresh: list, prev_status: dict, new_status: dict, now: datetime, *, post, sleep) -> None:
+    """알림 대상을 고르고 → dry-run이면 출력만, 아니면 (웹훅이 있을 때) 디스코드로 보낸다.
+    알림은 부가 기능이다 — 여기서 무슨 일이 나도 실행(과 배포)을 멈추지 않는다. 웹훅 URL은 출력·로그에 남기지 않는다."""
+    try:
+        todo = alerts.build_alerts(fresh, prev_status, new_status, now)
+        counts = {k: sum(a["kind"] == k for a in todo) for k in alerts.KIND_ORDER}
+        log.info("알림 대상 %d건 (새 항목 %d건 중) — 방송 %d · 공지 %d · 새 곡 %d · 영상 %d",
+                 len(todo), len(fresh), counts["live"], counts["notice"], counts["music"], counts["video"])
+        messages = discord.build_messages(todo, members, site_url=config.site_url())
+        if not messages:
+            return
+        if args.dry_run:
+            print(discord.format_dry_run(messages))
+            return
+        if args.no_discord:
+            log.info("--no-discord: 알림 %d건은 보내지 않습니다", len(todo))
+            return
+        webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+        if not webhook:
+            log.info("DISCORD_WEBHOOK_URL이 없어 알림 %d건은 보내지 않습니다", len(todo))
+            return
+        sent, failed = discord.send(webhook, messages, post=post, sleep=sleep)
+        log.info("디스코드: 메시지 %d개 발송, %d개 실패 (알림 %d건)", sent, failed, len(todo))
+    except Exception as e:  # 예외 메시지에 웹훅 URL이 섞일 수 있어 종류만 남긴다
+        log.warning("알림 처리 중 오류(%s) — 알림만 건너뛰고 계속합니다", type(e).__name__)
+        log.debug("알림 오류 상세", exc_info=True)
+
+
 def main(
     argv=None,
     *,
     get=http.get,
+    post=http.post_json,
     data_dir: Path | str = config.DATA_DIR,
     now=timeutil.now_kst,
     sleep=time.sleep,
@@ -162,14 +195,17 @@ def main(
         state.write_json(data_dir / "catalog.json", {"updatedAt": now_iso, "items": catalog})
         log.info("catalog.json: 전체 %d곡 (이번 +%d곡)", len(catalog), len(new_songs))
 
+    members_status = ctx.prev_status
     patches = [r.status_patches for r in results.values() if r.status_patches is not None]
     if patches:  # 아바타·치지직 중 하나라도 돌았을 때만 쓴다 (성공한 멤버만 바뀌고 나머지는 이전 값 유지)
-        members_status = ctx.prev_status
         for patch in patches:
             members_status = state.merge_status(members_status, patch)
         state.write_json(data_dir / "status.json", {"updatedAt": now_iso, "members": members_status})
         live_now = [k for k, v in members_status.items() if v.get("live", {}).get("on")]
         log.info("status.json: 멤버 %d명 · 방송 중 %s", len(members_status), ", ".join(live_now) or "없음")
+
+    # 파일을 다 쓴 뒤에 알린다. 이전/새 status가 같으면(치지직을 안 돌렸거나 전부 실패) 방송 알림은 나오지 않는다
+    notify(args, members, fresh, ctx.prev_status, members_status, started, post=post, sleep=sleep)
     return 0
 
 

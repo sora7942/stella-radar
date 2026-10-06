@@ -46,10 +46,11 @@ class Net:
     live = {치지직 채널 ID: True(방송 중)}, chzzk_fail = 실패시킬 치지직 채널 ID, page_fail = 실패시킬 유튜브 채널 ID."""
 
     def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
-                 live=(), chzzk_fail=(), page_fail=()):
+                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10"):
         self.calls = []
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
         self.live, self.chzzk_fail, self.page_fail = set(live), set(chzzk_fail), set(page_fail)
+        self.open_date = open_date  # 방송 중인 멤버의 openDate (치지직은 오프셋 없는 KST 문자열). None이면 값이 없는 응답
         self.site = Site(default_songs() if songs is None else songs)
 
     def __call__(self, url, **kw):
@@ -84,6 +85,8 @@ class Net:
                 raise requests.ConnectionError("blocked")
             d = json.loads((FIXTURES / ("chzzk_live_open.json" if cid in self.live else "chzzk_live_close.json")).read_text(encoding="utf-8"))
             d["content"]["channelId"] = cid
+            if cid in self.live:
+                d["content"]["openDate"] = self.open_date
             return make_response(200, json.dumps(d))
         raise AssertionError(f"예상 밖의 URL: {url}")
 
@@ -413,3 +416,192 @@ def test_unreadable_status_state_aborts_when_a_status_source_runs(data_dir):
     before = (data_dir / "news.json").read_bytes()
     assert run(data_dir, Net(state_status={"news": 404, "catalog": 404, "status": 500}), T1, "--only", "avatar") == 1
     assert (data_dir / "news.json").read_bytes() == before
+
+
+# ============================ 디스코드 알림 =====================================
+HOOK = "https://discord.com/api/webhooks/123456789/SECRET-TOKEN-abcdef"
+LIZE_CLOSE_TO_VIDEOS = "2026-10-04T16:30:00+09:00"  # 리제 픽스처의 최신 영상(10-04 15:44 KST)보다 46분 뒤
+
+
+class PostSpy:
+    """http.post_json 대용. 호출을 기록하고, 미리 정한 예외가 있으면 던진다."""
+
+    def __init__(self, exc=None):
+        self.exc, self.calls = exc, []
+
+    def __call__(self, url, payload, **kw):
+        self.calls.append((url, payload))
+        if self.exc:
+            raise self.exc
+        return make_response(204)
+
+    @property
+    def embeds(self):
+        return [e for _, p in self.calls for e in p["embeds"]]
+
+
+def send_run(data_dir, net, clock, post, *extra):
+    """--dry-run 없이 실제 발송 경로(가짜 post)로 실행."""
+    return app.main([*extra], get=net, post=post, data_dir=data_dir, now=Clock(clock), sleep=lambda s: None)
+
+
+def test_dry_run_prints_the_alerts_and_never_posts_even_with_a_webhook(data_dir, monkeypatch, capsys, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    with caplog.at_level("DEBUG"):
+        assert app.main(["--dry-run"], get=Net(), post=post, data_dir=data_dir, now=Clock(T1), sleep=lambda s: None) == 0
+    out = capsys.readouterr()
+    assert post.calls == []
+    assert "[디스코드 dry-run]" in out.out and "새 커버곡" in out.out
+    assert "SECRET" not in out.out + out.err + caplog.text and "webhooks" not in out.out + caplog.text
+
+
+def test_no_discord_flag_neither_posts_nor_prints(data_dir, monkeypatch, capsys):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    assert send_run(data_dir, Net(), T1, post, "--no-discord") == 0
+    assert post.calls == [] and "디스코드 dry-run" not in capsys.readouterr().out
+
+
+def test_without_a_webhook_nothing_is_posted_and_the_run_is_fine(data_dir, caplog):
+    post = PostSpy()
+    with caplog.at_level("INFO"):
+        assert send_run(data_dir, Net(), T1, post) == 0
+    assert post.calls == [] and "DISCORD_WEBHOOK_URL이 없어" in caplog.text
+
+
+def test_real_path_posts_the_alerts_to_the_webhook(data_dir, monkeypatch, capsys, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    with caplog.at_level("DEBUG"):
+        assert send_run(data_dir, Net(), T1, post) == 0
+    assert post.calls and all(url == HOOK for url, _ in post.calls)
+    titles = {e["title"] for e in post.embeds}
+    assert "새 커버곡" in titles  # 이틀 안에 나온 새 곡
+    assert all(len(p["embeds"]) <= 10 and p["allowed_mentions"] == {"parse": []} for _, p in post.calls)
+    out = capsys.readouterr()
+    assert "SECRET" not in out.out + out.err + caplog.text and "webhooks" not in caplog.text + out.out
+    assert "디스코드: 메시지" in caplog.text
+
+
+def test_discord_failure_only_warns_and_the_files_are_still_written(data_dir, monkeypatch, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy(requests.ConnectionError(f"boom {HOOK}"))  # 실제 requests 예외처럼 메시지에 URL이 들어 있다
+    with caplog.at_level("DEBUG"):
+        assert send_run(data_dir, Net(), T1, post) == 0
+    assert read(data_dir, "news")["updatedAt"] == T1 and read(data_dir, "catalog")["items"]
+    assert "디스코드 발송 실패" in caplog.text and "SECRET" not in caplog.text
+
+
+def test_a_crash_in_the_alert_stage_does_not_fail_the_run_or_leak_the_url(data_dir, monkeypatch, caplog):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy(RuntimeError(f"unexpected {HOOK}"))  # requests 예외가 아닌 예상 밖 오류
+    with caplog.at_level("INFO"):  # 상세(traceback)는 DEBUG에서만 — 기본 로그 수준에서는 종류만 보인다
+        assert send_run(data_dir, Net(), T1, post) == 0
+    assert "알림 처리 중 오류(RuntimeError)" in caplog.text and "SECRET" not in caplog.text
+    assert read(data_dir, "news")["updatedAt"] == T1
+
+
+def test_second_run_has_nothing_new_to_send(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    first, second = PostSpy(), PostSpy()
+    send_run(data_dir, Net(), T1, first)
+    send_run(data_dir, Net(), T2, second, "--local-state")
+    assert first.calls and second.calls == []  # 이미 본 항목은 다시 알리지 않는다
+
+
+def test_old_videos_are_not_alerted_on_a_first_run(data_dir, capsys):
+    run(data_dir, Net(), T1, "--only", "youtube")  # T1은 최신 영상보다 42시간 뒤
+    out = capsys.readouterr().out
+    assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"]) and "ytimg" not in out and "dry-run" not in out
+
+
+def test_only_videos_within_six_hours_are_alerted(data_dir, capsys):
+    import re
+    published = re.findall(r"<published>([^<]+)</published>", (FIXTURES / "youtube_rss_lize.xml").read_text(encoding="utf-8"))
+    from datetime import timedelta
+    from updater import timeutil
+    clock = timeutil.parse_kst(LIZE_CLOSE_TO_VIDEOS)
+    inside = [p for p in published if clock - timeutil.parse_kst(timeutil.to_kst_iso(p)) <= timedelta(hours=6)]
+    assert 1 <= len(inside) < len(published)  # 시험 데이터가 경계를 가르는지
+    run(data_dir, Net(), LIZE_CLOSE_TO_VIDEOS, "--only", "youtube")
+    out = capsys.readouterr().out
+    assert f"알림 {len(inside)}건" in out and out.count("썸네일 https://i.ytimg.com/vi/") == len(inside)
+
+
+# --- 방송 시작: since 규칙 (치지직 → status → 알림) ---
+def lize_id(data_dir):
+    return people(data_dir)[2]["lize"]
+
+
+def live_run(data_dir, net, clock, post, *extra):
+    return send_run(data_dir, net, clock, post, "--only", "chzzk", *extra)
+
+
+def test_live_start_is_alerted_once_with_title_link_and_member_color(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", post)  # since 20:30:10 → 10분 전
+    (e,) = post.embeds
+    assert e["author"]["name"] == "아카네 리제 · 방송 시작" and e["title"] == "합성 방송 제목 (테스트용)"
+    assert e["url"] == f"https://chzzk.naver.com/live/{lize_id(data_dir)}" and e["color"] == 0xC8352E
+    assert e["timestamp"] == "2026-10-06T20:30:10+09:00"
+
+
+def test_same_broadcast_is_not_alerted_again_even_after_a_long_gap(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    net = Net(live={lize_id(data_dir)})
+    first, later = PostSpy(), PostSpy()
+    live_run(data_dir, net, "2026-10-06T20:40:00+09:00", first)
+    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", later, "--local-state")  # 확인이 3시간 가까이 비었다가 같은 방송(같은 since)
+    assert len(first.embeds) == 1 and later.calls == []
+
+
+def test_a_new_broadcast_with_a_new_since_is_alerted_again(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    first, second = PostSpy(), PostSpy()
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", first)
+    live_run(data_dir, Net(live={lize_id(data_dir)}, open_date="2026-10-06 22:10:00"), "2026-10-06T22:20:00+09:00", second, "--local-state")
+    assert len(first.embeds) == 1 and len(second.embeds) == 1
+    assert second.embeds[0]["timestamp"] == "2026-10-06T22:10:00+09:00"
+
+
+def test_a_broadcast_that_started_over_an_hour_ago_is_not_alerted(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T21:45:00+09:00", post)  # since 20:30:10 → 75분 전: 늦은 알림
+    assert post.calls == [] and read(data_dir, "status")["members"]["lize"]["live"]["on"] is True  # 방송 중 표시는 그대로
+
+
+def test_a_failed_check_never_alerts(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    first, failed = PostSpy(), PostSpy()
+    ids = set(people(data_dir)[2].values())
+    live_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", first)
+    live_run(data_dir, Net(live={lize_id(data_dir)}, chzzk_fail=ids), "2026-10-06T20:50:00+09:00", failed, "--local-state")
+    assert len(first.embeds) == 1 and failed.calls == []
+
+
+def test_without_since_the_old_off_to_on_rule_applies(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    net = Net(live={lize_id(data_dir)}, open_date=None)  # openDate가 없는 응답 → since 없음
+    first, again, after_off, restarted = PostSpy(), PostSpy(), PostSpy(), PostSpy()
+    live_run(data_dir, net, "2026-10-06T20:40:00+09:00", first)
+    assert "since" not in read(data_dir, "status")["members"]["lize"]["live"]
+    live_run(data_dir, net, "2026-10-06T23:30:00+09:00", again, "--local-state")  # 켜짐 → 켜짐
+    live_run(data_dir, Net(), "2026-10-06T23:40:00+09:00", after_off, "--local-state")  # 꺼짐
+    live_run(data_dir, net, "2026-10-06T23:50:00+09:00", restarted, "--local-state")  # 꺼짐 → 켜짐
+    assert len(first.embeds) == 1 and again.calls == [] and after_off.calls == [] and len(restarted.embeds) == 1
+
+
+def test_live_alerts_do_not_appear_when_chzzk_is_not_run(data_dir, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", HOOK)
+    post = PostSpy()
+    send_run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", post, "--only", "avatar")
+    assert post.calls == []
+
+
+def test_dry_run_lists_the_live_alert_first(data_dir, capsys):
+    run(data_dir, Net(live={lize_id(data_dir)}), "2026-10-06T20:40:00+09:00", "--only", "chzzk,news")
+    out = capsys.readouterr().out
+    assert out.index("아카네 리제 · 방송 시작") < out.index("공지")

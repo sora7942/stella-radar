@@ -25,6 +25,13 @@ def _block_network(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", blocked)
 
 
+@pytest.fixture(autouse=True)
+def _no_webhook_in_env(monkeypatch):
+    """개발 PC에 DISCORD_WEBHOOK_URL이 설정돼 있어도 테스트가 그 값을 보지 못하게 한다 (실제 발송 방지).
+    웹훅이 필요한 테스트는 스스로 가짜 값을 넣는다."""
+    monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+
+
 @pytest.fixture(scope="session")
 def members():
     """저장소의 실제 members.json (태깅 사전의 원천)."""
