@@ -47,6 +47,9 @@ MUSIC_FEED_DAYS = 14  # catalog에 처음 들어온 곡 중 발매일이 이 기
 
 YOUTUBE_CHANNEL_URL = "https://www.youtube.com/channel/{channel_id}"
 AVATAR_REFRESH_HOURS = 24  # 프로필 사진(og:image)은 하루에 한 번만 다시 읽는다
+# 저장하는 아바타 URL의 크기 파라미터(원본 `=s900-…` → `=s240-…`). 같은 서버의 같은 이미지를 작게 받을 뿐이다.
+# 화면에서는 64px(고해상도 192px)로 쓴다
+AVATAR_SIZE = 240
 # og:image가 이 호스트일 때만 아바타로 인정한다 (동의·오류 페이지의 기본 이미지가 프로필로 들어가는 것 방지)
 AVATAR_HOSTS = ("googleusercontent.com", "ggpht.com")
 

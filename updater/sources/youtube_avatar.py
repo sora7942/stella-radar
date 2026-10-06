@@ -45,6 +45,15 @@ def parse_avatar(content: bytes) -> str:
     return url
 
 
+_SIZE_PARAM = re.compile(r"=s\d+(?=-|\?|$)")
+
+
+def resize(url: str, size: int = config.AVATAR_SIZE) -> str:
+    """yt3 이미지 URL의 크기 파라미터만 바꾼다 (`…=s900-c-k-c0x00ffffff-no-rj` → `…=s240-c-k-c0x00ffffff-no-rj`).
+    크기 파라미터가 없는 URL은 그대로 둔다."""
+    return _SIZE_PARAM.sub(f"=s{size}", url, count=1)
+
+
 def is_due(previous: dict, now: datetime) -> bool:
     """이 멤버의 아바타를 지금 다시 읽어야 하나. 값이 없거나 마지막 확인이 AVATAR_REFRESH_HOURS 이상 지났으면 True."""
     checked = previous.get("avatarCheckedAt")
@@ -81,7 +90,7 @@ def collect(
             sleep(delay)
         requested += 1
         try:
-            url = parse_avatar(get(config.YOUTUBE_CHANNEL_URL.format(channel_id=m["yt_id"])).content)
+            url = resize(parse_avatar(get(config.YOUTUBE_CHANNEL_URL.format(channel_id=m["yt_id"])).content))
             patches[key] = {"avatar": url, "avatarCheckedAt": now_iso}
         except Exception as e:  # 멤버 하나의 실패(네트워크·형식)가 다른 멤버를 막지 않게 한다
             msg = f"{m['n']}: {type(e).__name__}: {e}"

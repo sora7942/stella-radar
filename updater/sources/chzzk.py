@@ -49,11 +49,14 @@ def parse_live(doc, channel_id: str) -> dict:
 def collect(
     members: dict,
     *,
+    now_iso: str,
     get=http.get,
     delay: float = config.REQUEST_DELAY,
     sleep=time.sleep,
 ) -> tuple[dict, list[str]]:
-    """members = members.json의 'members'. → ({멤버 key: {"live": …}} (성공한 멤버만), 실패 메시지)."""
+    """members = members.json의 'members'. → ({멤버 key: {"live": …}} (성공한 멤버만), 실패 메시지).
+    성공한 live에는 확인 시각 checkedAt=now_iso를 붙인다. 사이트는 checkedAt이 오래된 LIVE를 숨기므로,
+    요청이 계속 실패하거나 소스가 꺼져 있으면 이전 값(과 오래된 checkedAt)이 남아도 LIVE로 보이지 않는다."""
     patches: dict[str, dict] = {}
     errors: list[str] = []
     no_id = [k for k, m in members.items() if not m.get("chzzk_id")]
@@ -69,7 +72,7 @@ def collect(
         requested += 1
         try:
             doc = get(config.CHZZK_LIVE_STATUS_URL.format(channel_id=channel_id)).json()
-            patches[key] = {"live": parse_live(doc, channel_id)}
+            patches[key] = {"live": {**parse_live(doc, channel_id), "checkedAt": now_iso}}
         except Exception as e:  # 멤버 하나의 실패가 다른 멤버를 막지 않게 한다. 이전 값은 그대로 남는다
             msg = f"{m['n']}: {type(e).__name__}: {e}"
             log.warning("치지직 실패 — %s", msg)

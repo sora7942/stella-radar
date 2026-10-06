@@ -156,6 +156,17 @@ def test_one_failed_channel_does_not_stop_the_run(data_dir):
     assert any(it["id"].startswith("yt-") for it in read(data_dir, "news")["items"])
 
 
+def test_failed_channel_is_logged_and_the_others_are_still_collected(data_dir, caplog):
+    kangji_yt = people(data_dir)[0]["kangji"]["yt_id"]  # 첫 채널. 실패하면 다음 채널이 같은 (가짜) 피드를 받아 항목을 가져간다
+    with caplog.at_level("INFO"):
+        assert run(data_dir, Net(fail_channels={kangji_yt})) == 0
+    sources = {it["source"] for it in read(data_dir, "news")["items"] if it["id"].startswith("yt-")}
+    assert "강지 유튜브" not in sources and "아야츠노 유니 유튜브" in sources and "스텔라이브 공식 유튜브" in sources
+    failed = [r.getMessage() for r in caplog.records if "유튜브 채널 실패" in r.getMessage()]
+    assert len(failed) == 1 and "강지 유튜브" in failed[0]  # 어느 채널이 왜 실패했는지 로그에 남는다
+    assert "일부 실패 1건" in caplog.text
+
+
 def test_news_source_failure_keeps_the_others(data_dir):
     assert run(data_dir, Net(news_fails=True)) == 0
     items = read(data_dir, "news")["items"]
@@ -269,7 +280,7 @@ def test_output_contains_no_webhook_text_and_real_data_is_untouched(data_dir, ca
 # ============================ 아바타·방송 상태 (status.json) =======================
 T3 = "2026-10-07T11:00:00+09:00"  # T1보다 25시간 뒤 → 아바타 갱신 주기(24시간)를 지났다
 T4 = "2026-10-07T11:30:00+09:00"
-AV_SUFFIX = "=s900-c-k-c0x00ffffff-no-rj"
+AV_SUFFIX = "=s240-c-k-c0x00ffffff-no-rj"  # 가짜 채널 페이지는 =s900을 주지만 저장은 =s240
 
 
 def people(data_dir):
@@ -286,7 +297,8 @@ def test_status_first_run_has_avatars_and_live_for_those_with_ids(data_dir):
         assert st["members"][k]["avatar"] == f"https://yt3.googleusercontent.com/{m[k]['yt_id']}{AV_SUFFIX}"  # 자기 채널의 이미지
         assert st["members"][k]["avatarCheckedAt"] == T1
         assert ("live" in st["members"][k]) == (k in chzzk_ids)  # chzzk_id가 없는 멤버는 live를 만들어 내지 않는다
-        assert st["members"][k].get("live", {"on": False}) == {"on": False}
+        assert st["members"][k].get("live", {"on": False, "checkedAt": T1}) == {"on": False, "checkedAt": T1}  # 확인 시각은 이번 실행 시각
+    assert "kangji" in chzzk_ids and "live" in st["members"]["kangji"]  # 강지도 이제 치지직을 확인한다
     assert "https://www.youtube.com/channel/" not in json.dumps(st)  # 이미지는 링크만 저장한다 (페이지 URL이 아님)
 
 
@@ -304,6 +316,7 @@ def test_live_on_is_recorded_with_title_url_and_since(data_dir):
     live = read(data_dir, "status")["members"]["lize"]["live"]
     assert live["on"] is True and live["title"] == "합성 방송 제목 (테스트용)"
     assert live["url"] == f"https://chzzk.naver.com/live/{chzzk_ids['lize']}" and live["since"] == "2026-10-06T20:30:10+09:00"
+    assert live["checkedAt"] == T1
 
 
 def test_second_run_within_a_day_skips_avatar_pages_but_repolls_live(data_dir):
@@ -346,10 +359,10 @@ def test_failed_live_request_does_not_turn_a_live_member_off(data_dir):
     first = read(data_dir, "status")["members"]["lize"]["live"]
     run(data_dir, Net(chzzk_fail={chzzk_ids["lize"]}), T2, "--local-state")
     st = read(data_dir, "status")["members"]
-    assert st["lize"]["live"] == first  # 실패는 꺼짐이 아니다 (다음 성공 때 가짜 off→on 알림이 나지 않게)
-    assert st["tabi"]["live"] == {"on": False}  # 나머지는 정상 반영
+    assert st["lize"]["live"] == first and first["checkedAt"] == T1  # 실패는 꺼짐이 아니다 (다음 성공 때 가짜 off→on 알림이 나지 않게). 확인 시각도 옛 값 그대로 → 사이트가 2시간 뒤 숨긴다
+    assert st["tabi"]["live"] == {"on": False, "checkedAt": T2}  # 나머지는 정상 반영
     run(data_dir, Net(), T3, "--local-state")  # 복구 후 실제로 꺼졌으면 off
-    assert read(data_dir, "status")["members"]["lize"]["live"] == {"on": False}
+    assert read(data_dir, "status")["members"]["lize"]["live"] == {"on": False, "checkedAt": T3}
 
 
 def test_all_chzzk_requests_failing_is_a_source_failure_that_keeps_every_live_value(data_dir, caplog):
@@ -360,6 +373,7 @@ def test_all_chzzk_requests_failing_is_a_source_failure_that_keeps_every_live_va
     assert "소스 chzzk 실패" in caplog.text
     st = read(data_dir, "status")
     assert st["members"]["lize"]["live"]["on"] is True and st["updatedAt"] == T2  # 아바타는 정상이라 파일은 갱신된다
+    assert st["members"]["lize"]["live"]["checkedAt"] == T1  # 계속 실패하면 확인 시각이 멈춘다 → 사이트가 2시간 뒤 이 LIVE를 숨긴다
 
 
 def test_only_avatar_and_chzzk_leave_other_data_alone(data_dir):
@@ -385,9 +399,14 @@ def test_disabled_source_is_skipped_by_default_but_still_runnable_with_only(data
     run(data_dir, net)
     assert net.calls_to("https://api.chzzk.naver.com") == [] and net.calls_to("https://www.youtube.com/channel/")
     assert all("live" not in e for e in read(data_dir, "status")["members"].values())
-    net2 = Net()
-    run(data_dir, net2, T2, "--only", "chzzk", "--local-state")
+    lize_id = people(data_dir)[2]["lize"]
+    net2 = Net(live={lize_id})
+    run(data_dir, net2, T2, "--only", "chzzk", "--local-state")  # --only로는 꺼진 소스도 돌릴 수 있다
     assert net2.calls_to("https://api.chzzk.naver.com")
+    assert read(data_dir, "status")["members"]["lize"]["live"]["checkedAt"] == T2
+    run(data_dir, Net(), T3, "--local-state")  # 이후 기본 실행은 치지직을 안 돌린다 → 확인 시각은 T2에서 멈추고, 사이트가 2시간 뒤 숨긴다
+    live = read(data_dir, "status")["members"]["lize"]["live"]
+    assert live["on"] is True and live["checkedAt"] == T2
 
 
 def test_unreadable_status_state_aborts_when_a_status_source_runs(data_dir):

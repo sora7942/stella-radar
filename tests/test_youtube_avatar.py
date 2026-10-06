@@ -68,6 +68,32 @@ def test_pages_without_og_image_fail(content):
         av.parse_avatar(content)
 
 
+# ============================ 크기 파라미터 ====================================
+def test_resize_changes_only_the_size_parameter(fixture_bytes):
+    original = av.parse_avatar(fixture_bytes("youtube_channel_kangji.html"))
+    assert original.endswith("=s900-c-k-c0x00ffffff-no-rj")
+    small = av.resize(original)
+    assert small == original.replace("=s900-", "=s240-") and small.endswith("=s240-c-k-c0x00ffffff-no-rj")
+    assert small.startswith("https://yt3.googleusercontent.com/")  # 같은 서버·같은 이미지
+
+
+@pytest.mark.parametrize("url, expected", [
+    (YT3 + "abc=s900", YT3 + "abc=s240"),                          # 뒤에 아무것도 없을 때
+    (YT3 + "abc=s88-c-k-c0x00ffffff-no-rj", YT3 + "abc=s240-c-k-c0x00ffffff-no-rj"),  # 더 작은 원본도 맞춘다
+    (YT3 + "abc=s900?x=1", YT3 + "abc=s240?x=1"),
+    (YT3 + "abc", YT3 + "abc"),                                     # 크기 파라미터가 없으면 그대로 (붙이지 않는다)
+    (YT3 + "abc=w900-h900-c", YT3 + "abc=w900-h900-c"),             # 다른 형식은 건드리지 않는다
+    (YT3 + "a_s900-b=s900", YT3 + "a_s900-b=s240"),                 # 주소 앞부분의 s900은 건드리지 않는다
+])
+def test_resize_cases(url, expected):
+    assert av.resize(url) == expected
+
+
+def test_resize_default_comes_from_config_and_size_can_be_passed():
+    assert config.AVATAR_SIZE == 240 and av.resize(YT3 + "abc=s900") == YT3 + f"abc=s{config.AVATAR_SIZE}"
+    assert av.resize(YT3 + "abc=s900", 64) == YT3 + "abc=s64"
+
+
 # ============================ 갱신 주기 ========================================
 def prev(avatar="x", checked=NOW_ISO):
     return {"avatar": avatar, "avatarCheckedAt": checked}
@@ -118,7 +144,8 @@ def test_first_run_fetches_every_member_with_a_channel():
     get = getter()
     patches, errors = run(get=get)
     assert errors == []
-    assert patches == {k: {"avatar": f"{YT3}UC_{k.upper()}=s900", "avatarCheckedAt": NOW_ISO} for k in ("kangji", "lize", "tabi")}
+    # 페이지는 =s900을 주지만 저장은 =s240
+    assert patches == {k: {"avatar": f"{YT3}UC_{k.upper()}=s240", "avatarCheckedAt": NOW_ISO} for k in ("kangji", "lize", "tabi")}
     assert get.calls == [config.YOUTUBE_CHANNEL_URL.format(channel_id=f"UC_{k}") for k in ("KANGJI", "LIZE", "TABI")]  # yt_id 없는 멤버는 요청 없음
 
 

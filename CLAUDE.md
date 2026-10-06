@@ -40,7 +40,7 @@
 ## Gotchas
 - 아티팩트 시절 데이터를 그대로 가져왔다: 노래 대표곡 `songs.json`의 `yt`는 대부분 null이고, 사이트가 catalog에서 제목으로 찾아 채운다
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
-- 강지 치지직 채널 ID는 아직 모른다 (members.json `chzzk_id: null`). 찾으면 사용자 확인 후 넣는다
+- 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - GitHub Actions cron은 UTC 기준이고 몇 분씩 늦게 실행되며, 부하가 크면 건너뛰기도 한다
 - 배포된 사이트에서 이전 상태를 읽으므로(SPEC 6장), Pages 배포가 실패하면 다음 실행은 마지막 성공 배포 기준으로 다시 수집한다 — `added`·알림 중복이 생기지 않는지 주의
 - 유튜브 채널 이미지(yt3) 등 외부 이미지는 `referrerpolicy="no-referrer"`가 있어야 잘 뜬다 (index.html에 이미 들어 있음)

@@ -110,16 +110,20 @@ def getter(*, open_ids=(), fail=None, bad_body=None):
     return get
 
 
+NOW_ISO = "2026-10-06T10:00:00+09:00"
+
+
 def run(get, sleeps=None):
-    return chzzk.collect(MEMBERS, get=get, sleep=(sleeps if sleeps is not None else []).append)
+    return chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=get, sleep=(sleeps if sleeps is not None else []).append)
 
 
 def test_only_members_with_an_id_are_requested():
     get = getter(open_ids={"ID_TABI"})
     patches, errors = run(get)
     assert errors == []
-    assert patches["lize"] == {"live": {"on": False}}
+    assert patches["lize"] == {"live": {"on": False, "checkedAt": NOW_ISO}}  # 꺼짐에도 확인 시각이 붙는다
     assert patches["tabi"]["live"]["on"] is True and patches["tabi"]["live"]["url"] == config.CHZZK_LIVE_PAGE_URL.format(channel_id="ID_TABI")
+    assert list(patches["tabi"]["live"]) == ["on", "title", "url", "since", "checkedAt"] and patches["tabi"]["live"]["checkedAt"] == NOW_ISO
     assert set(patches) == {"lize", "tabi"}  # kangji·rin은 결과에 없다 (live 키를 만들어 내지 않는다)
     assert get.calls == [config.CHZZK_LIVE_STATUS_URL.format(channel_id=i) for i in ("ID_LIZE", "ID_TABI")]
 
@@ -150,5 +154,5 @@ def test_http_error_and_bad_json_and_wrong_channel_are_failures():
         d["content"]["channelId"] = "ZZZ"
         return make_response(200, json.dumps(d))
 
-    patches, errors = chzzk.collect(MEMBERS, get=other_channel, sleep=lambda s: None)
+    patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=other_channel, sleep=lambda s: None)
     assert patches == {} and len(errors) == 2

@@ -69,7 +69,7 @@ stella-radar/
 ```
 - 멤버 key: `kangji, yuni, huya, hina, mashiro, lize, tabi, shibuki, rin, nana, riko`
 - 그룹 key: `boss(강지), everys, universe, cliche`
-- **강지 `chzzk_id`가 비어 있음** → 구현 중 찾아서 사용자 확인 후 채운다 (7장)
+- 강지 `chzzk_id`는 채널 API(이름·인증 마크)와 live-status의 `channelId`로 교차 검증해 사용자 확인 후 채웠다
 
 ### news.json (자동)
 ```json
@@ -99,10 +99,11 @@ stella-radar/
 ### status.json (자동)
 ```json
 {"updatedAt":"...","members":{"lize":{"avatar":"https://yt3.googleusercontent.com/...","avatarCheckedAt":"...",
-  "live":{"on":true,"title":"방송 제목","url":"https://chzzk.naver.com/live/<chzzk_id>","since":"..."}}}}
+  "live":{"on":true,"title":"방송 제목","url":"https://chzzk.naver.com/live/<chzzk_id>","since":"...","checkedAt":"..."}}}}
 ```
-- `avatar`: 유튜브 채널 페이지의 `og:image` (하루 1번 갱신, 실패하면 이전 값 유지)
-- `live`: 치지직 방송 상태. 꺼져 있으면 `{"on":false}`
+- `avatar`: 유튜브 채널 페이지의 `og:image`. 크기 파라미터만 `=s900` → `=s240`으로 바꿔 저장한다(같은 서버·같은 이미지, `config.AVATAR_SIZE`). 하루 1번 갱신, 실패하면 이전 값 유지
+- `live`: 치지직 방송 상태. 꺼져 있으면 `{"on":false,"checkedAt":"..."}`
+- `live.checkedAt`: 치지직을 마지막으로 **성공적으로 확인한** 시각. 요청이 실패한 멤버는 이전 live 값과 이전 checkedAt이 그대로 남는다. 사이트는 checkedAt이 2시간 넘게 지났거나 없는 LIVE는 표시하지 않는다(소스를 끄거나 계속 실패해도 오래된 LIVE가 남지 않게)
 
 ### songs.json / events.json (사람이 관리)
 - songs: `{"items":[{"date","title","who","kind","note","tracks"?, "yt": null|"<videoId>"}]}` — `yt`가 null이면 사이트가 catalog에서 같은 제목을 찾아 채움

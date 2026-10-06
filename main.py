@@ -74,7 +74,7 @@ def run_avatar(ctx: Context) -> SourceResult:
 
 
 def run_chzzk(ctx: Context) -> SourceResult:
-    patches, errors = chzzk.collect(ctx.members["members"], get=ctx.get, sleep=ctx.sleep)
+    patches, errors = chzzk.collect(ctx.members["members"], now_iso=ctx.now_iso, get=ctx.get, sleep=ctx.sleep)
     if errors and not patches:  # 전부 실패 = 차단·API 변경 가능성 → 소스 실패로 남기고 이전 값을 유지한다
         raise RuntimeError(f"모든 멤버 실패 ({len(errors)}명): {errors[0]}")
     return SourceResult(status_patches=patches, errors=errors)

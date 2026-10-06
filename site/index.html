@@ -214,7 +214,6 @@ footer p{margin:4px 0;max-width:70ch}
 .mono-av{overflow:hidden;position:relative}
 .card .mono-av{width:64px;height:64px;font-size:24px}
 .mono-av img{width:100%;height:100%;object-fit:cover;display:block;background:var(--sunk)}
-.mono-av img.top{object-position:50% 8%;transform:scale(1.9);transform-origin:50% 0}
 /* live */
 .livebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--hot-soft);border-radius:var(--r);padding:10px 14px;margin-bottom:20px;font-size:14px}
 .livebar .lv{font-family:var(--f-mono);font-weight:500;font-size:11.5px;background:var(--hot);color:var(--bg);padding:1px 7px;border-radius:4px}
@@ -407,7 +406,11 @@ function showTab(k){TABS.forEach(function(t){$("#p-"+t).hidden=(t!==k);
 document.querySelectorAll("nav.tabs button").forEach(function(b){b.addEventListener("click",function(){showTab(b.dataset.tab);try{history.replaceState(null,"","#"+b.dataset.tab);}catch(e){}});});
 
 // ---------- 라이브 ----------
-function liveOf(k){var s=STATUS.members&&STATUS.members[k];return s&&s.live&&s.live.on?s.live:null;}
+// 치지직을 마지막으로 확인한 시각(live.checkedAt)이 이보다 오래됐으면 LIVE로 보이지 않는다.
+// 소스가 꺼졌거나 계속 실패해도 오래된 LIVE가 남지 않게 한다. checkedAt이 없거나 읽을 수 없어도 숨긴다.
+var LIVE_MAX_AGE_MS=2*60*60*1000;
+function liveOf(k){var s=STATUS.members&&STATUS.members[k],l=s&&s.live;if(!l||!l.on)return null;
+  return Date.now()-Date.parse(l.checkedAt)<=LIVE_MAX_AGE_MS?l:null;}
 function renderLive(){
   var on=Object.keys(M).filter(liveOf);
   $("#livebar").hidden=!on.length;
@@ -508,7 +511,7 @@ $("#v-list").addEventListener("click",function(){setView("list");});
 // ---------- 멤버 ----------
 function avatar(k){var m=M[k],s=STATUS.members&&STATUS.members[k]||{};
   var init=esc(m.n.charAt(m.n.indexOf(" ")+1)||m.n.charAt(0));
-  var img=imgTag([s.avatar,m.official_img],m.official_img&&!s.avatar?"top":"");
+  var img=imgTag([s.avatar]); // 아바타가 없거나 로딩에 실패하면 이니셜 원을 보인다
   return '<span class="mono-av" aria-hidden="true">'+img+'<span class="init"'+(img?" hidden":"")+'>'+init+'</span></span>';}
 function card(k){var m=M[k],bd=m.bd.split("-"),L=m.links||{},live=liveOf(k);
   var links=[["프로필",L.profile],["유튜브",L.youtube],["치지직",L.chzzk],["X",L.x],["팬카페",L.cafe]].filter(function(l){return l[1];});
@@ -567,7 +570,7 @@ var h=(location.hash||"").slice(1);showTab(TABS.indexOf(h)>=0?h:"news");
 setView(store.get("sr_calview")==="list"?"list":"grid");
 getJSON("data/members.json").then(function(d){
   G=d.groups;OFFICIAL=d.official||{};
-  Object.keys(d.members).forEach(function(k){var m=d.members[k];M[k]={n:m.n,en:m.en,c:m.c,g:m.g,bd:m.bd,debut:m.debut,fan:m.fan,art:m.art,clip:m.clip,links:m.links||{},official_img:m.official_img};});
+  Object.keys(d.members).forEach(function(k){var m=d.members[k];M[k]={n:m.n,en:m.en,c:m.c,g:m.g,bd:m.bd,debut:m.debut,fan:m.fan,art:m.art,clip:m.clip,links:m.links||{}};});
   $("#qlinks").innerHTML=qlinks();
   renderChips();renderMembers();renderGames();renderUpcoming();renderFeed();renderSongs();
   return Promise.all([

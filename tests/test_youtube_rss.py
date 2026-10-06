@@ -161,6 +161,22 @@ def test_collect_continues_after_a_channel_fails(fixture_bytes, index):
     assert get.calls == [url_of(LIZE), url_of(other), url_of(OFFICIAL)]
 
 
+def test_collect_logs_each_failed_channel_by_name(fixture_bytes, index, caplog):
+    bad_a, ok, bad_b = Channel("UCa", "실패 채널 A", "lize"), Channel("UCok", "정상 채널", "rin"), Channel("UCb", "실패 채널 B", "tabi")
+    get = UrlGet({
+        url_of(bad_a): requests.HTTPError("404", response=make_response(404)),
+        url_of(ok): make_response(200, fixture_bytes("youtube_rss_lize.xml")),
+        url_of(bad_b): make_response(200, b"<html>blocked</html>"),
+    })
+    with caplog.at_level("WARNING"):
+        items, errors = youtube_rss.collect([bad_a, ok, bad_b], index, get=get, delay=0, sleep=lambda s: None)
+    assert len(items) == 15 and all(it["source"] == "정상 채널" for it in items)  # 앞뒤 채널이 실패해도 가운데 채널은 정상 처리
+    warned = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warned) == 2 and "실패 채널 A" in warned[0] and "HTTPError" in warned[0]
+    assert "실패 채널 B" in warned[1] and "FeedParseError" in warned[1]
+    assert not any("정상 채널" in m for m in warned)
+
+
 def test_collect_http_error_and_bad_content_are_reported(fixture_bytes, index):
     a, b = Channel("UCa", "A", "lize"), Channel("UCb", "B", "rin")
     get = UrlGet({url_of(a): make_response(200, b"<html>blocked</html>"), url_of(b): requests.HTTPError("404", response=make_response(404))})
