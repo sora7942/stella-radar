@@ -1,4 +1,3704 @@
 {
- "updatedAt": null,
- "items": []
+ "updatedAt": "2026-10-06T02:21:34+09:00",
+ "items": [
+  {
+   "id": "13638",
+   "title": "물떼새(千鳥)『ヨルシカ』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-09-07",
+   "yt": "uBtFoUXR9Qc",
+   "url": "https://stellive.me/music/13638"
+  },
+  {
+   "id": "13637",
+   "title": "mosi mosi?『楽音』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-09-02",
+   "yt": "zQp6ZZAT6ew",
+   "url": "https://stellive.me/music/13637"
+  },
+  {
+   "id": "13636",
+   "title": "라일락(ライラック)『Mrs. GREEN APPLE』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-09-02",
+   "yt": "yuxa6o1_scc",
+   "url": "https://stellive.me/music/13636"
+  },
+  {
+   "id": "13635",
+   "title": "아틀란티스 소녀(Atlantis Princess)『BoA』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-09-01",
+   "yt": "ekINzN4PQmo",
+   "url": "https://stellive.me/music/13635"
+  },
+  {
+   "id": "13634",
+   "title": "구르는 바위, 네게 아침이 내린다(転がる岩、君に朝が降る)『結束バンド』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-09-01",
+   "yt": "SiBzI2htX2o",
+   "url": "https://stellive.me/music/13634"
+  },
+  {
+   "id": "13633",
+   "title": "High Hopes『Panic! At The Disco』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-31",
+   "yt": "nwqIoe_3zbE",
+   "url": "https://stellive.me/music/13633"
+  },
+  {
+   "id": "13632",
+   "title": "푸른 산호초(青い珊瑚礁)『松田聖子』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-31",
+   "yt": "8shKFjkHabo",
+   "url": "https://stellive.me/music/13632"
+  },
+  {
+   "id": "13631",
+   "title": "네, 기꺼이(はいよろこんで)『こっちのけんと』Cover",
+   "artist": "Neneko Mashiro x Tenko Shibuki",
+   "who": [
+    "mashiro",
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-29",
+   "yt": "2qEGFmXROQ4",
+   "url": "https://stellive.me/music/13631"
+  },
+  {
+   "id": "13630",
+   "title": "논브레스 오블리주(ノンブレス・オブリージュ)『ピノキオピー』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-16",
+   "yt": "YXIz7U42pgk",
+   "url": "https://stellive.me/music/13630"
+  },
+  {
+   "id": "13629",
+   "title": "소녀레이(少女レイ)『みきとP』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-11",
+   "yt": "9S3if_u5n_Q",
+   "url": "https://stellive.me/music/13629"
+  },
+  {
+   "id": "13628",
+   "title": "미랫빛 라이더(Mirairo Rider)『명일방주: 엔드필드』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2026-08-10",
+   "yt": "wu2a0AeQOCc",
+   "url": "https://stellive.me/music/13628"
+  },
+  {
+   "id": "13627",
+   "title": "희극(喜劇)『星野源』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-08-07",
+   "yt": "gkmnG2pWzys",
+   "url": "https://stellive.me/music/13627"
+  },
+  {
+   "id": "13626",
+   "title": "우리! 쓰레기 분리수거단(我ら！ゴミ分別団)『かてらざわ』Cover",
+   "artist": "Aokumo Rin x Yuzuha Riko",
+   "who": [
+    "rin",
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-07-31",
+   "yt": "MhdJaaEhiHc",
+   "url": "https://stellive.me/music/13626"
+  },
+  {
+   "id": "12882",
+   "title": "Maid My Way『STELLIVE Cliché 1st EP 「Colorful Strokes」』",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "EP",
+   "kind": "솔로",
+   "date": "2026-07-27",
+   "yt": "ZYSQLv_L26Y",
+   "url": "https://stellive.me/music/12882"
+  },
+  {
+   "id": "12881",
+   "title": "Hush Trap『STELLIVE Cliché 1st EP 「Colorful Strokes」』",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "EP",
+   "kind": "솔로",
+   "date": "2026-07-26",
+   "yt": "jvZRK7W7S9Y",
+   "url": "https://stellive.me/music/12881"
+  },
+  {
+   "id": "12879",
+   "title": "베리베리스트로베리(Berry Verry Strawberry)『STELLIVE Cliché 1st EP 「Colorful Strokes」』",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "EP",
+   "kind": "솔로",
+   "date": "2026-07-25",
+   "yt": "nsZmnwC9ukE",
+   "url": "https://stellive.me/music/12879"
+  },
+  {
+   "id": "12876",
+   "title": "악당주의보『STELLIVE Cliché 1st EP 「Colorful Strokes」』",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "EP",
+   "kind": "솔로",
+   "date": "2026-07-24",
+   "yt": "P_oxx3_VpIY",
+   "url": "https://stellive.me/music/12876"
+  },
+  {
+   "id": "12875",
+   "title": "서머타임레코드(サマータイムレコード)『じん』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-07-15",
+   "yt": "dhudKbeIMJg",
+   "url": "https://stellive.me/music/12875"
+  },
+  {
+   "id": "12874",
+   "title": "Booo!『TOKOTOKO』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-07-07",
+   "yt": "VITNdv2ZywY",
+   "url": "https://stellive.me/music/12874"
+  },
+  {
+   "id": "12873",
+   "title": "청록『It's』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-07-04",
+   "yt": "3Y7Ek6YSGPE",
+   "url": "https://stellive.me/music/12873"
+  },
+  {
+   "id": "12872",
+   "title": "Playlist 힘들고 지칠 때 듣고 싶은 새벽 감성 방종곡 Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-07-02",
+   "yt": "X7pjwim9NHE",
+   "url": "https://stellive.me/music/12872"
+  },
+  {
+   "id": "12871",
+   "title": "친애하는 소년이여(拝啓、少年よ)『Hump Back』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-29",
+   "yt": "AH8sMk7otKU",
+   "url": "https://stellive.me/music/12871"
+  },
+  {
+   "id": "12436",
+   "title": "물떼새(千鳥)『ヨルシカ』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-28",
+   "yt": "y1nUYj_D1Es",
+   "url": "https://stellive.me/music/12436"
+  },
+  {
+   "id": "12435",
+   "title": "Loveit?『biz・ZERA』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-22",
+   "yt": "_pTBkDP1TE0",
+   "url": "https://stellive.me/music/12435"
+  },
+  {
+   "id": "12434",
+   "title": "밤새도록 널 생각해(夜もすがら君想ふ)『TOKOTOKO』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-20",
+   "yt": "39_zaFVluAw",
+   "url": "https://stellive.me/music/12434"
+  },
+  {
+   "id": "12433",
+   "title": "행운을 빌어 줘[A journey]『원필(DAY6)』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-11",
+   "yt": "4nVjnxK4j0c",
+   "url": "https://stellive.me/music/12433"
+  },
+  {
+   "id": "12432",
+   "title": "무대에 서서(舞台に立って)『YOASOBI』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-11",
+   "yt": "_t4OxKtCHrg",
+   "url": "https://stellive.me/music/12432"
+  },
+  {
+   "id": "12267",
+   "title": "스텔라이브 Universe '마음악보'",
+   "artist": "Universe",
+   "who": [
+    "universe"
+   ],
+   "category": "SINGLE",
+   "kind": "유닛",
+   "date": "2026-06-11",
+   "yt": "yiprl7-dU04",
+   "url": "https://stellive.me/music/12267"
+  },
+  {
+   "id": "12431",
+   "title": "내일 또 보자(またあした)『ふわりP』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-10",
+   "yt": "VTTQJNcmlD0",
+   "url": "https://stellive.me/music/12431"
+  },
+  {
+   "id": "12430",
+   "title": "망상 아스파탐(妄想アスパルテーム)『picco』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-06-10",
+   "yt": "f7uaxrWNIdE",
+   "url": "https://stellive.me/music/12430"
+  },
+  {
+   "id": "11841",
+   "title": "스텔라이브 Cliché '유성우'",
+   "artist": "Cliché",
+   "who": [
+    "cliche"
+   ],
+   "category": "SINGLE",
+   "kind": "유닛",
+   "date": "2026-05-29",
+   "yt": "XR81lQrRceg",
+   "url": "https://stellive.me/music/11841"
+  },
+  {
+   "id": "11848",
+   "title": "악마가 아닌걸(悪魔じゃないもん)『DECO*27・ピノキオピー』Cover",
+   "artist": "Yuzuha Riko x Neneko Mashiro",
+   "who": [
+    "riko",
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-28",
+   "yt": "xKA5wKYMFhM",
+   "url": "https://stellive.me/music/11848"
+  },
+  {
+   "id": "11847",
+   "title": "춘수(春愁)『Mrs. GREEN APPLE』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-27",
+   "yt": "yRKJ5-vcMUI",
+   "url": "https://stellive.me/music/11847"
+  },
+  {
+   "id": "11846",
+   "title": "drivers license『Olivia Rodrigo』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-24",
+   "yt": "SUJm8SX87DY",
+   "url": "https://stellive.me/music/11846"
+  },
+  {
+   "id": "11845",
+   "title": "Hollowness『美波』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-23",
+   "yt": "L-pn_xrqQkQ",
+   "url": "https://stellive.me/music/11845"
+  },
+  {
+   "id": "11844",
+   "title": "오네가이 달링(おねがいダーリン)『ナナホシ管弦楽団』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-21",
+   "yt": "bRa_zAaaCCE",
+   "url": "https://stellive.me/music/11844"
+  },
+  {
+   "id": "11842",
+   "title": "나에게 꽃다발(わたしに花束)『Ado』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-18",
+   "yt": "xwuVYaJYERo",
+   "url": "https://stellive.me/music/11842"
+  },
+  {
+   "id": "11522",
+   "title": "Deja vu『Olivia Rodrigo』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "KmH0RhhenzE",
+   "url": "https://stellive.me/music/11522"
+  },
+  {
+   "id": "11521",
+   "title": "그때 그 시절, 추억의 투니버스 메들리",
+   "artist": "STELLIVE",
+   "who": [
+    "all"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "6mVByQMyxdY",
+   "url": "https://stellive.me/music/11521"
+  },
+  {
+   "id": "11520",
+   "title": "댄스홀(ダンスホール)『Mrs. GREEN APPLE』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "jTUOSAmCqeI",
+   "url": "https://stellive.me/music/11520"
+  },
+  {
+   "id": "11519",
+   "title": "Melt CPK! Remix『ryo (supercell)』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "-RrbCkl3YJo",
+   "url": "https://stellive.me/music/11519"
+  },
+  {
+   "id": "11518",
+   "title": "Orange(オレンジ)『7!!』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "C0hOHzutBRI",
+   "url": "https://stellive.me/music/11518"
+  },
+  {
+   "id": "11517",
+   "title": "orion『米津玄師』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "CU8hsIhmkwc",
+   "url": "https://stellive.me/music/11517"
+  },
+  {
+   "id": "11516",
+   "title": "아이네 클라이네(アイネクライネ)『米津玄師』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "5rQSMZLi5z4",
+   "url": "https://stellive.me/music/11516"
+  },
+  {
+   "id": "11515",
+   "title": "Acacia『BUMP OF CHICKEN』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "LxqwR1KE81o",
+   "url": "https://stellive.me/music/11515"
+  },
+  {
+   "id": "11514",
+   "title": "숨바꼭질(かくれんぼ)『AliA』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "fLLX2R-RwVE",
+   "url": "https://stellive.me/music/11514"
+  },
+  {
+   "id": "11513",
+   "title": "푸른 하늘의 랩소디(青空のラプソディ)『fhána』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "Xo1Q-RPAk2c",
+   "url": "https://stellive.me/music/11513"
+  },
+  {
+   "id": "11512",
+   "title": "Stellar Stellar『星街すいせい』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-05-14",
+   "yt": "DHG3s8GF1DM",
+   "url": "https://stellive.me/music/11512"
+  },
+  {
+   "id": "11838",
+   "title": "STAR TRAIL (스타트레일)『STELLIVE 1st Album』",
+   "artist": "STELLIVE",
+   "who": [
+    "all"
+   ],
+   "category": "EP",
+   "kind": "단체",
+   "date": "2026-05-08",
+   "yt": "v094-E3Pmtk",
+   "url": "https://stellive.me/music/11838"
+  },
+  {
+   "id": "11837",
+   "title": "히로인이 되고싶어『STELLIVE 1st Album』",
+   "artist": "STELLIVE",
+   "who": [
+    "all"
+   ],
+   "category": "EP",
+   "kind": "단체",
+   "date": "2026-04-10",
+   "yt": "m-rIYEw5uAs",
+   "url": "https://stellive.me/music/11837"
+  },
+  {
+   "id": "10665",
+   "title": "사랑 감기에 실려(恋風邪にのせて)『Vaundy』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "prBtBX0wGxc",
+   "url": "https://stellive.me/music/10665"
+  },
+  {
+   "id": "10664",
+   "title": "포니(フォニイ)『ツミキ』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "cWnykOC5b_c",
+   "url": "https://stellive.me/music/10664"
+  },
+  {
+   "id": "10663",
+   "title": "Oh...『只野楓』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "RLKm8ymJPlo",
+   "url": "https://stellive.me/music/10663"
+  },
+  {
+   "id": "10662",
+   "title": "One Last Kiss『宇多田ヒカル』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "IoBUWPQ3dwc",
+   "url": "https://stellive.me/music/10662"
+  },
+  {
+   "id": "10661",
+   "title": "행복에 대해 내가 생각한 것(幸せについて、僕が考えたこと)『井上絃』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "yA25-F9SJh0",
+   "url": "https://stellive.me/music/10661"
+  },
+  {
+   "id": "10660",
+   "title": "ray『BUMP OF CHICKEN』Cover",
+   "artist": "Shirayuki Hina x Akane Lize",
+   "who": [
+    "hina",
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "UcFBb927-kU",
+   "url": "https://stellive.me/music/10660"
+  },
+  {
+   "id": "10659",
+   "title": "메이드지상주의(メイド☆至上主義)『HoneyWorks』Cover",
+   "artist": "Neneko Mashiro x Aokumo Rin",
+   "who": [
+    "mashiro",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-03-30",
+   "yt": "5uOxZswwBx4",
+   "url": "https://stellive.me/music/10659"
+  },
+  {
+   "id": "10246",
+   "title": "주름 맞추기 (しわあわせ)『Vaundy』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-27",
+   "yt": "LOpOiL7S_0I",
+   "url": "https://stellive.me/music/10246"
+  },
+  {
+   "id": "10245",
+   "title": "AIZO『King Gnu』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-27",
+   "yt": "QXUxnxoOIOI",
+   "url": "https://stellive.me/music/10245"
+  },
+  {
+   "id": "10071",
+   "title": "죄와 벌(罪と罰)『椎名林檎』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-19",
+   "yt": "noKfckxJ2PU",
+   "url": "https://stellive.me/music/10071"
+  },
+  {
+   "id": "10070",
+   "title": "바다의 유령(海の幽霊)『米津玄師』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-19",
+   "yt": "NAu_CVmP-bw",
+   "url": "https://stellive.me/music/10070"
+  },
+  {
+   "id": "10069",
+   "title": "chocolate box『dezzy(一億円P)』Cover",
+   "artist": "Aokumo Rin x Ayatsuno Yuni",
+   "who": [
+    "rin",
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-19",
+   "yt": "9a_qB79ntPQ",
+   "url": "https://stellive.me/music/10069"
+  },
+  {
+   "id": "10068",
+   "title": "CHEWING LUV『Ayatsuno Yuni』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-19",
+   "yt": "Sj51pWOnW1o",
+   "url": "https://stellive.me/music/10068"
+  },
+  {
+   "id": "10067",
+   "title": "ラブレター(Love Letter)『YOASOBI』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-19",
+   "yt": "vD5g9qVz4zg",
+   "url": "https://stellive.me/music/10067"
+  },
+  {
+   "id": "9953",
+   "title": "セカイ(SEKAI)『DECO*27・堀江晶太(kemu)』Cover",
+   "artist": "STELLIVE",
+   "who": [
+    "all"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-11",
+   "yt": "hGzklPRul4w",
+   "url": "https://stellive.me/music/9953"
+  },
+  {
+   "id": "9952",
+   "title": "계절범죄『Miiro(미로)』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-11",
+   "yt": "7idkUwtf-0I",
+   "url": "https://stellive.me/music/9952"
+  },
+  {
+   "id": "9950",
+   "title": "DAYBREAK FRONTLINE『Orangestar』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-11",
+   "yt": "I8hFyN32Ysk",
+   "url": "https://stellive.me/music/9950"
+  },
+  {
+   "id": "9949",
+   "title": "밤을 달리다(夜に駆ける)『YOASOBI』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-11",
+   "yt": "lBtlpVXmbYY",
+   "url": "https://stellive.me/music/9949"
+  },
+  {
+   "id": "9948",
+   "title": "카가리비토(カガリビト)『millstones』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-02-11",
+   "yt": "Nmkp68aUw1o",
+   "url": "https://stellive.me/music/9948"
+  },
+  {
+   "id": "9587",
+   "title": "RAIN『SID』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-21",
+   "yt": "aurVmylo4_Y",
+   "url": "https://stellive.me/music/9587"
+  },
+  {
+   "id": "9586",
+   "title": "Melt(メルト)『ryo(supercell)』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-21",
+   "yt": "WykYeuqGxh8",
+   "url": "https://stellive.me/music/9586"
+  },
+  {
+   "id": "9327",
+   "title": "사신(死神)『米津玄師』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "jyU6GkzD2CA",
+   "url": "https://stellive.me/music/9327"
+  },
+  {
+   "id": "9325",
+   "title": "크리스마스 송(クリスマスソング)『back number』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "YorjOBy85ck",
+   "url": "https://stellive.me/music/9325"
+  },
+  {
+   "id": "9324",
+   "title": "메리크리(メリクリ)『BoA』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "30dd8K_i-38",
+   "url": "https://stellive.me/music/9324"
+  },
+  {
+   "id": "9323",
+   "title": "히로인(ヒロイン)『back number』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "qao2gYtY7bs",
+   "url": "https://stellive.me/music/9323"
+  },
+  {
+   "id": "9322",
+   "title": "Number one rockstar『DAYOUNG(다영)』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "e2Jn_8JWtNw",
+   "url": "https://stellive.me/music/9322"
+  },
+  {
+   "id": "9321",
+   "title": "참생활(真生活)『案山子(KAKASHI)』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "vPFzWl54pt0",
+   "url": "https://stellive.me/music/9321"
+  },
+  {
+   "id": "9320",
+   "title": "All I Want For Christmas Is You『Mariah Carey』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "zHbh6KO1dFo",
+   "url": "https://stellive.me/music/9320"
+  },
+  {
+   "id": "9319",
+   "title": "케세라세라(ケセラセラ)『Mrs. GREEN APPLE』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "rRvumOvx21Y",
+   "url": "https://stellive.me/music/9319"
+  },
+  {
+   "id": "9318",
+   "title": "Joker『BIG Naughty』Cover",
+   "artist": "Hanako Nana x Shirayuki Hina",
+   "who": [
+    "nana",
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2026-01-02",
+   "yt": "yitS4QCqCdU",
+   "url": "https://stellive.me/music/9318"
+  },
+  {
+   "id": "8959",
+   "title": "TOMBOY『I-DLE』Cover",
+   "artist": "Hanako Nana x Todoroki Hajime",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-12-11",
+   "yt": "td73oLSQug0",
+   "url": "https://stellive.me/music/8959"
+  },
+  {
+   "id": "8958",
+   "title": "출항(抜錨)『ナナホシ管弦楽団』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-12-11",
+   "yt": "R_B4tmy2DVA",
+   "url": "https://stellive.me/music/8958"
+  },
+  {
+   "id": "8766",
+   "title": "목마름을 외치다(カワキヲアメク)『美波』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-28",
+   "yt": "eYaX9aDtlmA",
+   "url": "https://stellive.me/music/8766"
+  },
+  {
+   "id": "8764",
+   "title": "팝핀 캔디☆피버!『키노시타(kinoshita)』Cover",
+   "artist": "Everys",
+   "who": [
+    "everys"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-28",
+   "yt": "NYN7FHVktsk",
+   "url": "https://stellive.me/music/8764"
+  },
+  {
+   "id": "8763",
+   "title": "깜빡임(瞬き)『back number』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-28",
+   "yt": "9kvoxFiYmWU",
+   "url": "https://stellive.me/music/8763"
+  },
+  {
+   "id": "8762",
+   "title": "생명에게 미움받고 있어(命に嫌われている。)『カンザキイオリ』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-28",
+   "yt": "bJqdy8925Oc",
+   "url": "https://stellive.me/music/8762"
+  },
+  {
+   "id": "8594",
+   "title": "수평선(水平線)『back number』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-14",
+   "yt": "lZHyUw7LWSw",
+   "url": "https://stellive.me/music/8594"
+  },
+  {
+   "id": "8593",
+   "title": "삐질게 (BBiJilGe)『1st EP』",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "EP",
+   "kind": "솔로",
+   "date": "2025-11-14",
+   "yt": "IQbeBUIVmdw",
+   "url": "https://stellive.me/music/8593"
+  },
+  {
+   "id": "8497",
+   "title": "STAY『The Kid LAROI, Justin Bieber』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-12",
+   "yt": "KSCTkOn5Niw",
+   "url": "https://stellive.me/music/8497"
+  },
+  {
+   "id": "8496",
+   "title": "IRIS OUT(アイリスアウト)『米津玄師』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-11-12",
+   "yt": "Ip25Jhh5zU0",
+   "url": "https://stellive.me/music/8496"
+  },
+  {
+   "id": "8184",
+   "title": "JANE DOE『米津玄師・宇多田ヒカル』Cover",
+   "artist": "Shirayuki Hina x Aokumo Rin",
+   "who": [
+    "hina",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-28",
+   "yt": "EIii4EXsfsU",
+   "url": "https://stellive.me/music/8184"
+  },
+  {
+   "id": "8183",
+   "title": "Dynamite『BTS』Cover",
+   "artist": "Nerissa Ravencroft x Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-28",
+   "yt": "eHiPI6fybFo",
+   "url": "https://stellive.me/music/8183"
+  },
+  {
+   "id": "8182",
+   "title": "숙명(宿命)『Official髭男dism』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-28",
+   "yt": "nknH0KshgpY",
+   "url": "https://stellive.me/music/8182"
+  },
+  {
+   "id": "8181",
+   "title": "JANE DOE『米津玄師・宇多田ヒカル』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-28",
+   "yt": "aH8Io8klASU",
+   "url": "https://stellive.me/music/8181"
+  },
+  {
+   "id": "8012",
+   "title": "울려퍼져라(Hibikase ヒビカセ)『REOL』Cover",
+   "artist": "Hanako Nana x Tenko Shibuki",
+   "who": [
+    "nana",
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-22",
+   "yt": "6gEc7lUi6xs",
+   "url": "https://stellive.me/music/8012"
+  },
+  {
+   "id": "8011",
+   "title": "IRIS OUT(アイリスアウト)『米津玄師』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-22",
+   "yt": "rxarDgejkZg",
+   "url": "https://stellive.me/music/8011"
+  },
+  {
+   "id": "7728",
+   "title": "Bunny Girl『AKASAKI』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-10",
+   "yt": "SIBtVNjRois",
+   "url": "https://stellive.me/music/7728"
+  },
+  {
+   "id": "7605",
+   "title": "사랑해줘 사랑해줘 사랑해줘 (愛して愛して愛して)『Kikuo』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-01",
+   "yt": "Am36NHSuCWQ",
+   "url": "https://stellive.me/music/7605"
+  },
+  {
+   "id": "7604",
+   "title": "とんとんまーえ！(쿵쿵 앞-으로!)『初音ミク / 鏡音レン』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-10-01",
+   "yt": "aUZPqPyLD9s",
+   "url": "https://stellive.me/music/7604"
+  },
+  {
+   "id": "7588",
+   "title": "프로포즈(プロポーズ)『可不』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-30",
+   "yt": "icR-Tg7YZwY",
+   "url": "https://stellive.me/music/7588"
+  },
+  {
+   "id": "7587",
+   "title": "SODA POP『Saja Boys』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-30",
+   "yt": "1rPwUSi_1SA",
+   "url": "https://stellive.me/music/7587"
+  },
+  {
+   "id": "7456",
+   "title": "미소녀무죄♡파이레츠 (美少女無罪♡パイレーツ)『宝鐘マリン』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-22",
+   "yt": "Tejq1P1TF-M",
+   "url": "https://stellive.me/music/7456"
+  },
+  {
+   "id": "7454",
+   "title": "Surges『Orangestar』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-22",
+   "yt": "q2uHl6EJh-k",
+   "url": "https://stellive.me/music/7454"
+  },
+  {
+   "id": "7406",
+   "title": "별자리가 될 수 있다면 (星座になれたら)『결속 밴드 (結束バンド)』Cover",
+   "artist": "Sakihane Huya",
+   "who": [
+    "huya"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-19",
+   "yt": "eeIMg68ug9Y",
+   "url": "https://stellive.me/music/7406"
+  },
+  {
+   "id": "7395",
+   "title": "Summer『Paul Blanco』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-19",
+   "yt": "xlXotzq2NqM",
+   "url": "https://stellive.me/music/7395"
+  },
+  {
+   "id": "7394",
+   "title": "악마의 아이 (悪魔の子) 『ヒグチアイ』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-19",
+   "yt": "B5tz8rOMPlU",
+   "url": "https://stellive.me/music/7394"
+  },
+  {
+   "id": "7390",
+   "title": "Lilac (ライラック)『Mrs. GREEN APPLE』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-19",
+   "yt": "DeXGjW0baLo",
+   "url": "https://stellive.me/music/7390"
+  },
+  {
+   "id": "7372",
+   "title": "전방향 미소녀 (全方向美少女)『noa』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-18",
+   "yt": "Dy90S1wHTpM",
+   "url": "https://stellive.me/music/7372"
+  },
+  {
+   "id": "7335",
+   "title": "Healer『DAY6』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-09-07",
+   "yt": "-uRxUMJ-exw",
+   "url": "https://stellive.me/music/7335"
+  },
+  {
+   "id": "7241",
+   "title": "シャンティ(SHANTI)『wotaku』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-31",
+   "yt": "AXfEu8_-d-k",
+   "url": "https://stellive.me/music/7241"
+  },
+  {
+   "id": "7146",
+   "title": "POP IN 2 (최애의 아이 OST)『推しの子』Cover",
+   "artist": "Yuzuha Riko & Ayatsuno Yuni & Akane Lize",
+   "who": [
+    "riko",
+    "yuni",
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-30",
+   "yt": "WICzT2lsQa8",
+   "url": "https://stellive.me/music/7146"
+  },
+  {
+   "id": "7070",
+   "title": "군청(群青)『YOASOBI』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-27",
+   "yt": "m0Db3CAxzsE",
+   "url": "https://stellive.me/music/7070"
+  },
+  {
+   "id": "7073",
+   "title": "Ref:rain『Aimer』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-26",
+   "yt": "1HCo6-YL9AY",
+   "url": "https://stellive.me/music/7073"
+  },
+  {
+   "id": "7071",
+   "title": "KING『Kanaria』Cover",
+   "artist": "Tenko Shibuki x AoKumo Rin",
+   "who": [
+    "shibuki",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-24",
+   "yt": "Nt9LQLycIZk",
+   "url": "https://stellive.me/music/7071"
+  },
+  {
+   "id": "7069",
+   "title": "プレイ (PLAY)『Giga』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-21",
+   "yt": "Bhe35DpMlzk",
+   "url": "https://stellive.me/music/7069"
+  },
+  {
+   "id": "6995",
+   "title": "잿빛과 푸름 (灰色と青)『Kenshi Yonezu』Cover",
+   "artist": "Aokumo Rin x Yuzuha Riko",
+   "who": [
+    "rin",
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-17",
+   "yt": "HgHP9deY17g",
+   "url": "https://stellive.me/music/6995"
+  },
+  {
+   "id": "6994",
+   "title": "체리 팝 (チェリーポップ)『DECO*27』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-14",
+   "yt": "qCUeBAUMv80",
+   "url": "https://stellive.me/music/6994"
+  },
+  {
+   "id": "6925",
+   "title": "푸름과 여름『Mrs. GREEN APPLE』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-09",
+   "yt": "d281GlN0nWo",
+   "url": "https://stellive.me/music/6925"
+  },
+  {
+   "id": "6924",
+   "title": "죽는 게 나아 (Shinunoga E-Wa)『Fujii kaze』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-07",
+   "yt": "5u6yVIVXF60",
+   "url": "https://stellive.me/music/6924"
+  },
+  {
+   "id": "6783",
+   "title": "걘 아니야 Pt.2『페노메코 (PENOMECO)』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-05",
+   "yt": "cu9oCSWGFIM",
+   "url": "https://stellive.me/music/6783"
+  },
+  {
+   "id": "6782",
+   "title": "걘 아니야 Pt.1『지코 (ZICO)』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-05",
+   "yt": "KJzmhOkm4-E",
+   "url": "https://stellive.me/music/6782"
+  },
+  {
+   "id": "6780",
+   "title": "Golden (KPop Demon Hunters)『HUNTR/X』Cover",
+   "artist": "Akane Lize & Aokumo Rin & Hanako Nana",
+   "who": [
+    "lize",
+    "rin",
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-08-01",
+   "yt": "JarYu85ctNY",
+   "url": "https://stellive.me/music/6780"
+  },
+  {
+   "id": "6779",
+   "title": "Summertime『cinnamons × evening cinema』Cover",
+   "artist": "Shirayuki Hina & Hanako Nana",
+   "who": [
+    "hina",
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-30",
+   "yt": "WKY-KFCvm-A",
+   "url": "https://stellive.me/music/6779"
+  },
+  {
+   "id": "6598",
+   "title": "Ｗ●ＲＫ『MILLENNIUM PARADE × 시이나 링고』Cover",
+   "artist": "Aokumo Rin x Hanako Nana",
+   "who": [
+    "rin",
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-24",
+   "yt": "wfZANe71KcM",
+   "url": "https://stellive.me/music/6598"
+  },
+  {
+   "id": "6597",
+   "title": "취한 줄을 모르고(酔いどれ知らず)『Kanaria』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-13",
+   "yt": "209_dJOJa0Y",
+   "url": "https://stellive.me/music/6597"
+  },
+  {
+   "id": "6596",
+   "title": "Summertime 『 이터널리턴 OST 』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2025-07-11",
+   "yt": "i5ZEIsWt0Fk",
+   "url": "https://stellive.me/music/6596"
+  },
+  {
+   "id": "6335",
+   "title": "도쿄 섄디 랑데부 (トウキョウ・シャンディ・ランデヴ)『MAISONdes』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-06",
+   "yt": "ZJ7TFaFyYwc",
+   "url": "https://stellive.me/music/6335"
+  },
+  {
+   "id": "6332",
+   "title": "Enemy『Imagine Dragons x J.I.D』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-06",
+   "yt": "8vQfO5tT85k",
+   "url": "https://stellive.me/music/6332"
+  },
+  {
+   "id": "6331",
+   "title": "별자리가 될 수 있다면 (星座になれたら)『결속 밴드 (結束バンド)』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-05",
+   "yt": "1HSTjpAEgVY",
+   "url": "https://stellive.me/music/6331"
+  },
+  {
+   "id": "6310",
+   "title": "UNDEAD『YOASOBI』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-07-05",
+   "yt": "9KFsI34I1bs",
+   "url": "https://stellive.me/music/6310"
+  },
+  {
+   "id": "6015",
+   "title": "야화(Night Flower)『안예은』Cover",
+   "artist": "Arahashi Tabi & Hanako Nana",
+   "who": [
+    "tabi",
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-15",
+   "yt": "3qRN6mQJ4K4",
+   "url": "https://stellive.me/music/6015"
+  },
+  {
+   "id": "6014",
+   "title": "만찬가(晩餐歌)『tuki.』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-14",
+   "yt": "VsRyh2LOtBk",
+   "url": "https://stellive.me/music/6014"
+  },
+  {
+   "id": "5982",
+   "title": "뱀파이어 (ヴァンパイア)『DECO*27』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-11",
+   "yt": "xDsvYAnq324",
+   "url": "https://stellive.me/music/5982"
+  },
+  {
+   "id": "5981",
+   "title": "새봄의 노래 (Beginning)『도영』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-11",
+   "yt": "x534cEGwAEA",
+   "url": "https://stellive.me/music/5981"
+  },
+  {
+   "id": "5947",
+   "title": "병명 상사병(病名恋ワズライ)『HoneyWorks』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-10",
+   "yt": "bW_htBZ_emA",
+   "url": "https://stellive.me/music/5947"
+  },
+  {
+   "id": "5946",
+   "title": "Universe『Natsushiro Takaaki』Cover",
+   "artist": "Universe",
+   "who": [
+    "universe"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-10",
+   "yt": "CbuiRlGeA-g",
+   "url": "https://stellive.me/music/5946"
+  },
+  {
+   "id": "5902",
+   "title": "Henceforth『Orangestar』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-07",
+   "yt": "apj5_-osMd4",
+   "url": "https://stellive.me/music/5902"
+  },
+  {
+   "id": "5872",
+   "title": "눈싸움(睨めっ娘)『TOMONARI SORA』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-06-01",
+   "yt": "ffF1XHKR5Ug",
+   "url": "https://stellive.me/music/5872"
+  },
+  {
+   "id": "5751",
+   "title": "Lonely Universe(ロンリーユニバース)『Aqu3ra』Cover",
+   "artist": "Shirayuki Hina & Aokumo Rin",
+   "who": [
+    "hina",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-23",
+   "yt": "YVplo9mgtcs",
+   "url": "https://stellive.me/music/5751"
+  },
+  {
+   "id": "5644",
+   "title": "Kana Hanazawa - 연애서큘레이션『MONOGATARI Series OST』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-21",
+   "yt": "_iNHQuaKuig",
+   "url": "https://stellive.me/music/5644"
+  },
+  {
+   "id": "5638",
+   "title": "언노운 마더구스『wowaka』Cover",
+   "artist": "Cliche",
+   "who": [
+    "cliche"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-18",
+   "yt": "xqaLEv-Vff4",
+   "url": "https://stellive.me/music/5638"
+  },
+  {
+   "id": "5531",
+   "title": "Grand Escape『RADWIMPS』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-10",
+   "yt": "L-GJ9pYICDM",
+   "url": "https://stellive.me/music/5531"
+  },
+  {
+   "id": "5424",
+   "title": "Tell Your World『Livetune』Cover",
+   "artist": "StelLive",
+   "who": [
+    "all"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-05",
+   "yt": "5kTp7SQCR_Y",
+   "url": "https://stellive.me/music/5424"
+  },
+  {
+   "id": "5423",
+   "title": "Stand By You『Official髭男dism』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-05-03",
+   "yt": "RpX0r_l7FzI",
+   "url": "https://stellive.me/music/5423"
+  },
+  {
+   "id": "5420",
+   "title": "Unbreakable Sphere『승리의 여신: 니케 OST』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2025-05-01",
+   "yt": "zVNbcnSQrCU",
+   "url": "https://stellive.me/music/5420"
+  },
+  {
+   "id": "5306",
+   "title": "「Orange(オレンジ) / 4월은 너의 거짓말 ED」『Seven oops』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-27",
+   "yt": "DzSb5b8ehdg",
+   "url": "https://stellive.me/music/5306"
+  },
+  {
+   "id": "5305",
+   "title": "있잖아 있잖아 있잖아 (ねぇねぇねぇ。)『ピノキオピ』Cover",
+   "artist": "Tenko Shibuki & Yuzuha Riko",
+   "who": [
+    "shibuki",
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-26",
+   "yt": "4OzmA6a8sqY",
+   "url": "https://stellive.me/music/5305"
+  },
+  {
+   "id": "5019",
+   "title": "모니터링 (モニタリング)『DECO*27』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-14",
+   "yt": "vT3xY5UE4Q4",
+   "url": "https://stellive.me/music/5019"
+  },
+  {
+   "id": "5018",
+   "title": "증표(シルシ)『LiSA』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-13",
+   "yt": "EPRYt6d8oEY",
+   "url": "https://stellive.me/music/5018"
+  },
+  {
+   "id": "5017",
+   "title": "슈가로스(シュガーロス)『Wanuka』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-11",
+   "yt": "TFkPG0r-W5U",
+   "url": "https://stellive.me/music/5017"
+  },
+  {
+   "id": "4892",
+   "title": "BOW AND ARROW『Kenshi Yonezu』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-04-05",
+   "yt": "76CJ6U2nxeY",
+   "url": "https://stellive.me/music/4892"
+  },
+  {
+   "id": "4638",
+   "title": "SOS『마유즈미 후유코』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-03-21",
+   "yt": "Ho-tW7OsO54",
+   "url": "https://stellive.me/music/4638"
+  },
+  {
+   "id": "4509",
+   "title": "역몽(逆夢)『King Gnu』Cover",
+   "artist": "Aokumo Rin & Hanako Nana",
+   "who": [
+    "rin",
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-03-17",
+   "yt": "lsshc8umnE4",
+   "url": "https://stellive.me/music/4509"
+  },
+  {
+   "id": "4508",
+   "title": "ラビットホール(래빗 홀)『DECO*27』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-03-11",
+   "yt": "y84L-0bz4zo",
+   "url": "https://stellive.me/music/4508"
+  },
+  {
+   "id": "4424",
+   "title": "벚꽃, 너, 그리고 나(サクラキミワタシ)『tuki.』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-03-09",
+   "yt": "f3bB5GgEZxw",
+   "url": "https://stellive.me/music/4424"
+  },
+  {
+   "id": "4423",
+   "title": "W/X/Y『Tani Yuuki』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-03-08",
+   "yt": "I6bslYOW8Xk",
+   "url": "https://stellive.me/music/4423"
+  },
+  {
+   "id": "4312",
+   "title": "연예인『PSY』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-22",
+   "yt": "Nse1CbmfIj4",
+   "url": "https://stellive.me/music/4312"
+  },
+  {
+   "id": "4286",
+   "title": "Beyond the way『Giga』Cover",
+   "artist": "Hanako Nana x Yuzuha Riko x Aokumo Rin",
+   "who": [
+    "nana",
+    "riko",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-20",
+   "yt": "JTMAVnFAff0",
+   "url": "https://stellive.me/music/4286"
+  },
+  {
+   "id": "4245",
+   "title": "To. X『TAEYEON』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-15",
+   "yt": "ItUC9TPcb08",
+   "url": "https://stellive.me/music/4245"
+  },
+  {
+   "id": "4244",
+   "title": "心予報(마음 예보)『Eve』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-14",
+   "yt": "HVBL6xHcMRY",
+   "url": "https://stellive.me/music/4244"
+  },
+  {
+   "id": "4186",
+   "title": "모니터링(モニタリング)『DECO*27』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-06",
+   "yt": "TqQFF_wLlR4",
+   "url": "https://stellive.me/music/4186"
+  },
+  {
+   "id": "4185",
+   "title": "내일의 밤하늘 초계반『Orangestar』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-02-04",
+   "yt": "fTqvR0U0EC4",
+   "url": "https://stellive.me/music/4185"
+  },
+  {
+   "id": "4132",
+   "title": "절대적대완전싫어『メドミア』Cover",
+   "artist": "Yuzuha Riko & Tenko Shibuki",
+   "who": [
+    "riko",
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-01-28",
+   "yt": "PBh8a0GaNFs",
+   "url": "https://stellive.me/music/4132"
+  },
+  {
+   "id": "4130",
+   "title": "비행정 (飛行艇)『King Gnu』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-01-27",
+   "yt": "YC-QnlIEbJU",
+   "url": "https://stellive.me/music/4130"
+  },
+  {
+   "id": "4085",
+   "title": "꿈의 카니발 (Grand Feast Daydream)『명조』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2025-01-23",
+   "yt": "lXB628gwlzs",
+   "url": "https://stellive.me/music/4085"
+  },
+  {
+   "id": "3967",
+   "title": "꽃의 탑 (花の塔/さユり)『SAYURI』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-01-10",
+   "yt": "EtkolJZEmpg",
+   "url": "https://stellive.me/music/3967"
+  },
+  {
+   "id": "3937",
+   "title": "만찬가(晩餐歌)『tuki.』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-01-05",
+   "yt": "L1haw5kPB7Q",
+   "url": "https://stellive.me/music/3937"
+  },
+  {
+   "id": "3932",
+   "title": "SPECIALZ『King Gnu』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2025-01-04",
+   "yt": "vCHNh5E4eDU",
+   "url": "https://stellive.me/music/3932"
+  },
+  {
+   "id": "3910",
+   "title": "シル・ヴ・プレジデント (실・부・프레지던트)『 P丸様。』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-31",
+   "yt": "JCJyXMJMLRM",
+   "url": "https://stellive.me/music/3910"
+  },
+  {
+   "id": "3851",
+   "title": "겨울의 선물 (冬のプレゼント)『もさを。』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-25",
+   "yt": "QbSMSvVMHqU",
+   "url": "https://stellive.me/music/3851"
+  },
+  {
+   "id": "3849",
+   "title": "크리스마스송(クリスマスソング『back number』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-25",
+   "yt": "gXJMNur50m8",
+   "url": "https://stellive.me/music/3849"
+  },
+  {
+   "id": "3825",
+   "title": "ハッピーエンド (Happy End)『back number』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-19",
+   "yt": "ebnM6X6B1Yg",
+   "url": "https://stellive.me/music/3825"
+  },
+  {
+   "id": "3767",
+   "title": "주름맞추기 (しわあわせ)『Vaundy』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-13",
+   "yt": "cGjgCLuyAro",
+   "url": "https://stellive.me/music/3767"
+  },
+  {
+   "id": "3740",
+   "title": "여로『First Single』",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-12-11",
+   "yt": "G5tTozKJRD4",
+   "url": "https://stellive.me/music/3740"
+  },
+  {
+   "id": "3693",
+   "title": "Sabotage『緑黄色社会』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-06",
+   "yt": "6cv-HiNVgqA",
+   "url": "https://stellive.me/music/3693"
+  },
+  {
+   "id": "3692",
+   "title": "해피 신디사이저『巡音ルカ GUMI』Cover",
+   "artist": "Ayatsuno Yuni & Neneko Mashiro",
+   "who": [
+    "yuni",
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-06",
+   "yt": "3EPEqL_ap-M",
+   "url": "https://stellive.me/music/3692"
+  },
+  {
+   "id": "3645",
+   "title": "APT.『ROSÉ & Bruno Mars』Cover",
+   "artist": "Akane Lize & Aokumo Rin",
+   "who": [
+    "lize",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-01",
+   "yt": "lqU0yh_u7Qo",
+   "url": "https://stellive.me/music/3645"
+  },
+  {
+   "id": "3644",
+   "title": "점묘의 노래 (点描の唄)『Mrs. GREEN APPLE』Cover",
+   "artist": "Ayatsuno Yuni & Airi Kanna",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-12-01",
+   "yt": "QDIdN_eBvl0",
+   "url": "https://stellive.me/music/3644"
+  },
+  {
+   "id": "3639",
+   "title": "さよーならまたいつか！(안녕, 또 언젠가!)『Kenshi Yonezu』Cover",
+   "artist": "Neneko Mashiro & Arahashi Tabi",
+   "who": [
+    "mashiro",
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-30",
+   "yt": "CmaLZo-DTlU",
+   "url": "https://stellive.me/music/3639"
+  },
+  {
+   "id": "3630",
+   "title": "神っぽいな(신 같네)『ピノキオピー』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-26",
+   "yt": "_C4t1yi0WDQ",
+   "url": "https://stellive.me/music/3630"
+  },
+  {
+   "id": "3613",
+   "title": "✧Alice in Musicland✧『OSTER project』Cover",
+   "artist": "Mystic & Universe",
+   "who": [
+    "universe"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-24",
+   "yt": "DMk4_4Xytz4",
+   "url": "https://stellive.me/music/3613"
+  },
+  {
+   "id": "3598",
+   "title": "경화수월(鏡花水月)『마후마후』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-21",
+   "yt": "c6G7vRuJyhs",
+   "url": "https://stellive.me/music/3598"
+  },
+  {
+   "id": "3562",
+   "title": "Overdose『natori』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-17",
+   "yt": "pM8_wnJ7JsE",
+   "url": "https://stellive.me/music/3562"
+  },
+  {
+   "id": "3554",
+   "title": "하루카(ハルカ)『YOASOBI』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-16",
+   "yt": "9hLbsRU2neM",
+   "url": "https://stellive.me/music/3554"
+  },
+  {
+   "id": "3502",
+   "title": "J-POP Mashup!『Panic! At The Disco』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-09",
+   "yt": "090EFw_FDjU",
+   "url": "https://stellive.me/music/3502"
+  },
+  {
+   "id": "3427",
+   "title": "케세라세라『Mrs. GREEN APPLE』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-11-01",
+   "yt": "J49wnPBsyrU",
+   "url": "https://stellive.me/music/3427"
+  },
+  {
+   "id": "3419",
+   "title": "死神(사신)『Kenshi Yonezu』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-31",
+   "yt": "Pgd_XVwBVU0",
+   "url": "https://stellive.me/music/3419"
+  },
+  {
+   "id": "3383",
+   "title": "アイデンティティ(아이덴티티)『Kanaria』Cover",
+   "artist": "Aokumo Rin x Tenko Shibuki",
+   "who": [
+    "rin",
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-26",
+   "yt": "-yY4Ijb06zg",
+   "url": "https://stellive.me/music/3383"
+  },
+  {
+   "id": "3381",
+   "title": "새벽과 반딧불이(夜明けと蛍)『n-buna』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-26",
+   "yt": "D938bjFYmII",
+   "url": "https://stellive.me/music/3381"
+  },
+  {
+   "id": "5532",
+   "title": "끝나지 않은 노래『명조』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2024-10-22",
+   "yt": "DrZMMirj4zo",
+   "url": "https://stellive.me/music/5532"
+  },
+  {
+   "id": "3357",
+   "title": "톤데모 원더즈『sasakure.‌UK』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-18",
+   "yt": "dglNAGJiDT8",
+   "url": "https://stellive.me/music/3357"
+  },
+  {
+   "id": "3344",
+   "title": "봄꿈『First Single』",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-10-16",
+   "yt": "_8uoathMY0A",
+   "url": "https://stellive.me/music/3344"
+  },
+  {
+   "id": "3320",
+   "title": "사랑 감기에 실려『Vaundy』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-12",
+   "yt": "-a6y64hn4DA",
+   "url": "https://stellive.me/music/3320"
+  },
+  {
+   "id": "3285",
+   "title": "サムライハート(Some Like It Hot!!)『SPYAIR』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-05",
+   "yt": "qpBCZ6kYVb4",
+   "url": "https://stellive.me/music/3285"
+  },
+  {
+   "id": "3277",
+   "title": "GETCHA!『Giga&KIRA』Cover",
+   "artist": "Yuzuha Riko & Aokumo Rin",
+   "who": [
+    "riko",
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-04",
+   "yt": "7CQuc6Jf4UE",
+   "url": "https://stellive.me/music/3277"
+  },
+  {
+   "id": "3270",
+   "title": "밀월 Un・Deux・Trois『DATEKEN』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-10-01",
+   "yt": "7zsY6Ex9dMI",
+   "url": "https://stellive.me/music/3270"
+  },
+  {
+   "id": "3261",
+   "title": "Leo (レオ)『Yuuri』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-09-30",
+   "yt": "G5A-UDCxUiI",
+   "url": "https://stellive.me/music/3261"
+  },
+  {
+   "id": "3246",
+   "title": "Festa!『First Single』",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-09-29",
+   "yt": "3_0Ut2tlxLM",
+   "url": "https://stellive.me/music/3246"
+  },
+  {
+   "id": "3205",
+   "title": "맑은 날『Yorushika』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-09-23",
+   "yt": "Rr2GjXAgJ9E",
+   "url": "https://stellive.me/music/3205"
+  },
+  {
+   "id": "3181",
+   "title": "무희『Vaundy』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-09-15",
+   "yt": "O1MqvWf7q58",
+   "url": "https://stellive.me/music/3181"
+  },
+  {
+   "id": "3152",
+   "title": "하나(夏拏)『First Single』",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-09-11",
+   "yt": "rQaluJS-Tc0",
+   "url": "https://stellive.me/music/3152"
+  },
+  {
+   "id": "3113",
+   "title": "BE SOMEBODY『육성재』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-09-07",
+   "yt": "PybjJ4CUDF8",
+   "url": "https://stellive.me/music/3113"
+  },
+  {
+   "id": "3114",
+   "title": "공주열차『Orangestar』Cover",
+   "artist": "Airi Kanna & VESPERBELL 요미",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-09-06",
+   "yt": "6A04OifrfR0",
+   "url": "https://stellive.me/music/3114"
+  },
+  {
+   "id": "3055",
+   "title": "Viva La Vida『Coldplay』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-31",
+   "yt": "OzncrMNY7cw",
+   "url": "https://stellive.me/music/3055"
+  },
+  {
+   "id": "3054",
+   "title": "푸른 산호초『Seiko Matsuda』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-30",
+   "yt": "vM_XT3MeLrc",
+   "url": "https://stellive.me/music/3054"
+  },
+  {
+   "id": "3006",
+   "title": "스텔라이브 Cliche ‘Our Tales’",
+   "artist": "Cliche",
+   "who": [
+    "cliche"
+   ],
+   "category": "SINGLE",
+   "kind": "유닛",
+   "date": "2024-08-24",
+   "yt": "GN-rdF8tEpU",
+   "url": "https://stellive.me/music/3006"
+  },
+  {
+   "id": "3005",
+   "title": "지구를 줄게『Harumaki Gohan』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-23",
+   "yt": "T10fmu7T4eA",
+   "url": "https://stellive.me/music/3005"
+  },
+  {
+   "id": "2950",
+   "title": "Love wins all『IU』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-18",
+   "yt": "Nr3AhMP1lVg",
+   "url": "https://stellive.me/music/2950"
+  },
+  {
+   "id": "2908",
+   "title": "Rumor ルーマー『Police Piccadilly』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-11",
+   "yt": "oAa_PoRopSs",
+   "url": "https://stellive.me/music/2908"
+  },
+  {
+   "id": "2890",
+   "title": "여우비『이선희』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-08-09",
+   "yt": "sWZoIawG0tA",
+   "url": "https://stellive.me/music/2890"
+  },
+  {
+   "id": "2796",
+   "title": "푸른 보석과 어린 용『3rd single』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-07-25",
+   "yt": "gq3gzxPBOK0",
+   "url": "https://stellive.me/music/2796"
+  },
+  {
+   "id": "2770",
+   "title": "괴수의 꽃노래『Vaundy』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-07-21",
+   "yt": "CtXv2_NBBOU",
+   "url": "https://stellive.me/music/2770"
+  },
+  {
+   "id": "2738",
+   "title": "안녕, 또 언젠가!『Kenshi Yonezu』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-07-21",
+   "yt": "zcaAsuA54pI",
+   "url": "https://stellive.me/music/2738"
+  },
+  {
+   "id": "2735",
+   "title": "Drowning『WOODZ』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-07-20",
+   "yt": "CyOAmEihVHs",
+   "url": "https://stellive.me/music/2735"
+  },
+  {
+   "id": "2655",
+   "title": "Frozen Eclipse『EpicSeven』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2024-07-06",
+   "yt": "RbQv87f4mvg",
+   "url": "https://stellive.me/music/2655"
+  },
+  {
+   "id": "2642",
+   "title": "댄스 로봇 댄스『NayutalieN』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-07-05",
+   "yt": "DvFUMLxvyvw",
+   "url": "https://stellive.me/music/2642"
+  },
+  {
+   "id": "2598",
+   "title": "Melt『ryo』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-30",
+   "yt": "ZMgLAy-VKe4",
+   "url": "https://stellive.me/music/2598"
+  },
+  {
+   "id": "2597",
+   "title": "I Really Want to Stay At Your House『Rosa Walton』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-29",
+   "yt": "RGrSmTKmBA4",
+   "url": "https://stellive.me/music/2597"
+  },
+  {
+   "id": "2514",
+   "title": "SUPADOPA『2nd Single』",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-06-19",
+   "yt": "R_RAWjqdgTs",
+   "url": "https://stellive.me/music/2514"
+  },
+  {
+   "id": "2506",
+   "title": "HERO『LUCY』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-11",
+   "yt": "gGQqeRJub3E",
+   "url": "https://stellive.me/music/2506"
+  },
+  {
+   "id": "2461",
+   "title": "프라이드 혁명『CHiCO』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-11",
+   "yt": "pKPPV1RMk-c",
+   "url": "https://stellive.me/music/2461"
+  },
+  {
+   "id": "2456",
+   "title": "17살의 노래『ユイカ』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-10",
+   "yt": "VhBXWT6Oqto",
+   "url": "https://stellive.me/music/2456"
+  },
+  {
+   "id": "2440",
+   "title": "역광『Ado』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-09",
+   "yt": "q-QjjmJjU_8",
+   "url": "https://stellive.me/music/2440"
+  },
+  {
+   "id": "2439",
+   "title": "소리가 나는 쪽으로『Goose house』Cover",
+   "artist": "StelLive",
+   "who": [
+    "all"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-06-09",
+   "yt": "6-Kz5sWJBg4",
+   "url": "https://stellive.me/music/2439"
+  },
+  {
+   "id": "2386",
+   "title": "안녕, 꽃도둑씨『メル』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-27",
+   "yt": "sEYBQaw1vRs",
+   "url": "https://stellive.me/music/2386"
+  },
+  {
+   "id": "2251",
+   "title": "용사『YOASOBI』Cover",
+   "artist": "Yuzuha Riko",
+   "who": [
+    "riko"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-17",
+   "yt": "lfxl4YlY0lE",
+   "url": "https://stellive.me/music/2251"
+  },
+  {
+   "id": "2247",
+   "title": "가짜 얼굴『Yama』Cover",
+   "artist": "Hanako Nana",
+   "who": [
+    "nana"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-17",
+   "yt": "v7UNI2YuqFc",
+   "url": "https://stellive.me/music/2247"
+  },
+  {
+   "id": "2230",
+   "title": "유령도쿄『Ayase』Cover",
+   "artist": "Aokumo Rin",
+   "who": [
+    "rin"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-16",
+   "yt": "UWa_OiXDiQA",
+   "url": "https://stellive.me/music/2230"
+  },
+  {
+   "id": "2224",
+   "title": "너에게 메롱『一二三』Cover",
+   "artist": "Tenko Shibuki",
+   "who": [
+    "shibuki"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-16",
+   "yt": "KtZi0BN6lwg",
+   "url": "https://stellive.me/music/2224"
+  },
+  {
+   "id": "2222",
+   "title": "애타는 한 가슴을 달랠 수 있다면『Robin』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-15",
+   "yt": "IRvrDhVYXHQ",
+   "url": "https://stellive.me/music/2222"
+  },
+  {
+   "id": "2164",
+   "title": "봄을 기다리다『Islet feat.倚水』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-10",
+   "yt": "Tmjy9uLbMFc",
+   "url": "https://stellive.me/music/2164"
+  },
+  {
+   "id": "2146",
+   "title": "괴수의 꽃노래『Vaundy』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-05-04",
+   "yt": "yCVZq40vqLk",
+   "url": "https://stellive.me/music/2146"
+  },
+  {
+   "id": "2105",
+   "title": "스텔라이브 Universe ‘Stars Align’",
+   "artist": "Universe",
+   "who": [
+    "universe"
+   ],
+   "category": "SINGLE",
+   "kind": "유닛",
+   "date": "2024-04-30",
+   "yt": "Jt6UCd7JhAA",
+   "url": "https://stellive.me/music/2105"
+  },
+  {
+   "id": "2022",
+   "title": "Shirayuki Hina X Neneko Mashiro ‘Dear my fairy’",
+   "artist": "Shirayuki Hina & Neneko Mashiro",
+   "who": [
+    "hina",
+    "mashiro"
+   ],
+   "category": "SINGLE",
+   "kind": "유닛",
+   "date": "2024-04-21",
+   "yt": "uTj88854gZ0",
+   "url": "https://stellive.me/music/2022"
+  },
+  {
+   "id": "1995",
+   "title": "큐 큐라링『Iyowa』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-04-16",
+   "yt": "a6imWKGILZA",
+   "url": "https://stellive.me/music/1995"
+  },
+  {
+   "id": "1892",
+   "title": "Airi Kanna x Akane Lize 'Hit On Shot'",
+   "artist": "Airi Kanna & Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-04-03",
+   "yt": "suyhkCwKX48",
+   "url": "https://stellive.me/music/1892"
+  },
+  {
+   "id": "1862",
+   "title": "사랑하고 있는거야 『夏代孝明』Cover",
+   "artist": "Neneko Mashiro & Arahashi Tabi",
+   "who": [
+    "mashiro",
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-03-31",
+   "yt": "tmk0qlr4AeM",
+   "url": "https://stellive.me/music/1862"
+  },
+  {
+   "id": "1849",
+   "title": "라푼젤『n-buna』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-03-29",
+   "yt": "NcXfMM_TL3A",
+   "url": "https://stellive.me/music/1849"
+  },
+  {
+   "id": "1836",
+   "title": "첫사랑 『 백아 』 cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-03-27",
+   "yt": "HBoqsgRoDw4",
+   "url": "https://stellive.me/music/1836"
+  },
+  {
+   "id": "1794",
+   "title": "Sweet Dreams, My Dear(Lost Ark)『소향』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-03-15",
+   "yt": "xRkZVxvk55U",
+   "url": "https://stellive.me/music/1794"
+  },
+  {
+   "id": "1837",
+   "title": "최종화『 Acoustic Ver.』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-03-03",
+   "yt": "iCCqSFvz9kM",
+   "url": "https://stellive.me/music/1837"
+  },
+  {
+   "id": "1709",
+   "title": "선잠『Leina』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-03-02",
+   "yt": "t6EzltrzGNo",
+   "url": "https://stellive.me/music/1709"
+  },
+  {
+   "id": "1653",
+   "title": "Milky Way『스텔라이브』",
+   "artist": "StelLive",
+   "who": [
+    "all"
+   ],
+   "category": "SINGLE",
+   "kind": "단체",
+   "date": "2024-02-24",
+   "yt": "YcyDo-jp4YM",
+   "url": "https://stellive.me/music/1653"
+  },
+  {
+   "id": "1655",
+   "title": "Starry Way『스텔라이브』",
+   "artist": "StelLive",
+   "who": [
+    "all"
+   ],
+   "category": "SINGLE",
+   "kind": "단체",
+   "date": "2024-02-21",
+   "yt": "d6MyuSLx4pY",
+   "url": "https://stellive.me/music/1655"
+  },
+  {
+   "id": "1568",
+   "title": "츄 다양성『ano』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-02-18",
+   "yt": "0nVQggWAzyE",
+   "url": "https://stellive.me/music/1568"
+  },
+  {
+   "id": "1570",
+   "title": "절정찬가『Wanuka』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-02-17",
+   "yt": "d_YvT_ULGkc",
+   "url": "https://stellive.me/music/1570"
+  },
+  {
+   "id": "1378",
+   "title": "피날레『 eill』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-02-11",
+   "yt": "_-uHa5KiR90",
+   "url": "https://stellive.me/music/1378"
+  },
+  {
+   "id": "1375",
+   "title": "괴수의 꽃노래『Vaundy』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-02-10",
+   "yt": "of5l0st1kA8",
+   "url": "https://stellive.me/music/1375"
+  },
+  {
+   "id": "1302",
+   "title": "눈이 녹을 때『 tayori 』 Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-02-04",
+   "yt": "cOLX5n5q4yc",
+   "url": "https://stellive.me/music/1302"
+  },
+  {
+   "id": "1838",
+   "title": "내꺼 하는 법 『 Aiobahn Remix 』",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2024-01-31",
+   "yt": "8z-2uO9Cg2c",
+   "url": "https://stellive.me/music/1838"
+  },
+  {
+   "id": "1075",
+   "title": "그저 네게 맑아라『 Yorushika 』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2024-01-13",
+   "yt": "bdapY46xR7A",
+   "url": "https://stellive.me/music/1075"
+  },
+  {
+   "id": "639",
+   "title": "우주 비행사의 노래 『Sakamoto Maaya』 Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-12-25",
+   "yt": "66axQApR3rM",
+   "url": "https://stellive.me/music/639"
+  },
+  {
+   "id": "502",
+   "title": "Stranger 『 Fan Gift song 』",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2023-12-10",
+   "yt": "h7l0Ho1Fjkg",
+   "url": "https://stellive.me/music/502"
+  },
+  {
+   "id": "501",
+   "title": "Mela!『 緑黄色社会 』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-12-09",
+   "yt": "6eb-U8R0nHQ",
+   "url": "https://stellive.me/music/501"
+  },
+  {
+   "id": "500",
+   "title": "낮에 뜨는 달『 안예은 』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-12-08",
+   "yt": "5j8voUwxzmU",
+   "url": "https://stellive.me/music/500"
+  },
+  {
+   "id": "499",
+   "title": "감 그레이『 ZUTOMAYO 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-11-18",
+   "yt": "eLJENPbBe8A",
+   "url": "https://stellive.me/music/499"
+  },
+  {
+   "id": "498",
+   "title": "최종화『 2nd Single 』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2023-11-09",
+   "yt": "ajDAmJYPQ-U",
+   "url": "https://stellive.me/music/498"
+  },
+  {
+   "id": "497",
+   "title": "나라는 것『 Mrs. GREEN APPLE 』Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-11-04",
+   "yt": "lbBbNysWWCo",
+   "url": "https://stellive.me/music/497"
+  },
+  {
+   "id": "496",
+   "title": "사랑해줘 사랑해줘 사랑해줘『 Kikuo 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-10-31",
+   "yt": "OgwD6f_tdIY",
+   "url": "https://stellive.me/music/496"
+  },
+  {
+   "id": "495",
+   "title": "지구본(그대들은 어떻게 살 것인가 OST)『 Kenshi Yonezu 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-10-25",
+   "yt": "8VdlQZQ46D4",
+   "url": "https://stellive.me/music/495"
+  },
+  {
+   "id": "494",
+   "title": "Pale『 MIMI 』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-10-21",
+   "yt": "pnU-h63twZM",
+   "url": "https://stellive.me/music/494"
+  },
+  {
+   "id": "487",
+   "title": "KICK BACK『 Kenshi Yonezu 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-10-14",
+   "yt": "Ei1WobzwsVI",
+   "url": "https://stellive.me/music/487"
+  },
+  {
+   "id": "486",
+   "title": "LADY『 Kenshi Yonezu 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-09-23",
+   "yt": "GdH0TsPznUs",
+   "url": "https://stellive.me/music/486"
+  },
+  {
+   "id": "485",
+   "title": "그 여름에 피어나『 Yorushika 』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-09-18",
+   "yt": "Y52kljOrCsc",
+   "url": "https://stellive.me/music/485"
+  },
+  {
+   "id": "484",
+   "title": "잠이 드는 거리『 くじら 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-09-02",
+   "yt": "nYgMMdYDGak",
+   "url": "https://stellive.me/music/484"
+  },
+  {
+   "id": "483",
+   "title": "드라마『 아이유 』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-07-28",
+   "yt": "u1UbWeVxhpY",
+   "url": "https://stellive.me/music/483"
+  },
+  {
+   "id": "482",
+   "title": "내꺼하는 법『 First Single 』",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2023-07-20",
+   "yt": "pkypi5nXSYM",
+   "url": "https://stellive.me/music/482"
+  },
+  {
+   "id": "480",
+   "title": "아이돌『 YOASOBI 』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-07-15",
+   "yt": "ZL5m1EDh-z8",
+   "url": "https://stellive.me/music/480"
+  },
+  {
+   "id": "478",
+   "title": "색채『 vocaduo2023 』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "OTHERS",
+   "kind": "콜라보·OST",
+   "date": "2023-07-07",
+   "yt": "AsoPg-h-644",
+   "url": "https://stellive.me/music/478"
+  },
+  {
+   "id": "477",
+   "title": "그 여름의 어느 날은『 Luna 』Cover",
+   "artist": "Arahashi Tabi",
+   "who": [
+    "tabi"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-06-09",
+   "yt": "W-Xr4ceMOXI",
+   "url": "https://stellive.me/music/477"
+  },
+  {
+   "id": "476",
+   "title": "괴물『 YOASOBI 』 Cover",
+   "artist": "Akane Lize",
+   "who": [
+    "lize"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-06-09",
+   "yt": "naWmFCbwi3M",
+   "url": "https://stellive.me/music/476"
+  },
+  {
+   "id": "474",
+   "title": "퀘스천『 meiyo 』Cover",
+   "artist": "Neneko Mashiro",
+   "who": [
+    "mashiro"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-06-08",
+   "yt": "Y3McmrSFy1E",
+   "url": "https://stellive.me/music/474"
+  },
+  {
+   "id": "473",
+   "title": "낙향『 Yorushika 』Cover",
+   "artist": "Shirayuki Hina",
+   "who": [
+    "hina"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-06-08",
+   "yt": "gBWIv6NvLcU",
+   "url": "https://stellive.me/music/473"
+  },
+  {
+   "id": "471",
+   "title": "ADDICT!ON 『 First Single 』",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "SINGLE",
+   "kind": "솔로",
+   "date": "2023-05-26",
+   "yt": "kPdB6iGYBBc",
+   "url": "https://stellive.me/music/471"
+  },
+  {
+   "id": "469",
+   "title": "아이돌『 YOASOBI 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-05-24",
+   "yt": "4_Aknw7fm_8",
+   "url": "https://stellive.me/music/469"
+  },
+  {
+   "id": "451",
+   "title": "굿바이 선언『 chinozo 』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-05-20",
+   "yt": "ZokeGI54Kqo",
+   "url": "https://stellive.me/music/451"
+  },
+  {
+   "id": "440",
+   "title": "에러『 nikiP 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-04-22",
+   "yt": "eNlXPUp9WBw",
+   "url": "https://stellive.me/music/440"
+  },
+  {
+   "id": "439",
+   "title": "스즈메 suzume(스즈메의 문단속 OST)『 RADWIMPS 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-04-09",
+   "yt": "v8MjiqzLKTs",
+   "url": "https://stellive.me/music/439"
+  },
+  {
+   "id": "437",
+   "title": "삼문소설『 King Gnu 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-03-19",
+   "yt": "3PxbqWrDCz4",
+   "url": "https://stellive.me/music/437"
+  },
+  {
+   "id": "436",
+   "title": "신시대『 Ado 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-03-04",
+   "yt": "_nYgmgYMdW0",
+   "url": "https://stellive.me/music/436"
+  },
+  {
+   "id": "435",
+   "title": "사랑의 말 Ⅳ『 DECO*27 』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-02-14",
+   "yt": "yXemOzx8Cw8",
+   "url": "https://stellive.me/music/435"
+  },
+  {
+   "id": "434",
+   "title": "베텔기우스『 Yuuri 』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-01-28",
+   "yt": "YJJbVAPTZLg",
+   "url": "https://stellive.me/music/434"
+  },
+  {
+   "id": "433",
+   "title": "좋아하니까『 Yuika 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-01-14",
+   "yt": "futqIdI0rOY",
+   "url": "https://stellive.me/music/433"
+  },
+  {
+   "id": "646",
+   "title": "Cookie 『NewJeans』 Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-01-05",
+   "yt": "PkDX2oGCCxM",
+   "url": "https://stellive.me/music/646"
+  },
+  {
+   "id": "432",
+   "title": "긍지높은 아이돌『 HoneyWorks』Cover",
+   "artist": "Ayatsuno Yuni",
+   "who": [
+    "yuni"
+   ],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2023-01-04",
+   "yt": "UKzvG2SP5wg",
+   "url": "https://stellive.me/music/432"
+  },
+  {
+   "id": "431",
+   "title": "나는 최강 『 Ado 』Cover",
+   "artist": "Airi Kanna",
+   "who": [],
+   "category": "COVER",
+   "kind": "커버",
+   "date": "2022-08-20",
+   "yt": "MhtScZvcsiQ",
+   "url": "https://stellive.me/music/431"
+  }
+ ]
 }
