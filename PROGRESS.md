@@ -6,6 +6,21 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 **전 단계(0~7) 완료. 운영 중.** 사이트 https://sora7942.github.io/stella-radar/ 는 **외부 cron(cron-job.org)이 30분마다 `workflow_dispatch`를 호출**해 갱신된다(GitHub `schedule`은 이 저장소에서 한 번도 돌지 않아 보조로만 남김). 로컬 `main`과 `origin/main`은 이 문서 커밋까지 같다.
 미해결 문제 2개(아래 "알려진 문제"): ① 치지직 후야 채널이 Actions에서 계속 HTTP 500 ② GitHub `schedule` 미작동(원인 미확정, 외부 cron으로 우회).
 
+## SPEC v1.1 진행 (기능 0 → 1 → 2 → 3)
+계획 파일: `~/.claude/plans/pasted-content-id-2204-spec-v1-1-md-groovy-pudding.md`. 규칙: 기능마다 멈추고 검증 결과를 보여준 뒤 확인, 단계마다 로컬 커밋, **push는 매번 먼저 묻는다.** 새 세션은 이 파일 → `SPEC.md` → `SPEC-v1.1.md` → `CLAUDE.md` 순서로 읽는다.
+
+| 단계 | 내용 | 상태 · 커밋 |
+|---|---|---|
+| 0-a | 비밀 스캔에 `github_pat_`/`ghp_`류/`sk-ant-` 패턴, `.env` 대조·conftest에 `ANTHROPIC_API_KEY` | 완료 `d64c1c4` (가짜 토큰으로 일부러 깨뜨려 2건 모두 잡힘 확인) |
+| 0-b | SPEC 9장·CLAUDE.md·README의 cron 문구를 외부 cron 주 실행 구조로, SPEC-v1.1 굿즈 토글 문구 수정 | 이 커밋 |
+| 0-c | 치지직 5xx 1회 재시도 + 같은 멤버 연속 3회 실패 시 `::warning::`(`status.json` 멤버 `liveFails`) | 예정 |
+| 0-d | 치지직 대체 엔드포인트 시험(Actions IP, `probe/chzzk` 임시 브랜치) | 예정 (push 전에 먼저 묻는다) |
+| 1 | 대표곡 10곡 유튜브 영상 후보 표 → 사용자가 고른 ID만 반영 | 예정 |
+| 2 | 쇼츠 판별((a)/(b) 비교표 후 선택) + 피드 분류 필터·쇼츠 UI | 예정 |
+| 3 | 공지 본문 추출 확인 → Claude 일정 추출 → `auto_events.json` → 달력 | 예정 |
+
+**확정된 결정 (v1.1)**: 일정 추가 알림은 출처 공지가 2일 이내일 때만 · Claude 호출만 `timeout=30`(CLAUDE.md Rules에 예외 명시) · 수동·자동 일정 중복은 같은 시작일끼리만 비교(같은 시작일 AND (같은 url 또는 제목 포함)) · index.html 테스트는 순수 로직 구역을 node로 실행 · **굿즈 일정 보기 토글은 달력뿐 아니라 다가오는 일정 패널·"다음:" 문구에도 적용**(소식 탭 패널 머리에도 같은 상태의 작은 토글).
+
 ## 완료한 단계
 | 단계 | 내용 | 커밋 |
 |---|---|---|
@@ -143,7 +158,7 @@ SPEC 12장 진행 상황. 새 세션은 이 파일 → `SPEC.md` → `CLAUDE.md`
 - 외부 cron 토큰(fine-grained PAT)은 **만료 1년**(정확한 만료일은 기록하지 않았다 — 사용자가 발급일 기준으로 달력에 적어 두기). 만료 전에 새 토큰을 발급해 cron-job.org 헤더를 바꾼다. cron-job.org의 실패 알림 설정을 권한다.
 - 방송 시작 알림은 시작 1시간 안에만 나간다. 실행이 1시간 넘게 비면 그 사이 시작한 방송 알림은 사라진다.
 - `keepalive.yml`은 GitHub `schedule`을 위한 보조(다음 달 1일에 처음 돈다). 외부 cron은 `workflow_dispatch`라 이 규칙과 별개일 수 있으나 이 저장소에서 확인하지는 않았다.
-- 문서에는 토큰 값을 쓰지 않는다. 저장소의 비밀 스캔 테스트(`tests/test_secrets_hygiene.py`)는 Google API 키·웹훅 모양만 검사하고 GitHub 토큰 모양(`github_pat_…`, `ghp_…`)은 검사하지 않는다(필요하면 패턴 추가).
+- 문서에는 토큰 값을 쓰지 않는다. 저장소의 비밀 스캔 테스트(`tests/test_secrets_hygiene.py`)는 Google API 키·웹훅에 더해 GitHub 토큰(`github_pat_…`, `ghp_…`)과 Anthropic 키(`sk-ant-…`) 모양도 검사한다(SPEC v1.1 기능 0-a에서 추가, 커밋 `d64c1c4`).
 
 ## 단계 6에서 결정할 것
 - ~~배포 실패 시 중복 알림~~ 해결됨: 알림을 배포 성공 뒤 단계(`send_alerts.py`)로 옮겼다(위 "알림 구조").

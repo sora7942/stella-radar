@@ -1,7 +1,7 @@
 # SPEC — stella-radar
 
 스텔라이브(강지 · 1기 에버리스 · 2기 유니버스 · 3기 클리셰 · 단체 · 멤버 개인)의 새 소식, 노래, 팬 게임, 생일·일정을 한곳에서 보는 **비공식 팬 허브 사이트**.
-GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다 새 소식을 모아 사이트를 다시 배포하며, 새 소식은 디스코드 웹훅으로 알린다.
+GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다(외부 cron 서비스가 호출한다 — 9장) 새 소식을 모아 사이트를 다시 배포하며, 새 소식은 디스코드 웹훅으로 알린다.
 
 > 이전 버전은 Claude 아티팩트였다. 아티팩트는 외부 이미지를 못 불러오고 유튜브 RSS를 못 읽어서 옮긴다.
 > 프론트엔드(`site/index.html`)는 이미 완성되어 있다. 이 SPEC의 주된 구현 대상은 **업데이터와 배포 워크플로**다.
@@ -9,7 +9,7 @@ GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다
 ## 1. 목표
 - `https://sora7942.github.io/stella-radar/`에서 사이트가 열린다
 - 멤버 프로필 사진(유튜브 채널 이미지)과 노래·영상 썸네일(유튜브)이 **링크(핫링크)로** 보인다. 이미지를 저장소에 복사하지 않는다
-- 30분마다(실제로는 GitHub 사정으로 몇 분씩 밀림) 다음을 반영한다
+- 30분마다(외부 cron이 호출하며 GitHub·네트워크 사정으로 몇 분씩 밀릴 수 있음) 다음을 반영한다
   - 멤버 12개 유튜브 채널(강지·멤버 10명·공식)의 새 영상
   - 공식 홈페이지 공지(stellive.me/news)
   - 공식 음악 카탈로그(stellive.me/music) 새 곡
@@ -27,8 +27,8 @@ GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다
 ## 3. 저장소 구조
 ```
 stella-radar/
-├─ .github/workflows/update.yml   # 30분마다 수집 → 배포 → (배포 성공 뒤) 알림 (+ main push, 수동 실행)
-│  └─ keepalive.yml               # 한 달에 한 번 빈 커밋 (60일 비활동으로 예약 실행이 꺼지는 것 방지)
+├─ .github/workflows/update.yml   # 수집 → 배포 → (배포 성공 뒤) 알림. 외부 cron이 30분마다 workflow_dispatch로 호출 (+ main push, 수동 실행, 보조 schedule)
+│  └─ keepalive.yml               # 한 달에 한 번 빈 커밋 (60일 비활동으로 GitHub 예약 실행이 꺼지는 것 방지 — 보조 장치)
 ├─ site/                          # 그대로 Pages에 올라가는 정적 사이트
 │  ├─ index.html                  # 완성본. 데이터 스키마(4장)만 맞추면 됨
 │  └─ data/
@@ -154,9 +154,13 @@ stella-radar/
 - 로컬 미리보기: `python -m http.server -d site 8000` → `http://localhost:8000`
 
 ## 9. GitHub Actions (`update.yml`)
-- 트리거: `schedule: cron "7,37 * * * *"`(30분 간격이되 정각·30분을 비킨다 — GitHub 예약 실행은 정각 부근에 몰려 지연되거나 버려질 수 있고, 실제로 `*/30`일 때 첫 예약 실행이 67분 동안 시작되지 않았다), `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함)
+- **정기 실행(주 경로): 외부 cron 서비스(cron-job.org)가 30분마다 GitHub API로 `workflow_dispatch`를 호출한다.** `POST https://api.github.com/repos/sora7942/stella-radar/actions/workflows/update.yml/dispatches`, 본문 `{"ref":"main"}`, 헤더 `Accept`·`Authorization: Bearer <토큰>`·`X-GitHub-Api-Version`·`Content-Type`. 토큰은 fine-grained PAT(이 저장소 하나 · Actions Read/Write만 · 만료 1년). 이렇게 시작된 실행은 Actions 목록에 "Manually run"(`event=workflow_dispatch`)으로 보이며 `no_alerts` 기본값이 false라 알림도 정상 발송된다. 설정 방법은 README
+  - 이유: GitHub `schedule`(예약 실행)이 이 저장소에서 한 번도 시작되지 않았다(`*/30` 슬롯 4개 + `7,37` 슬롯 6개, `schedule` 이벤트 실행 0건, 원인 미확정 — PROGRESS 7단계)
+  - 외부 cron에 의존한다: cron-job.org 장애, 토큰 만료·삭제가 있으면 갱신이 멈춘다 → 토큰 만료일을 달력에 적어 두고 cron-job.org의 실패 알림을 켠다. 사이트의 "마지막 관측" 시각으로 확인한다
+  - **토큰 값은 cron-job.org의 헤더 칸에만 둔다.** 저장소·문서·GitHub Secret·`.env`·로그·커밋에 남기지 않는다(문서에는 `<토큰>`). 비밀 스캔 테스트가 `github_pat_`·`ghp_` 모양을 잡는다(10장)
+- 보조 트리거: `schedule: cron "7,37 * * * *"`(30분 간격이되 정각·30분을 비킨다 — GitHub 예약 실행은 정각 부근에 몰려 지연되거나 버려질 수 있다), `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`, 수동 실행도 이것), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함). 외부 cron과 겹쳐 돌아도 `concurrency`로 순서대로 실행되고 새 항목이 없으면 알림도 없다
 - 한 잡(`update`, `environment: github-pages`, `timeout-minutes: 20`)에 모든 단계를 둔다. 액션은 공식 액션의 메이저 버전으로 고정: `checkout@v7`, `setup-python@v7`, `upload-pages-artifact@v5`, `deploy-pages@v5`
-- `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문
+- `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문(지금은 외부 cron이 주 경로라 이것은 GitHub `schedule`을 위한 보조 장치)
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
 - 권한: `contents: read`, `pages: write`, `id-token: write`
 - 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages` → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)
@@ -172,6 +176,7 @@ stella-radar/
 - 병합: 중복 id 무시, `added` 유지, 300개 자르기, 정렬
 - 알림 판정: 6시간/2일 규칙, 최초 catalog 채우기 중 미발송, 방송 off→on만
 - 이전 상태 로드: 원격 실패 시 로컬 fallback
+- 비밀 스캔(`tests/test_secrets_hygiene.py`): 커밋될 파일에 Google API 키·디스코드 웹훅 URL·GitHub 토큰(`github_pat_`·`ghp_` 등)·Anthropic 키(`sk-ant-`) 모양이나 로컬 `.env`의 실제 값이 없는지. 실패 메시지에는 파일 경로만 나온다
 
 ## 11. 완료 기준
 1. `pytest -q` 전부 통과
@@ -179,7 +184,7 @@ stella-radar/
 3. `python -m http.server -d site 8000`으로 열었을 때 멤버 사진·노래 썸네일·영상 썸네일이 보이고 콘솔 에러가 없다
 4. GitHub에 올리고 Actions 수동 실행 → Pages 주소에서 같은 화면이 보인다
 5. 디스코드에 테스트 알림 1건 도착 (사용자가 요청할 때)
-6. 다음 30분 예약 실행이 자동으로 돌고 `마지막 관측` 시각이 갱신된다
+6. 다음 30분 실행(외부 cron이 호출)이 자동으로 돌고 `마지막 관측` 시각이 갱신된다
 
 ## 12. 진행 순서
 1. 저장소 생성, 받은 파일(site/, SPEC.md, CLAUDE.md) 배치, `python -m http.server -d site`로 현재 화면 확인
@@ -188,4 +193,4 @@ stella-radar/
 4. 아바타·치지직 → status.json 확인, 강지 치지직 채널 ID 찾아 사용자 확인
 5. 디스코드 발송 (dry-run 출력 → 사용자 요청 시 실제 1회)
 6. Actions 워크플로 + README → push, Pages 설정, 수동 실행
-7. 예약 실행 확인 후 이전 Claude 예약 작업 끄기 (사용자가 Claude 앱에서)
+7. 정기 실행(외부 cron) 확인 후 이전 Claude 예약 작업 끄기 (사용자가 Claude 앱에서)

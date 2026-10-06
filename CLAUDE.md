@@ -1,5 +1,5 @@
 # stella-radar
-스텔라이브 비공식 팬 허브. 정적 사이트(GitHub Pages) + 30분마다 도는 Python 업데이터(GitHub Actions).
+스텔라이브 비공식 팬 허브. 정적 사이트(GitHub Pages) + 30분마다 도는 Python 업데이터(GitHub Actions — 외부 cron이 `workflow_dispatch`로 30분마다 호출).
 요구사항, 데이터 스키마, 완료 기준은 @SPEC.md 참고.
 
 ## Stack
@@ -37,6 +37,7 @@
 - NEVER: 실제 디스코드 발송은 사용자가 요청할 때만 한다. 개발 중에는 `--dry-run`
 - NEVER: `DISCORD_WEBHOOK_URL`을 코드·로그·커밋에 남기지 않는다 (`.env`는 `.gitignore`). requests 예외 메시지에는 URL이 들어 있으니 발송 실패는 예외 종류·HTTP 상태만 기록한다
 - NEVER: `YOUTUBE_API_KEY`를 코드·로그·예외 메시지·커밋에 남기지 않는다. 키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보내고, API 오류는 HTTP 상태와 reason 코드만 기록한다(예외 메시지·응답 본문 금지). `updater/redact.py`가 마지막 방어선이고 `tests/test_secrets_hygiene.py`가 저장소를 스캔한다
+- NEVER: 외부 cron용 GitHub 토큰(`github_pat_…`)을 저장소·로그·문서·GitHub Secret·`.env`에 남기지 않는다. 값은 cron-job.org의 헤더 칸에만 있고 문서에는 `<토큰>`만 쓴다. `tests/test_secrets_hygiene.py`가 `github_pat_`·`ghp_`·`sk-ant-` 모양을 잡는다
 - 새로 만든 비밀 파일·픽스처는 커밋 전에 `pytest -q tests/test_secrets_hygiene.py`로 확인한다 (커밋될 파일 전체와 로컬 `.env`의 실제 값을 대조한다)
 - 웹훅 URL은 `send_alerts.py`만 읽는다. `main.py`는 디스코드로 보내지 않고 알림을 `out/alerts.json`(site/ 밖, `.gitignore`)에 남긴다
 - stellive.me와 유튜브에 요청을 몰아 보내지 않는다 (음악 상세는 실행당 40개, 요청 간 0.5초)
@@ -46,7 +47,7 @@
 - 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나, 할당량이 초과됐거나, 키가 거부됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키 거부는 Actions 주석 "YouTube API 키 확인 필요"로 알린다. 5xx·네트워크 같은 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS` 허용 목록)
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
-- GitHub Actions cron은 UTC 기준이고 몇 분씩 늦게 실행되며, 부하가 크면 건너뛰기도 한다
+- **정기 실행은 외부 cron(cron-job.org)이 30분마다 `workflow_dispatch`를 호출하는 것이 주 경로다**(SPEC 9장). GitHub `schedule`(`7,37`, UTC)은 이 저장소에서 한 번도 시작되지 않아 보조일 뿐이고(돌더라도 몇 분씩 늦거나 건너뛴다), 겹쳐 돌아도 `concurrency`와 '새 항목 없음 → 알림 없음'으로 안전하다. 외부 cron이 멈추거나 토큰이 만료되면 갱신이 멈추므로 사이트의 "마지막 관측" 시각으로 확인한다
 - 배포된 사이트에서 이전 상태를 읽으므로(SPEC 6장), Pages 배포가 실패하면 다음 실행은 마지막 성공 배포 기준으로 다시 수집한다. 알림은 배포 성공 뒤 단계(`send_alerts.py`)에서만 나가므로 중복 알림은 없다. 대신 그 단계가 실패하면 그 알림은 다시 시도되지 않는다(최대 한 번)
 - 유튜브 채널 이미지(yt3) 등 외부 이미지는 `referrerpolicy="no-referrer"`가 있어야 잘 뜬다 (index.html에 이미 들어 있음)
 - Windows에서 `conda run`은 한글 출력을 깨뜨린다. `conda activate` 후 실행하거나 `conda run --no-capture-output`
