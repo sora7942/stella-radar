@@ -62,6 +62,9 @@ AVATAR_HOSTS = ("googleusercontent.com", "ggpht.com")
 
 CHZZK_LIVE_STATUS_URL = "https://api.chzzk.naver.com/polling/v2/channels/{channel_id}/live-status"  # 비공식 API
 CHZZK_LIVE_PAGE_URL = "https://chzzk.naver.com/live/{channel_id}"
+CHZZK_RETRY_5XX = 1  # HTTP 5xx면 이만큼 더 시도한다. 4xx·연결 오류·응답 형식 오류는 재시도하지 않는다
+CHZZK_RETRY_DELAY = 1.0  # 초. 5xx 재시도 전 대기
+CHZZK_FAIL_WARN_STREAK = 3  # 같은 멤버의 확인이 이 횟수(실행 단위)만큼 연속 실패하면 Actions ::warning:: 주석
 
 # 기본으로 돌리는 소스. 치지직이 Actions(해외 IP)에서 막히면 여기서 "chzzk"만 뺀다 (CLAUDE.md). --only는 이 목록과 무관하게 지정한 것만 돌린다
 ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk")

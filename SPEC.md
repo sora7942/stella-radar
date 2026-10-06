@@ -107,6 +107,7 @@ stella-radar/
 - `uploads`: 유튜브 업로드 재생목록 ID 캐시(YouTube API 수집용, 멤버 key별 + 공식 채널은 `official` 키). 캐시된 ID가 `playlistNotFound`면 그 채널만 다시 구한다
 - `avatar`: 유튜브 채널 페이지의 `og:image`. 크기 파라미터만 `=s900` → `=s240`으로 바꿔 저장한다(같은 서버·같은 이미지, `config.AVATAR_SIZE`). 하루 1번 갱신, 실패하면 이전 값 유지
 - `live`: 치지직 방송 상태. 꺼져 있으면 `{"on":false,"checkedAt":"..."}`
+- `liveFails`(선택, 정수): 치지직 확인이 **연속으로 실패한 실행 수**. 실패한 실행마다 +1, 성공하면 필드를 지운다(0은 저장하지 않는다). 실패한 멤버의 패치에는 `live`가 없어 이전 `live`·`checkedAt`이 그대로 남는다. `CHZZK_FAIL_WARN_STREAK`(3) 이상이면 Actions 실행 요약에 `::warning::`("<멤버>: 치지직 확인이 N회 연속 실패했습니다 (HTTP 500) …")을 매 실행 남긴다. 사이트·알림 판정은 읽지 않는다
 - `live.checkedAt`: 치지직을 마지막으로 **성공적으로 확인한** 시각. 요청이 실패한 멤버는 이전 live 값과 이전 checkedAt이 그대로 남는다. 사이트는 checkedAt이 2시간 넘게 지났거나 없는 LIVE는 표시하지 않는다(소스를 끄거나 계속 실패해도 오래된 LIVE가 남지 않게)
 
 ### songs.json / events.json (사람이 관리)
@@ -119,7 +120,7 @@ stella-radar/
 | 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (12개 채널 = 호출 12회 + 캐시가 없을 때 1회, 하루 약 580유닛 / 한도 10,000). RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체하는 경우는 셋뿐: ① 키(`YOUTUBE_API_KEY`)가 없을 때, ② 할당량 초과(403 `quotaExceeded`), ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked` 등). ②③이 중간에 일어나면 못 한 채널만 RSS로 수집한다. ③은 사람이 고쳐야 하므로 Actions 실행 요약에 `::warning::` 주석 "YouTube API 키 확인 필요"를 남긴다(로컬은 로그 경고). 5xx·네트워크 오류·속도 제한 같은 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다. 업데이터가 부르는 API는 `channels.list`·`playlistItems.list`(호출당 1유닛)뿐이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS`) | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함. 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
 | 공식 공지 | `https://stellive.me/news` 목록 HTML | Rhymix 기반. 제목·날짜·카테고리·`/news/<번호>` 파싱. 첫 페이지만 |
 | 공식 음악 | `https://stellive.me/music` 목록 + `/music/<번호>` 상세 | 상세는 **처음 보는 번호만** 가져온다(실행당 최대 40개, 요청 간 0.5초). 최초 실행 때 전체(약 290곡)를 여러 번에 나눠 채움. 새 곡은 news에도 `음악`으로 추가 |
-| 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status` | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
+| 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status` | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. HTTP 5xx는 1초 뒤 1회 재시도(4xx·연결 오류는 재시도 없음). 같은 멤버가 연속 3회 실패하면 `::warning::`(4장 `liveFails`). 전부 실패하면 소스 실패로 세되 연속 실패 횟수는 저장한다. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
 | 유튜브 프로필 | `https://www.youtube.com/channel/<UC…>` HTML의 `og:image` | 하루 1번 |
 
 - 모든 요청: `timeout=10`, 브라우저 형태의 User-Agent, 실패해도 다른 소스는 계속

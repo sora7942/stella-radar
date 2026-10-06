@@ -46,8 +46,10 @@ class Net:
     live = {치지직 채널 ID: True(방송 중)}, chzzk_fail = 실패시킬 치지직 채널 ID, page_fail = 실패시킬 유튜브 채널 ID."""
 
     def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
-                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None):
+                 live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None, chzzk_5xx=(), chzzk_flaky=()):
         self.calls = []
+        self.chzzk_5xx = set(chzzk_5xx)  # 항상 HTTP 500을 내는 치지직 채널 ID
+        self.chzzk_flaky, self._flaked = set(chzzk_flaky), set()  # 첫 요청만 HTTP 500이고 재시도부터 정상인 채널 ID
         self.api = api  # fakeapi.FakeApi. None이면 YouTube API 호출이 오면 실패시킨다 (키가 없을 땐 API를 부르면 안 된다)
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
         self.live, self.chzzk_fail, self.page_fail = set(live), set(chzzk_fail), set(page_fail)
@@ -88,6 +90,9 @@ class Net:
             cid = url.split("/channels/")[1].split("/")[0]
             if cid in self.chzzk_fail:
                 raise requests.ConnectionError("blocked")
+            if cid in self.chzzk_5xx or (cid in self.chzzk_flaky and cid not in self._flaked):
+                self._flaked.add(cid)
+                raise requests.HTTPError("500 Server Error", response=make_response(500))
             d = json.loads((FIXTURES / ("chzzk_live_open.json" if cid in self.live else "chzzk_live_close.json")).read_text(encoding="utf-8"))
             d["content"]["channelId"] = cid
             if cid in self.live:
@@ -382,6 +387,76 @@ def test_all_chzzk_requests_failing_is_a_source_failure_that_keeps_every_live_va
     st = read(data_dir, "status")
     assert st["members"]["lize"]["live"]["on"] is True and st["updatedAt"] == T2  # 아바타는 정상이라 파일은 갱신된다
     assert st["members"]["lize"]["live"]["checkedAt"] == T1  # 계속 실패하면 확인 시각이 멈춘다 → 사이트가 2시간 뒤 이 LIVE를 숨긴다
+    assert all(st["members"][k]["liveFails"] == 1 for k in chzzk_ids)  # 전부 실패한 실행도 연속 실패 횟수는 남긴다 (차단이 길어지면 경고가 나오게)
+
+
+def test_only_chzzk_with_every_request_failing_still_exits_1_and_writes_nothing(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    run(data_dir, Net(live={chzzk_ids["lize"]}), T1, "--only", "chzzk")
+    before = (data_dir / "status.json").read_bytes()
+    assert run(data_dir, Net(chzzk_fail=set(chzzk_ids.values())), T2, "--only", "chzzk", "--local-state") == 1  # 성공한 소스가 하나도 없다
+    assert (data_dir / "status.json").read_bytes() == before
+
+
+def test_a_5xx_is_retried_inside_a_run_and_leaves_no_failure_count(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    lize = chzzk_ids["lize"]
+    net = Net(live={lize}, chzzk_flaky={lize})
+    assert run(data_dir, net, T1, "--only", "chzzk") == 0
+    assert net.calls_to(config.CHZZK_LIVE_STATUS_URL.format(channel_id=lize)) == [config.CHZZK_LIVE_STATUS_URL.format(channel_id=lize)] * 2
+    entry = read(data_dir, "status")["members"]["lize"]
+    assert entry["live"]["on"] is True and entry["live"]["checkedAt"] == T1 and "liveFails" not in entry
+
+
+def chzzk_run(data_dir, net, clock, *, actions):
+    return api_run(data_dir, net, clock, "--only", "chzzk", "--local-state", key=None, actions=actions)
+
+
+def test_the_same_member_failing_three_runs_in_a_row_warns_on_the_third_and_recovery_clears_it(data_dir, capsys, caplog):
+    _, _, chzzk_ids = people(data_dir)
+    lize = chzzk_ids["lize"]
+    stuck = lambda: Net(live={lize}, chzzk_5xx={lize})
+    run(data_dir, Net(live={lize}), T1, "--only", "chzzk")  # 방송 중으로 시작
+    first_live = read(data_dir, "status")["members"]["lize"]["live"]
+    counts, annotations = [], []
+    with caplog.at_level("WARNING"):
+        for clock in ("2026-10-06T10:30:00+09:00", "2026-10-06T11:00:00+09:00", "2026-10-06T11:30:00+09:00", "2026-10-06T12:00:00+09:00"):
+            assert chzzk_run(data_dir, stuck(), clock, actions=True) == 0
+            entry = read(data_dir, "status")["members"]["lize"]
+            counts.append(entry["liveFails"])
+            assert entry["live"] == first_live  # 실패하는 동안 이전 live·checkedAt은 그대로 (사이트가 2시간 뒤 숨긴다)
+            annotations.append([l for l in capsys.readouterr().out.splitlines() if l.startswith("::warning")])
+    assert counts == [1, 2, 3, 4]
+    assert annotations[0] == [] and annotations[1] == []  # 2회째까지는 조용하다
+    for lines in annotations[2:]:  # 3회째부터 연속되는 동안 매 실행
+        assert len(lines) == 1 and lines[0].startswith("::warning title=치지직::") and "아카네 리제" in lines[0] and "HTTP 500" in lines[0]
+        assert "api.chzzk.naver.com" not in lines[0] and lize not in lines[0]  # URL·채널 ID는 주석에 넣지 않는다
+    assert "3회 연속 실패" in caplog.text
+    chzzk_run(data_dir, Net(live=set()), "2026-10-06T12:30:00+09:00", actions=True)  # 복구
+    entry = read(data_dir, "status")["members"]["lize"]
+    assert "liveFails" not in entry and entry["live"] == {"on": False, "checkedAt": "2026-10-06T12:30:00+09:00"}
+    assert not [l for l in capsys.readouterr().out.splitlines() if l.startswith("::warning")]
+
+
+def test_the_streak_warning_is_only_a_log_line_outside_github_actions(data_dir, capsys, caplog):
+    _, _, chzzk_ids = people(data_dir)
+    lize = chzzk_ids["lize"]
+    run(data_dir, Net(), T1, "--only", "chzzk")
+    with caplog.at_level("WARNING"):
+        for clock in ("2026-10-06T10:30:00+09:00", "2026-10-06T11:00:00+09:00", "2026-10-06T11:30:00+09:00"):
+            chzzk_run(data_dir, Net(chzzk_5xx={lize}), clock, actions=False)
+    assert read(data_dir, "status")["members"]["lize"]["liveFails"] == 3
+    assert "::warning" not in capsys.readouterr().out and "3회 연속 실패 (HTTP 500)" in caplog.text
+
+
+def test_one_members_failure_does_not_affect_another_member_in_the_same_run(data_dir):
+    _, _, chzzk_ids = people(data_dir)
+    lize, tabi = chzzk_ids["lize"], chzzk_ids["tabi"]
+    run(data_dir, Net(live={lize}), T1, "--only", "chzzk")
+    run(data_dir, Net(live={lize, tabi}, chzzk_5xx={lize}), T2, "--only", "chzzk", "--local-state")
+    st = read(data_dir, "status")["members"]
+    assert st["tabi"]["live"]["on"] is True and "liveFails" not in st["tabi"]  # 다른 멤버는 정상 갱신
+    assert st["lize"]["liveFails"] == 1 and st["lize"]["live"]["checkedAt"] == T1
 
 
 def test_only_avatar_and_chzzk_leave_other_data_alone(data_dir):

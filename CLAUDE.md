@@ -45,7 +45,7 @@
 ## Gotchas
 - 아티팩트 시절 데이터를 그대로 가져왔다: 노래 대표곡 `songs.json`의 `yt`는 대부분 null이고, 사이트가 catalog에서 제목으로 찾아 채운다
 - 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나, 할당량이 초과됐거나, 키가 거부됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키 거부는 Actions 주석 "YouTube API 키 확인 필요"로 알린다. 5xx·네트워크 같은 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS` 허용 목록)
-- 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다
+- 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다. 5xx는 1회 재시도하고, 같은 멤버가 연속 3회 실패하면 Actions 주석 경고가 나온다(`status.json` 멤버의 `liveFails`, SPEC 4장). 후야 채널은 Actions에서만 HTTP 500이 나는 알려진 문제가 있다(PROGRESS)
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - **정기 실행은 외부 cron(cron-job.org)이 30분마다 `workflow_dispatch`를 호출하는 것이 주 경로다**(SPEC 9장). GitHub `schedule`(`7,37`, UTC)은 이 저장소에서 한 번도 시작되지 않아 보조일 뿐이고(돌더라도 몇 분씩 늦거나 건너뛴다), 겹쳐 돌아도 `concurrency`와 '새 항목 없음 → 알림 없음'으로 안전하다. 외부 cron이 멈추거나 토큰이 만료되면 갱신이 멈추므로 사이트의 "마지막 관측" 시각으로 확인한다
 - 배포된 사이트에서 이전 상태를 읽으므로(SPEC 6장), Pages 배포가 실패하면 다음 실행은 마지막 성공 배포 기준으로 다시 수집한다. 알림은 배포 성공 뒤 단계(`send_alerts.py`)에서만 나가므로 중복 알림은 없다. 대신 그 단계가 실패하면 그 알림은 다시 시도되지 않는다(최대 한 번)

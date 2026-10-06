@@ -48,8 +48,9 @@ class Context:
 class SourceResult:
     news_items: list = field(default_factory=list)
     catalog_items: list | None = None  # None = 이 소스는 catalog를 건드리지 않음 (빈 리스트 = 건드렸지만 새 곡 없음)
-    status_patches: dict | None = None  # None = 이 소스는 status를 건드리지 않음. {멤버 key: {필드: 값}}, 성공한 멤버만
+    status_patches: dict | None = None  # None = 이 소스는 status를 건드리지 않음. {멤버 key: {필드: 값}}
     errors: list = field(default_factory=list)
+    failed: bool = False  # True = 소스 전체가 실패한 것으로 센다('모든 소스 실패' 판정). 그래도 status_patches는 병합한다(치지직 연속 실패 횟수)
 
 
 def run_youtube(ctx: Context) -> SourceResult:
@@ -110,10 +111,20 @@ def run_avatar(ctx: Context) -> SourceResult:
 
 
 def run_chzzk(ctx: Context) -> SourceResult:
-    patches, errors = chzzk.collect(ctx.members["members"], now_iso=ctx.now_iso, get=ctx.get, sleep=ctx.sleep)
-    if errors and not patches:  # 전부 실패 = 차단·API 변경 가능성 → 소스 실패로 남기고 이전 값을 유지한다
-        raise RuntimeError(f"모든 멤버 실패 ({len(errors)}명): {errors[0]}")
-    return SourceResult(status_patches=patches, errors=errors)
+    def warn_streak(name: str, streak: int, reason: str) -> None:
+        # 같은 멤버가 연속으로 실패하는 중 — 이 멤버의 LIVE 표시와 방송 시작 알림이 갱신되지 않고 있다. 사람이 볼 수 있게 실행 요약에 올린다
+        log.warning("치지직 %s: %d회 연속 실패 (%s) — LIVE 표시·방송 시작 알림이 갱신되지 않습니다", name, streak, reason)
+        annotate.warning("치지직", f"{name}: 치지직 확인이 {streak}회 연속 실패했습니다 ({reason}) — 이 멤버의 LIVE 표시와 방송 시작 알림이 누락되고 있습니다",
+                         environ=ctx.environ)
+
+    patches, errors = chzzk.collect(ctx.members["members"], now_iso=ctx.now_iso, prev_status=ctx.prev_status, on_streak=warn_streak,
+                                    get=ctx.get, sleep=ctx.sleep)
+    all_failed = bool(errors) and not any("live" in p for p in patches.values())
+    if all_failed:
+        # 전부 실패 = 차단·API 변경 가능성. 소스 실패로 세고(다른 소스도 다 실패하면 실행이 중단된다) 이전 live 값은 그대로 유지된다(패치에
+        # live가 없다). 예외로 끝내지 않는 이유: 연속 실패 횟수(liveFails)를 저장해야 차단이 길어질 때 경고가 나온다
+        log.error("소스 chzzk 실패: 모든 멤버 실패 (%d명): %s", len(errors), errors[0])
+    return SourceResult(status_patches=patches, errors=errors, failed=all_failed)
 
 
 # 이름 → 실행 함수 (실행 순서)
@@ -221,7 +232,7 @@ def main(
         except Exception as e:  # 소스 하나의 실패가 전체를 멈추지 않는다 (해당 소스의 이전 데이터는 그대로 남는다)
             log.error("소스 %s 실패: %s: %s", name, type(e).__name__, redact.mask(str(e)))  # 예외 메시지에 비밀이 섞였더라도 가린다
 
-    if not results:
+    if not any(not r.failed for r in results.values()):
         log.error("모든 소스가 실패해 중단합니다 (파일을 쓰지 않습니다)")
         return 1
 

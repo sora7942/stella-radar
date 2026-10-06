@@ -286,6 +286,29 @@ def test_status_new_member_is_added_and_fields_are_in_fixed_order():
     assert list(merged["lize"]) == ["avatar", "avatarCheckedAt", "live", "zzz"]
 
 
+def test_live_fails_is_kept_while_positive_and_removed_when_reset_to_zero():
+    prev = {"lize": {"avatar": "A", "live": {"on": True, "checkedAt": "T0"}, "liveFails": 2}}
+    failed = state.merge_status(prev, {"lize": {"liveFails": 3}})
+    assert failed["lize"] == {"avatar": "A", "live": {"on": True, "checkedAt": "T0"}, "liveFails": 3}  # 실패: 이전 live·checkedAt 그대로
+    recovered = state.merge_status(failed, {"lize": {"live": {"on": False, "checkedAt": "T1"}, "liveFails": 0}})
+    assert recovered["lize"] == {"avatar": "A", "live": {"on": False, "checkedAt": "T1"}}  # 0이면 필드를 지운다 (파일에 0이 남지 않는다)
+
+
+def test_live_fails_is_untouched_by_patches_that_do_not_mention_it():
+    prev = {"lize": {"liveFails": 2, "live": {"on": True}}}
+    merged = state.merge_status(prev, {"lize": {"avatar": "A"}, "tabi": {"live": {"on": False}}})
+    assert merged["lize"]["liveFails"] == 2 and "liveFails" not in merged["tabi"]  # 치지직을 안 돌린 실행은 횟수를 건드리지 않는다
+
+
+def test_a_zero_live_fails_from_a_patch_never_creates_the_field():
+    assert state.merge_status({}, {"lize": {"liveFails": 0}}) == {"lize": {}}
+
+
+def test_live_fails_sits_right_after_live_in_the_fixed_field_order():
+    merged = state.merge_status({}, {"lize": {"uploads": "UU", "liveFails": 1, "live": {"on": False}, "avatar": "A"}})
+    assert list(merged["lize"]) == ["avatar", "live", "liveFails", "uploads"]
+
+
 def test_status_merge_does_not_mutate_inputs_and_is_idempotent():
     prev = {"lize": {"avatar": "A"}}
     patch = {"lize": {"live": {"on": True}}}

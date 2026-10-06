@@ -134,9 +134,10 @@ def test_pauses_between_requests_but_not_before_the_first():
     assert sleeps == [config.REQUEST_DELAY]  # 2번 요청 → 사이 1번
 
 
-def test_a_failed_member_is_left_out_so_its_previous_value_survives():
+def test_a_failed_member_has_no_live_patch_so_its_previous_value_survives():
     patches, errors = run(getter(fail={"ID_LIZE": requests.ConnectionError("blocked")}))
-    assert "lize" not in patches and "tabi" in patches  # 실패를 {"on": False}로 쓰지 않는다
+    assert "live" not in patches["lize"] and patches["lize"] == {"liveFails": 1}  # 실패를 {"on": False}로 쓰지 않는다. 연속 실패만 센다
+    assert "live" in patches["tabi"]
     assert len(errors) == 1 and "아카네 리제" in errors[0]
 
 
@@ -147,7 +148,7 @@ def test_http_error_and_bad_json_and_wrong_channel_are_failures():
         bad_body={"ID_TABI": b"<html>not json</html>"},
     )
     patches, errors = run(get)
-    assert patches == {} and len(errors) == 2
+    assert patches == {"lize": {"liveFails": 1}, "tabi": {"liveFails": 1}} and len(errors) == 2
 
     def other_channel(url, **kw):
         d = doc("chzzk_live_close.json")
@@ -155,4 +156,144 @@ def test_http_error_and_bad_json_and_wrong_channel_are_failures():
         return make_response(200, json.dumps(d))
 
     patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=other_channel, sleep=lambda s: None)
-    assert patches == {} and len(errors) == 2
+    assert all("live" not in p for p in patches.values()) and len(errors) == 2
+
+
+# ============================ 5xx 재시도 =======================================
+def http_error(status):
+    return requests.HTTPError(f"{status} for url", response=make_response(status))
+
+
+def scripted(per_id):
+    """채널 ID별로 정해 둔 결과를 차례로 돌려주는 get. 결과: 'ok' | 'open' | 예외. 소진되면 마지막 결과를 반복한다."""
+    calls = []
+    queues = {cid: list(outs) for cid, outs in per_id.items()}
+
+    def get(url, **kw):
+        calls.append(url)
+        cid = url.split("/channels/")[1].split("/")[0]
+        outs = queues.get(cid, ["ok"])
+        out = outs.pop(0) if len(outs) > 1 else outs[0]
+        if isinstance(out, Exception):
+            raise out
+        d = doc("chzzk_live_open.json" if out == "open" else "chzzk_live_close.json")
+        d["content"]["channelId"] = cid
+        return make_response(200, json.dumps(d))
+
+    get.calls = calls
+    return get
+
+
+def test_a_5xx_is_retried_once_after_a_pause_and_a_recovery_counts_as_a_success():
+    get = scripted({"ID_LIZE": [http_error(500), "open"]})
+    sleeps = []
+    patches, errors = run(get, sleeps)
+    assert errors == [] and patches["lize"]["live"]["on"] is True and "liveFails" not in patches["lize"]
+    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 2 and len(get.calls) == 3  # lize 2번 + tabi 1번
+    assert sleeps == [config.CHZZK_RETRY_DELAY, config.REQUEST_DELAY]  # 재시도 전 1초, 멤버 사이 0.5초
+
+
+def test_a_5xx_that_persists_fails_after_exactly_one_retry():
+    get = scripted({"ID_LIZE": [http_error(500)]})  # 계속 500
+    patches, errors = run(get)
+    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 2  # 처음 + 재시도 1번, 더 없다
+    assert patches["lize"] == {"liveFails": 1} and len(errors) == 1 and "아카네 리제" in errors[0]
+    assert "live" in patches["tabi"]  # 다른 멤버는 영향 없다
+
+
+@pytest.mark.parametrize("status", [502, 503, 599])
+def test_every_5xx_status_is_retried(status):
+    get = scripted({"ID_LIZE": [http_error(status), "ok"]})
+    patches, errors = run(get)
+    assert errors == [] and "live" in patches["lize"]
+
+
+@pytest.mark.parametrize("failure", [
+    http_error(403), http_error(404), http_error(429),
+    requests.ConnectionError("blocked"), requests.Timeout("slow"),
+])
+def test_4xx_and_connection_errors_are_not_retried(failure):
+    get = scripted({"ID_LIZE": [failure, "ok"]})  # 두 번째 결과가 'ok'여도 재시도하지 않으니 못 본다
+    sleeps = []
+    patches, errors = run(get, sleeps)
+    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1
+    assert patches["lize"] == {"liveFails": 1} and len(errors) == 1
+    assert sleeps == [config.REQUEST_DELAY]  # 재시도 대기 없이 멤버 사이 간격만
+
+
+def test_a_200_with_a_broken_body_is_not_retried():
+    get = getter(bad_body={"ID_LIZE": b"<html>blocked</html>"})
+    patches, errors = run(get)
+    assert sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1 and patches["lize"] == {"liveFails": 1}
+
+
+def test_retries_can_be_turned_off_and_the_default_is_one():
+    assert config.CHZZK_RETRY_5XX == 1 and config.CHZZK_RETRY_DELAY == 1.0
+    get = scripted({"ID_LIZE": [http_error(500), "ok"]})
+    patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=get, sleep=lambda s: None, retries=0)
+    assert patches["lize"] == {"liveFails": 1} and sum(u.endswith("ID_LIZE/live-status") for u in get.calls) == 1
+
+
+def test_retry_log_does_not_contain_the_request_url(caplog):
+    get = scripted({"ID_LIZE": [http_error(500), "ok"]})
+    with caplog.at_level("INFO"):
+        run(get)
+    retry_lines = [r.getMessage() for r in caplog.records if "재시도" in r.getMessage()]
+    assert retry_lines == ["치지직 HTTP 500 — 재시도 1/1: 아카네 리제"]
+
+
+# ============================ 연속 실패 횟수 · 경고 =============================
+def run_with_prev(get, prev, on_streak=None):
+    return chzzk.collect(MEMBERS, now_iso=NOW_ISO, prev_status=prev, on_streak=on_streak, get=get, sleep=lambda s: None)
+
+
+def test_the_streak_counts_up_from_the_previous_value_and_warns_from_the_third():
+    seen = []
+    fail = {"ID_LIZE": [http_error(500)]}
+    patches, _ = run_with_prev(scripted(fail), {"lize": {"liveFails": 1}}, lambda *a: seen.append(a))
+    assert patches["lize"] == {"liveFails": 2} and seen == []  # 2회째까지는 조용하다
+    patches, _ = run_with_prev(scripted(fail), {"lize": {"liveFails": 2}}, lambda *a: seen.append(a))
+    assert patches["lize"] == {"liveFails": 3} and seen == [("아카네 리제", 3, "HTTP 500")]  # 이름·횟수·상태만 (URL 없음)
+    patches, _ = run_with_prev(scripted(fail), {"lize": {"liveFails": 3}}, lambda *a: seen.append(a))
+    assert patches["lize"] == {"liveFails": 4} and seen[-1] == ("아카네 리제", 4, "HTTP 500")  # 계속되는 동안 매번 알린다
+
+
+def test_the_warning_threshold_is_three_runs():
+    assert config.CHZZK_FAIL_WARN_STREAK == 3
+
+
+def test_a_non_http_failure_reports_the_exception_type_as_the_reason():
+    seen = []
+    run_with_prev(scripted({"ID_LIZE": [requests.ConnectionError("blocked by host name.invalid")]}), {"lize": {"liveFails": 2}}, lambda *a: seen.append(a))
+    assert seen == [("아카네 리제", 3, "ConnectionError")]  # 예외 메시지(호스트·URL이 들어갈 수 있음)는 사유에 넣지 않는다
+
+
+def test_a_success_after_failures_resets_the_streak():
+    patches, errors = run_with_prev(scripted({}), {"lize": {"liveFails": 2}, "tabi": {"liveFails": 1}})
+    assert errors == []
+    assert patches["lize"] == {"live": {"on": False, "checkedAt": NOW_ISO}, "liveFails": 0}  # 병합 때 필드가 지워진다
+    assert patches["tabi"]["liveFails"] == 0
+
+
+def test_a_success_without_earlier_failures_adds_no_counter_field():
+    patches, _ = run_with_prev(scripted({}), {"lize": {"live": {"on": False}}})
+    assert "liveFails" not in patches["lize"] and "liveFails" not in patches["tabi"]
+
+
+@pytest.mark.parametrize("junk", ["3", -2, 0, None, 2.5, True, [], {}])
+def test_unreadable_previous_counters_count_as_zero(junk):
+    patches, _ = run_with_prev(scripted({"ID_LIZE": [requests.ConnectionError("x")]}), {"lize": {"liveFails": junk}})
+    assert patches["lize"] == {"liveFails": 1}
+
+
+def test_a_failing_member_does_not_touch_the_streak_of_the_others_or_of_members_without_an_id():
+    seen = []
+    patches, _ = run_with_prev(scripted({"ID_LIZE": [http_error(500)]}), {"lize": {"liveFails": 2}, "tabi": {"liveFails": 2}, "kangji": {"liveFails": 9}},
+                               lambda *a: seen.append(a))
+    assert patches["tabi"]["liveFails"] == 0 and "kangji" not in patches and "rin" not in patches  # id가 없는 멤버는 건드리지 않는다
+    assert [s[0] for s in seen] == ["아카네 리제"]
+
+
+def test_collect_without_a_streak_callback_or_previous_status_still_works():
+    patches, errors = chzzk.collect(MEMBERS, now_iso=NOW_ISO, get=scripted({"ID_LIZE": [http_error(500)]}), sleep=lambda s: None)
+    assert patches["lize"] == {"liveFails": 1} and len(errors) == 1
