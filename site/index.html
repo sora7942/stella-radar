@@ -225,6 +225,11 @@ footer p{margin:4px 0;max-width:70ch}
 .fbody{display:flex;gap:12px;min-width:0;align-items:flex-start}
 .fthumb{flex:none;width:120px;aspect-ratio:16/9;max-width:40%;border-radius:6px;overflow:hidden;background:var(--sunk)}
 .fthumb img{width:100%;height:100%;object-fit:cover;display:block}
+/* 쇼츠: 썸네일(i.ytimg mqdefault)은 320x180에 세로 화면이 가운데(가로의 약 31%)에 있고 양옆은 흐린 배경이다. 9:16 칸에 cover로 가운데만 보여 준다 */
+.fthumb.vert{width:68px;max-width:none;aspect-ratio:9/16}
+.fthumb.vert img{object-fit:cover;object-position:center}
+.shortb{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:4px;background:var(--hot-soft);color:var(--hot)}
+.chip.toggle{margin-left:6px}
 .dv-d{font-size:13px;color:var(--muted);min-width:3.2em}
 #morefeed,#moresongs{margin-top:14px}
 
@@ -259,6 +264,7 @@ footer p{margin:4px 0;max-width:70ch}
       <div style="min-width:0">
         <h2 class="sec">새 소식</h2>
         <p class="sub">공식 공지, 새 영상, 음원, 굿즈 소식을 최신순으로 모았어요. 마지막으로 본 뒤에 들어온 소식에는 NEW가 붙어요.</p>
+        <div class="chips" id="cchips" role="group" aria-label="소식 종류"></div>
         <div class="chips" id="gchips"></div>
         <div class="chips" id="mchips"></div>
         <ul class="feed" id="feed"><li class="empty" style="display:block">소식을 불러오는 중이에요.</li></ul>
@@ -368,12 +374,33 @@ var QLINK_LABELS={site:"공식 홈페이지",youtube:"공식 유튜브",x:"공�
 
 // ---------- 상태 ----------
 var M={}, G=[], OFFICIAL={}, STATUS={members:{}}, CUR=[], CAT=[], DATA={items:[],events:[],updatedAt:null};
+/* <logic> 화면(DOM)과 무관한 순수 로직. tests/test_site_logic.py가 이 구역만 꺼내 node로 실행한다 — M·G는 바깥에서 주입되고, 여기서는 document·window를 쓰지 않는다 */
 var membersOf=function(g){return Object.keys(M).filter(function(k){return M[k].g===g;});};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
+// localStorage는 막혀 있거나(사생활 보호 모드·차단) 예외를 던질 수 있다 — 읽기·쓰기 모두 try/catch로 감싸 실패해도 화면은 그대로 동작한다
+var store={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+function loadHideShorts(){return store.get("sr_hideShorts")==="1";}
+function saveHideShorts(v){store.set("sr_hideShorts",v?"1":"0");}
+function expand(who){var out=[];(who||[]).forEach(function(w){
+  if(M[w])out.push(w);else if(w==="all")out=out.concat(Object.keys(M).filter(function(k){return k!=="kangji";}));
+  else out=out.concat(membersOf(w));});return out.filter(function(v,i,a){return a.indexOf(v)===i;});}
+// 분류 칩: 영상=영상, 공지/이벤트=공지+이벤트, 굿즈, 음악. 그룹·멤버 필터와 함께 적용된다(AND). 알 수 없는 분류 키는 '전체'로 본다
+var CATS=[{k:"all",label:"전체",cats:null},{k:"video",label:"영상",cats:["영상"]},{k:"notice",label:"공지/이벤트",cats:["공지","이벤트"]},{k:"goods",label:"굿즈",cats:["굿즈"]},{k:"music",label:"음악",cats:["음악"]}];
+function matchCat(it,c){var d=CATS.filter(function(x){return x.k===c;})[0];if(!d||!d.cats)return true;return d.cats.indexOf(it.cat)>=0;}
+function matchGroup(it,g,m){var w=it.who||[];
+  if(m)return expand(w).indexOf(m)>=0;
+  if(g==="all-view")return true;
+  if(g==="all")return w.indexOf("all")>=0;
+  if(g==="boss")return w.indexOf("kangji")>=0;
+  var ms=membersOf(g);return w.indexOf(g)>=0||w.some(function(x){return ms.indexOf(x)>=0;});}
+// 쇼츠: news.json의 short가 true인 항목만. 필드가 없으면(아직 판별 전) 일반 영상으로 본다. 링크는 쇼츠 주소로 건다(url 필드는 그대로 watch 주소)
+function isShort(it){return !!it&&it.short===true;}
+function shortHref(it){return isShort(it)&&it.yt?"https://www.youtube.com/shorts/"+encodeURIComponent(it.yt):it.url;}
+function feedFilter(it,st){if(st.hideShorts&&isShort(it))return false;return matchCat(it,st.c)&&matchGroup(it,st.g,st.m);}
+/* </logic> */
 
 // ---------- 유틸 ----------
 var $=function(s){return document.querySelector(s);};
-var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
-var store={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 function kstToday(){var n=new Date(Date.now()+9*3600e3);return Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate());}
 function kstDay(iso){if(/^\d{4}-\d{2}-\d{2}$/.test(iso)){var p=iso.split("-");return Date.UTC(+p[0],+p[1]-1,+p[2]);}
   var n=new Date(new Date(iso).getTime()+9*3600e3);return Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate());}
@@ -382,9 +409,6 @@ function ddLabel(diff){return diff===0?"D-DAY":(diff>0?"D-"+diff:"D+"+(-diff));}
 function fmtMD(t){var d=new Date(t);return (d.getUTCMonth()+1)+"."+String(d.getUTCDate()).padStart(2,"0");}
 function relTime(iso){var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
   if(isNaN(m))return "";if(m<1)return "방금";if(m<60)return m+"분 전";var h=Math.round(m/60);if(h<48)return h+"시간 전";return Math.round(h/24)+"일 전";}
-function expand(who){var out=[];(who||[]).forEach(function(w){
-  if(M[w])out.push(w);else if(w==="all")out=out.concat(Object.keys(M).filter(function(k){return k!=="kangji";}));
-  else out=out.concat(membersOf(w));});return out.filter(function(v,i,a){return a.indexOf(v)===i;});}
 function whoLabel(who){return (who||[]).map(function(w){
   if(M[w])return M[w].n;if(w==="all")return "스텔라이브 단체";var g=G.filter(function(x){return x.key===w;})[0];return g?g.label:w;}).join(" · ");}
 function dots(who){if((who||[]).indexOf("all")>=0)return '<span class="allmark" aria-hidden="true">✦</span>';
@@ -419,36 +443,37 @@ function renderLive(){
 }
 
 // ---------- 소식 ----------
-var filterG="all-view", filterM=null, feedLimit=40;
+var filterG="all-view", filterM=null, filterC="all", hideShorts=loadHideShorts(), feedLimit=40;
 var lastSeen=store.get("sr_lastSeen");
 var GF=[{k:"all-view",label:"전체"},{k:"boss",label:"강지"},{k:"everys",label:"에버리스"},{k:"universe",label:"유니버스"},{k:"cliche",label:"클리셰"},{k:"all",label:"단체"}];
 function renderChips(){
+  $("#cchips").innerHTML=CATS.map(function(c){return '<button class="chip" data-c="'+c.k+'" aria-pressed="'+(filterC===c.k)+'">'+esc(c.label)+"</button>";}).join("")+
+    '<button class="chip toggle" id="hideshorts" aria-pressed="'+hideShorts+'" title="쇼츠 영상을 소식 목록에서 숨겨요">쇼츠 숨기기</button>';
   $("#gchips").innerHTML=GF.map(function(g){return '<button class="chip" data-g="'+g.k+'" aria-pressed="'+(filterG===g.k)+'">'+esc(g.label)+"</button>";}).join("");
   var ms=(filterG==="everys"||filterG==="universe"||filterG==="cliche")?membersOf(filterG):[];
   $("#mchips").hidden=!ms.length;
   $("#mchips").innerHTML=ms.map(function(k){return '<button class="chip" data-m="'+k+'" aria-pressed="'+(filterM===k)+'"><span class="dot" style="background:'+M[k].c+'"></span>'+esc(M[k].n)+"</button>";}).join("");
 }
+$("#cchips").addEventListener("click",function(e){
+  if(e.target.closest("#hideshorts")){hideShorts=!hideShorts;saveHideShorts(hideShorts);feedLimit=40;renderChips();renderFeed();return;}
+  var b=e.target.closest("[data-c]");if(!b)return;filterC=b.dataset.c;feedLimit=40;renderChips();renderFeed();});
 $("#gchips").addEventListener("click",function(e){var b=e.target.closest("[data-g]");if(!b)return;filterG=b.dataset.g;filterM=null;feedLimit=40;renderChips();renderFeed();});
 $("#mchips").addEventListener("click",function(e){var b=e.target.closest("[data-m]");if(!b)return;filterM=(filterM===b.dataset.m)?null:b.dataset.m;feedLimit=40;renderChips();renderFeed();});
 $("#morefeed").addEventListener("click",function(){feedLimit+=40;renderFeed();});
-function match(it){var w=it.who||[];
-  if(filterM)return expand(w).indexOf(filterM)>=0;
-  if(filterG==="all-view")return true;
-  if(filterG==="all")return w.indexOf("all")>=0;
-  if(filterG==="boss")return w.indexOf("kangji")>=0;
-  var ms=membersOf(filterG);return w.indexOf(filterG)>=0||w.some(function(x){return ms.indexOf(x)>=0;});}
 function isNew(it){return lastSeen&&it.added&&new Date(it.added)>new Date(lastSeen);}
 function renderFeed(){
   if(!Object.keys(M).length)return;
-  var all=DATA.items.filter(match).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+  var st={g:filterG,m:filterM,c:filterC,hideShorts:hideShorts};
+  var all=DATA.items.filter(function(it){return feedFilter(it,st);}).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
   var list=all.slice(0,feedLimit);$("#morefeed").hidden=all.length<=feedLimit;
   if(!list.length){$("#feed").innerHTML='<li class="empty" style="display:block">이 조건에 맞는 소식이 아직 없어요.</li>';return;}
   $("#feed").innerHTML=list.map(function(it){
     var d=it.date||"";var dl=d.slice(0,10).replace(/-/g,".");var tm=d.length>10?new Date(d).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Seoul"}):"";
-    var th=it.yt?'<a class="fthumb" href="'+esc(it.url)+'" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">'+imgTag([ytThumb(it.yt)])+'</a>':"";
+    var sh=isShort(it),href=shortHref(it);
+    var th=it.yt?'<a class="fthumb'+(sh?' vert':'')+'" href="'+esc(href)+'" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">'+imgTag([ytThumb(it.yt)])+'</a>':"";
     return '<li'+(th?' class="hasthumb"':'')+'><div class="d mono">'+esc(dl)+'<br>'+esc(tm)+'</div><div class="fbody">'+th+'<div style="min-width:0">'+
-      '<a class="t" href="'+esc(it.url)+'" target="_blank" rel="noopener">'+(isNew(it)?'<span class="new">NEW</span>':'')+esc(it.title)+'</a>'+
-      '<div class="meta"><span class="cat">'+esc(it.cat)+'</span>'+dots(it.who)+'<span>'+esc(whoLabel(it.who))+'</span><span>· '+esc(it.source||"")+'</span></div></div></div></li>';
+      '<a class="t" href="'+esc(href)+'" target="_blank" rel="noopener">'+(isNew(it)?'<span class="new">NEW</span>':'')+esc(it.title)+'</a>'+
+      '<div class="meta"><span class="cat">'+esc(it.cat)+'</span>'+(sh?'<span class="shortb">쇼츠</span>':'')+dots(it.who)+'<span>'+esc(whoLabel(it.who))+'</span><span>· '+esc(it.source||"")+'</span></div></div></div></li>';
   }).join("");
 }
 
