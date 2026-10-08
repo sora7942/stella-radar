@@ -49,6 +49,7 @@ stella-radar/
 │  │  ├─ chzzk.py
 │  │  └─ youtube_avatar.py
 │  ├─ state.py                    # 이전 상태 불러오기, 병합·중복 제거·자르기
+│  ├─ shorts.py                   # 쇼츠 판별: 채널의 UUSH/UULF 재생목록으로 news 항목의 short 채우기 (5장)
 │  ├─ alerts.py                   # 알림 대상 판정 (순수 함수, 7장)
 │  └─ discord.py                  # 임베드 생성·발송·dry-run 출력
 ├─ tests/ (fixtures/ 포함)
@@ -87,6 +88,7 @@ stella-radar/
 - `date`: 원본 게시 시각(+09:00 ISO). 날짜만 알면 `YYYY-MM-DD`
 - `added`: 업데이터가 처음 발견한 시각 — 사이트의 NEW 표시와 디스코드 알림 판정에 쓴다. **한 번 정해지면 바꾸지 않는다**
 - `yt`: 유튜브 영상이면 videoId (사이트가 `i.ytimg.com/vi/<id>/mqdefault.jpg` 썸네일을 건다)
+- `short`(bool, 선택, `yt-` 영상만): 쇼츠인가. **필드가 없으면 아직 판별 전(미정)이다** — 사이트는 일반 영상으로 취급한다. `true`는 채널의 쇼츠 탭 재생목록(UUSH…)에서 확인된 영상, `false`는 동영상 탭 재생목록(UULF…)에서 확인됐거나 처음 발견(`added`) 24시간 뒤에도 둘 다에 없는 영상(라이브 다시보기·예약 영상 등). **한 번 정해지면 바꾸지 않는다** (판별 규칙은 5장 '쇼츠 판별')
 - `who` 태그: 멤버 key / 그룹 key(`everys, universe, cliche`) / `all`(단체). 정렬 순서 무관
 - 보관: `date` 내림차순 **최대 300개**
 - 기존 저장소의 news.json에 들어 있는 공식 공지 18개는 시드로 유지한다
@@ -119,12 +121,19 @@ stella-radar/
 ## 5. 수집 소스
 | 소스 | 방법 | 비고 |
 |---|---|---|
-| 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (12개 채널 = 호출 12회 + 캐시가 없을 때 1회, 하루 약 580유닛 / 한도 10,000). RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체하는 경우는 셋뿐: ① 키(`YOUTUBE_API_KEY`)가 없을 때, ② 할당량 초과(403 `quotaExceeded`), ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked` 등). ②③이 중간에 일어나면 못 한 채널만 RSS로 수집한다. ③은 사람이 고쳐야 하므로 Actions 실행 요약에 `::warning::` 주석 "YouTube API 키 확인 필요"를 남긴다(로컬은 로그 경고). 5xx·네트워크 오류·속도 제한 같은 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다. 업데이터가 부르는 API는 `channels.list`·`playlistItems.list`(호출당 1유닛)뿐이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS`) | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함. 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
+| 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (12개 채널 = 호출 12회 + 캐시가 없을 때 1회, 하루 약 580유닛 / 한도 10,000). RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체하는 경우는 셋뿐: ① 키(`YOUTUBE_API_KEY`)가 없을 때, ② 할당량 초과(403 `quotaExceeded`), ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked` 등). ②③이 중간에 일어나면 못 한 채널만 RSS로 수집한다. ③은 사람이 고쳐야 하므로 Actions 실행 요약에 `::warning::` 주석 "YouTube API 키 확인 필요"를 남긴다(로컬은 로그 경고). 5xx·네트워크 오류·속도 제한 같은 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다. 업데이터가 부르는 API는 `channels.list`·`playlistItems.list`(호출당 1유닛)뿐이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS`) | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함(쇼츠 여부는 아래 '쇼츠 판별'이 따로 정한다). 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
 | 공식 공지 | `https://stellive.me/news` 목록 HTML | Rhymix 기반. 제목·날짜·카테고리·`/news/<번호>` 파싱. 첫 페이지만 |
 | 공식 음악 | `https://stellive.me/music` 목록 + `/music/<번호>` 상세 | 상세는 **처음 보는 번호만** 가져온다(실행당 최대 40개, 요청 간 0.5초). 최초 실행 때 전체(약 290곡)를 여러 번에 나눠 채움. 새 곡은 news에도 `음악`으로 추가 |
 | 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status`, HTTP 5xx면 `…/polling/v3/…/live-status`로 대체 (`config.CHZZK_LIVE_STATUS_URLS`) | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. v2는 해외 IP에서 방송 단위로 막힐 수 있다(후야 방송: HTTP 500 `code 9004` "해외 시청 불가능한 컨텐츠 입니다.", v3는 200 — 2026-10-07 Actions 시험). v3의 `content`는 v2와 키 51개가 같아 같은 파서를 쓴다. 두 후보가 전부 5xx면 1초 뒤 후보 전체를 1회 더 돈다. 4xx·연결 오류·형식 오류는 대체·재시도하지 않는다. 같은 멤버가 연속 3회 실패하면 `::warning::`(4장 `liveFails`). 전부 실패하면 소스 실패로 세되 연속 실패 횟수는 저장한다. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
 | 유튜브 프로필 | `https://www.youtube.com/channel/<UC…>` HTML의 `og:image` | 하루 1번 |
 
+- **쇼츠 판별**(`updater/shorts.py`, news 항목의 `short`, 기능 2-1): 유튜브가 직접 분류한 채널 재생목록으로 정한다 — 채널 ID의 `UC`를 `UUSH`로 바꾸면 쇼츠 탭, `UULF`로 바꾸면 동영상 탭(`playlistItems.list`, 호출당 1유닛. 비공식 관례지만 2026-10-09 실측에서 12채널 모두 열렸고 UUSH 87 + UULF 222 = 전체 업로드 309개로 누락·초과·겹침이 없었다)
+  - 대상: `short` 필드가 없는 `yt-` 항목(`mu-` 음악은 채널을 알 수 없어 제외). 병합 뒤·저장 앞 단계라서 병합 밖의 기존 항목 백필과 '미정 항목 재시도'가 된다
+  - 그 영상의 채널만 조회한다: 채널마다 UUSH 첫 페이지(`maxResults=50`) 1회, 정해지지 않은 항목이 남으면 UULF 첫 페이지 1회(실행당 같은 목록은 두 번 부르지 않는다 → 채널당 최대 2회, 12채널 최대 24유닛). **UUSH에 있으면 `short:true`, UULF에 있으면 `short:false`, 둘 다 없으면 필드 없이 다음 실행에 재시도.** 처음 발견(`added`) 24시간(`config.SHORTS_CONFIRM_HOURS`) 뒤에도 둘 다 없으면 `short:false`로 확정한다(라이브 다시보기·예약 영상 등). 백필도 같은 규칙이다. **한 번 정해진 값은 바꾸지 않는다.** 목록이 404면 그 탭에 영상이 없는 것으로 본다
+  - 조회 실패(오류·할당량 초과·키 거부)면 그 채널의 항목은 아무것도 바꾸지 않고 다음 실행에 재시도한다(채널 단위 전부-아니면-전무). 할당량 초과·키 거부는 남은 채널 조회도 멈춘다. 영상 수집이 API로 되지 않은 실행(RSS 대체·키 없음·할당량 초과·키 거부·`youtube` 소스 실패)과 `--only`에 `youtube`가 없는 실행에서는 판별을 건너뛴다. 판별 단계의 오류는 종류만 경고로 남기고 실행은 계속한다
+  - 비용(추정): 평소에는 새 영상이 있는(판별 대기 항목이 있는) 채널만 부른다 → 새 영상 하루 약 7.5개 기준 하루 약 8~15유닛(기준 약 580의 2% 안팎), 최초 백필 최대 24유닛. `search.list`·`videos.list`는 쓰지 않는다
+  - 알려진 한계: 첫 페이지(채널당 최신 50개)만 본다. 업데이터가 24시간 넘게 멈췄다 돌아오면 첫 페이지 밖으로 밀려난 오래된 쇼츠가 24시간 규칙으로 false가 될 수 있다. 새 쇼츠가 UUSH 목록에 나타나기까지의 지연은 측정하지 못했다(미정 → 다음 실행 재시도로 흡수되고, 알림은 그 시점에 아직 미정이면 '쇼츠' 표시 없이 나간다)
+  - 실측(2026-10-09 `--dry-run`, 실제 API): 배포본 영상 196개 → 쇼츠 50 · 일반 146 · 미정 0 (정답 기록과 196/196 일치), 조회 채널 12개·API 24회. 같은 상태에서 다시 돌리면 대상 0·API 0회
 - 모든 요청: `timeout=10`, 브라우저 형태의 User-Agent, 실패해도 다른 소스는 계속
 - 멤버 이름 태깅(`tagging.py`): 풀네임과 이름(예: "리제", "아카네 리제"), 유닛명(에버리스/유니버스/클리셰, 영문 포함)을 사전으로 관리. 여러 명이 걸리면 모두 태그, 하나도 없으면 `all`
 
@@ -143,7 +152,7 @@ stella-radar/
   - 음악: 목록에 새로 생긴 곡(최초 전체 채우기 중에는 보내지 않음 — 이전 catalog가 비어 있으면 알림 생략)
   - 방송 시작: `live.since`(방송 시작 시각) 기준. 새 since가 이전에 저장된 since와 **다를 때만** 새 방송으로 알린다(같은 since면 치지직 확인 공백이 얼마나 길었든 알리지 않는다). 단, since가 지금으로부터 1시간(`ALERT_LIVE_MAX_AGE_HOURS`) 넘게 지난 방송은 늦은 알림이라 알리지 않는다. since가 없으면(또는 읽을 수 없으면) 이전 규칙: 이전 `on:false`(또는 이전 항목 없음) → 이번 `on:true`일 때만
   - 알림 판정은 `updater/alerts.py`의 순수 함수. 순서는 방송 → 공지 → 새 곡 → 영상(같은 종류는 최신순)이라 20건을 넘어 잘릴 때 급한 것이 남는다. 공지·새 곡의 "2일"은 달력 기준(날짜만 있는 값)
-- 형식: 항목 1개 = 임베드 1개 (제목 링크, 멤버 이름, 멤버 색, 유튜브면 썸네일 이미지). 한 메시지에 임베드 최대 10개, 실행당 최대 2메시지(20개), 넘치면 "외 N건"
+- 형식: 항목 1개 = 임베드 1개 (제목 링크, 멤버 이름, 멤버 색, 유튜브면 썸네일 이미지). 영상은 알림 시점에 `short`가 true로 정해져 있으면 종류 라벨이 '영상' 대신 '쇼츠'다(아직 미정이면 '영상'). 한 메시지에 임베드 최대 10개, 실행당 최대 2메시지(20개), 넘치면 "외 N건"
 - **알림은 배포가 성공한 뒤에 보낸다.** 업데이터(`main.py`)는 디스코드로 보내지 않고, 보낼 알림(웹훅 페이로드)을 `site/` 밖의 파일(`config.ALERTS_FILE` = `out/alerts.json`, `.gitignore` 대상)에 남긴다. 배포 성공 후 단계가 `python send_alerts.py`로 **그 파일만** 읽어 발송한다. 이유: 알림이 배포보다 먼저 나가면 배포 실패 때 다음 실행이 같은 항목을 다시 '처음 본 것'으로 판단해 알림이 중복된다. 대신 발송 단계가 실패하면 그 알림은 다시 시도하지 않는다(최대 한 번)
   - `main.py`는 매 실행 시작에 알림 파일을 지운다(이전 실행·dry-run의 알림이 나중에 나가지 않게). `--dry-run`·`--no-discord`는 파일을 남기지 않는다
   - `send_alerts.py`: 웹훅 URL(`DISCORD_WEBHOOK_URL`)은 이 스크립트만 쓴다. 웹훅이 없거나 발송이 실패해도 종료 코드는 0(배포는 이미 끝남), 경고 로그와 GitHub Actions `::warning::` 주석으로 드러낸다. 발송을 시도한 뒤에는 파일을 지워 중복 발송을 막는다. 모양이 이상한 파일은 보내지 않는다
