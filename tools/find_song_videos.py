@@ -76,6 +76,7 @@ class Candidate:
     title: str
     channel: str
     published: str  # YYYY-MM-DD (KST)
+    channel_id: str = ""
 
     @property
     def url(self) -> str:
@@ -181,7 +182,7 @@ def search(query: Query, api_key: str, get=http.get) -> list[Candidate]:
             published = timeutil.to_kst_iso(snip["publishedAt"])[:10]
         except (KeyError, ValueError):
             published = "-"
-        out.append(Candidate(vid, html.unescape(snip.get("title") or ""), html.unescape(snip.get("channelTitle") or ""), published))
+        out.append(Candidate(vid, html.unescape(snip.get("title") or ""), html.unescape(snip.get("channelTitle") or ""), published, snip.get("channelId") or ""))
     return out
 
 
@@ -219,7 +220,19 @@ def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get,
     return results, calls, stopped
 
 
-def results_text(results: list[SongResult], calls: int, stopped: str | None) -> str:
+def channel_kind(channel_id: str, members_doc: dict | None, who: list) -> str:
+    """후보 채널이 공식인지: 곡의 멤버 본인 / 스텔라이브 공식 / 다른 멤버 / 그 밖(외부). 사람이 고르는 데 쓰는 표시일 뿐이다."""
+    if not channel_id or not members_doc:
+        return "채널 구분 불가"
+    if channel_id == (members_doc.get("official") or {}).get("yt_id"):
+        return "✔ 스텔라이브 공식 채널"
+    for key, m in members_doc.get("members", {}).items():
+        if m.get("yt_id") == channel_id:
+            return f"✔ 멤버 본인 채널({m.get('n', key)})" if key in who else f"△ 다른 멤버 채널({m.get('n', key)})"
+    return "✘ 외부 채널(공식 아님)"
+
+
+def results_text(results: list[SongResult], calls: int, stopped: str | None, members_doc: dict | None = None, whos: dict | None = None) -> str:
     lines = []
     for r in results:
         lines.append(f"\n## {r.title}")
@@ -231,7 +244,8 @@ def results_text(results: list[SongResult], calls: int, stopped: str | None) -> 
                     continue
                 seen.add(c.video_id)
                 n += 1
-                lines.append(f"  {n}. [{q.label}] {c.title}\n     채널: {c.channel} · {c.published} · {c.video_id}\n     {c.url}")
+                kind = channel_kind(c.channel_id, members_doc, (whos or {}).get(r.title, []))
+                lines.append(f"  {n}. [{q.label}] {c.title}\n     채널: {c.channel} — {kind}\n     게시일: {c.published} · ID: {c.video_id}\n     {c.url}")
         if not n:
             lines.append("  (후보 없음)")
         for e in r.errors:
@@ -289,7 +303,7 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
     redact.register(api_key)
 
     results, calls, stopped = run(targets, members_doc, api_key, get=get, sleep=sleep, max_calls=args.max_calls)
-    print(results_text(results, calls, stopped))
+    print(results_text(results, calls, stopped, members_doc, {t.title: t.who for t in targets}))
     return 1 if stopped else 0
 
 

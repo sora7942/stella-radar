@@ -228,3 +228,21 @@ def test_no_updater_code_imports_tools():
         if re.search(r"^\s*(from|import)\s+tools\b", path.read_text(encoding="utf-8"), re.MULTILINE):
             offenders.append(path.name)
     assert offenders == []
+
+
+# ============================ 공식 채널 표시 ====================================
+def test_candidates_are_marked_by_channel_kind(docs):
+    songs, members = docs
+    kangji, official = members["members"]["kangji"]["yt_id"], members["official"]["yt_id"]
+    lize = members["members"]["lize"]["yt_id"]
+    targets, _ = fsv.find_targets(songs, members, ("눈꽃",))
+    snip = lambda vid, cid: {**item(vid), "snippet": {**item(vid)["snippet"], "channelId": cid}}  # noqa: E731
+    fake = FakeSearch(default=ok(snip("vid00000001", kangji), snip("vid00000002", official), snip("vid00000003", lize), snip("vid00000004", "UCexternal000000000000000")))
+    results, calls, _ = fsv.run(targets, members, KEY, get=fake, sleep=lambda s: None)
+    text = fsv.results_text(results, calls, None, members, {"눈꽃": ["kangji"]})
+    assert "✔ 멤버 본인 채널(강지)" in text and "✔ 스텔라이브 공식 채널" in text
+    assert "△ 다른 멤버 채널(" in text and "✘ 외부 채널(공식 아님)" in text
+
+
+def test_channel_kind_without_members_doc_does_not_guess():
+    assert fsv.channel_kind("UCx", None, []) == "채널 구분 불가" and fsv.channel_kind("", {"members": {}}, []) == "채널 구분 불가"
