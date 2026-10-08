@@ -40,6 +40,13 @@ YOUTUBE_API_MAX_RESULTS = 15  # 채널당 최신 영상 수 (SPEC 5장)
 YOUTUBE_API_ENDPOINTS = ("channels", "playlistItems")
 YOUTUBE_FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 
+# 쇼츠 판별 (updater/shorts.py, 기능 2): 채널 ID의 'UC'를 아래 접두어로 바꾸면 유튜브가 직접 분류한 재생목록이 된다 (playlistItems.list, 호출당 1유닛).
+# 비공식 관례지만 2026-10-09 실측에서 12채널 모두 열렸고 UUSH+UULF가 전체 업로드와 309/309 일치했다 (PROGRESS 기능 2)
+SHORTS_PLAYLIST_PREFIX = "UUSH"  # 쇼츠 탭
+LONG_PLAYLIST_PREFIX = "UULF"  # 동영상(롱폼) 탭
+SHORTS_PLAYLIST_RESULTS = 50  # 첫 페이지 크기(API 상한). 판별 대상은 채널의 최신 영상이라 첫 페이지면 충분하다
+SHORTS_CONFIRM_HOURS = 24  # 처음 발견(added) 뒤 이 시간이 지나도 두 목록 어디에도 없으면 일반 영상(short:false)으로 확정 (라이브 다시보기·예약 영상 등)
+
 OFFICIAL_SOURCE_LABEL = "공식 홈페이지"  # news 항목의 source 문구 (공지·음악 공통)
 
 NEWS_URL = "https://stellive.me/news"

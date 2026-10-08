@@ -109,8 +109,10 @@ def resolve_uploads(channel_ids: list[str], api_key: str, get=http.get) -> dict[
     return out
 
 
-def fetch_playlist(playlist_id: str, api_key: str, get=http.get) -> dict:
-    params = {"part": "snippet,contentDetails", "playlistId": playlist_id, "maxResults": config.YOUTUBE_API_MAX_RESULTS}
+def fetch_playlist(playlist_id: str, api_key: str, get=http.get, *, max_results: int = config.YOUTUBE_API_MAX_RESULTS,
+                   part: str = "snippet,contentDetails") -> dict:
+    """playlistItems.list 첫 페이지 (호출당 1유닛). 쇼츠 판별(shorts.py)은 videoId만 필요해서 part·max_results를 바꿔 부른다."""
+    params = {"part": part, "playlistId": playlist_id, "maxResults": max_results}
     return _call(get, "playlistItems", params, api_key)
 
 
