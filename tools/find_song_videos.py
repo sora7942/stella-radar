@@ -18,6 +18,7 @@ import html
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -125,13 +126,18 @@ def global_query(target: Target, members_doc: dict) -> Query:
     return Query(target.title, "global", f"{name} {target.title}".strip(), None, "전체 검색")
 
 
-def plan_text(targets: list[Target], warnings: list[str], max_calls: int) -> str:
-    queries = first_pass(targets)
-    no_channel = [t for t in targets if not t.members]
-    worst = len(queries) + len(targets)  # 2차는 곡마다 최대 1회
+def plan_text(targets: list[Target], warnings: list[str], max_calls: int, global_only: bool = False) -> str:
     lines = [f"대상 {len(targets)}곡"]
     for w in warnings:
         lines.append(f"  경고: {w}")
+    if global_only:  # 채널 제한 없이 곡마다 전체 검색 1회씩 (+ 후보 채널 정보 channels.list 1회 = 1유닛)
+        for t in targets:
+            lines.append(f"  전체  {t.title!r:24} '<멤버 이름> {t.title}' (채널 제한 없음)")
+        lines.append(f"전체 검색 {len(targets)}회 = {len(targets) * SEARCH_UNITS:,}유닛 + 채널 정보(channels.list) 1회 = 1유닛, 호출 상한 {max_calls}회")
+        return "\n".join(lines)
+    queries = first_pass(targets)
+    no_channel = [t for t in targets if not t.members]
+    worst = len(queries) + len(targets)  # 2차는 곡마다 최대 1회
     for t in targets:
         if t.members:
             for _, name, cid in t.members:
@@ -186,8 +192,10 @@ def search(query: Query, api_key: str, get=http.get) -> list[Candidate]:
     return out
 
 
-def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get, sleep=time.sleep, max_calls: int = DEFAULT_MAX_CALLS) -> tuple[list[SongResult], int, str | None]:
-    """(곡별 결과, 실제 호출 수, 중단 사유). 호출 수가 max_calls에 닿거나 Abort가 나면 거기서 멈춘다."""
+def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get, sleep=time.sleep, max_calls: int = DEFAULT_MAX_CALLS,
+        global_only: bool = False) -> tuple[list[SongResult], int, str | None]:
+    """(곡별 결과, 실제 호출 수, 중단 사유). 호출 수가 max_calls에 닿거나 Abort가 나면 거기서 멈춘다.
+    global_only면 1차(채널 안 검색)를 건너뛰고 곡마다 전체 검색만 한다(후보가 있어도)."""
     calls = 0
     results = [SongResult(t.title) for t in targets]
     by_title = {r.title: r for r in results}
@@ -209,19 +217,37 @@ def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get,
             res.errors.append(f"{q.label}: {e}")
 
     try:
-        for q in first_pass(targets):
-            call(q)
+        if not global_only:
+            for q in first_pass(targets):
+                call(q)
         for t in targets:
             res = by_title[t.title]
-            if not any(cands for _, cands in res.found) and not res.errors:
+            if global_only or (not any(cands for _, cands in res.found) and not res.errors):
                 call(global_query(t, members_doc))
     except Abort as e:
         stopped = str(e)
     return results, calls, stopped
 
 
-def channel_kind(channel_id: str, members_doc: dict | None, who: list) -> str:
-    """후보 채널이 공식인지: 곡의 멤버 본인 / 스텔라이브 공식 / 다른 멤버 / 그 밖(외부). 사람이 고르는 데 쓰는 표시일 뿐이다."""
+# 콜라보 상대로 추정할 채널명 키워드(곡의 note 기준). 채널명에 들어 있으면 '추정'만 표시한다 — 외부 채널의 공식 여부는 API로 확인할 수 없다
+PARTNER_HINTS = {
+    "SYNC 100%": ("PLATiNA", "PLATINA", "플라티나"),
+    "DIVE 2 FIGHT": ("2XKO", "Riot", "라이엇", "League of Legends", "리그 오브 레전드"),
+    "도깨비꽃": ("TAK", "타크"),
+}
+CHANNEL_URL = "https://www.youtube.com/channel/{channel_id}"
+
+
+def _hint_in(title: str, hints) -> str | None:
+    for k in hints:  # 영문·숫자 키워드는 단어 경계에서만 (예: 'TAK'이 'STAKE'에 걸리지 않게)
+        pat = re.escape(k) if not k.isascii() else rf"(?<![A-Za-z0-9]){re.escape(k)}(?![A-Za-z0-9])"
+        if re.search(pat, title, re.IGNORECASE):
+            return k
+    return None
+
+
+def channel_kind(channel_id: str, members_doc: dict | None, who: list, channel_title: str = "", hints=()) -> str:
+    """후보 채널 구분: 곡의 멤버 본인 / 스텔라이브 공식 / 다른 멤버 / 콜라보 상대 추정 / 그 밖의 외부. 사람이 고르는 데 쓰는 표시일 뿐이다."""
     if not channel_id or not members_doc:
         return "채널 구분 불가"
     if channel_id == (members_doc.get("official") or {}).get("yt_id"):
@@ -229,10 +255,45 @@ def channel_kind(channel_id: str, members_doc: dict | None, who: list) -> str:
     for key, m in members_doc.get("members", {}).items():
         if m.get("yt_id") == channel_id:
             return f"✔ 멤버 본인 채널({m.get('n', key)})" if key in who else f"△ 다른 멤버 채널({m.get('n', key)})"
-    return "✘ 외부 채널(공식 아님)"
+    hint = _hint_in(channel_title, hints)
+    if hint:
+        return f"△ 콜라보 상대로 추정(채널명에 '{hint}') — 공식 여부는 채널 주소·구독자로 직접 확인"
+    return "✘ 외부 채널(스텔라이브·멤버 채널 아님) — 공식 여부는 직접 확인"
 
 
-def results_text(results: list[SongResult], calls: int, stopped: str | None, members_doc: dict | None = None, whos: dict | None = None) -> str:
+def is_external(channel_id: str, members_doc: dict) -> bool:
+    if not channel_id or channel_id == (members_doc.get("official") or {}).get("yt_id"):
+        return False
+    return all(m.get("yt_id") != channel_id for m in members_doc.get("members", {}).values())
+
+
+def channel_info(channel_ids, api_key: str, get=http.get) -> dict:
+    """외부 후보 채널의 핸들·구독자 수 (channels.list, 호출 1회 = 1유닛). 공식 여부를 사람이 가늠하는 참고용이며, 실패해도 표만 덜 풍부해질 뿐이다."""
+    ids = sorted({i for i in channel_ids if i})[:50]
+    if not ids:
+        return {}
+    url = f"{config.YOUTUBE_API_URL}/channels?{urlencode({'part': 'snippet,statistics', 'id': ','.join(ids)})}"
+    try:
+        data = get(url, headers={config.YOUTUBE_API_KEY_HEADER: api_key}).json()
+    except (requests.RequestException, ValueError) as e:  # 메시지에 URL이 있을 수 있어 종류만 남긴다
+        log.warning("채널 정보(channels.list) 조회 실패 — %s", type(e).__name__)
+        return {}
+    out = {}
+    for it in data.get("items") or []:
+        sn, st = it.get("snippet") or {}, it.get("statistics") or {}
+        subs = None if st.get("hiddenSubscriberCount") else st.get("subscriberCount")
+        out[it.get("id")] = {"handle": sn.get("customUrl") or "", "subs": int(subs) if str(subs or "").isdigit() else None}
+    return out
+
+
+def _subs_text(n: int | None) -> str:
+    if n is None:
+        return "구독자 비공개/미확인"
+    return f"구독자 {n / 10000:.1f}만" if n >= 10000 else f"구독자 {n}명"
+
+
+def results_text(results: list[SongResult], calls: int, stopped: str | None, members_doc: dict | None = None, whos: dict | None = None,
+                 info: dict | None = None) -> str:
     lines = []
     for r in results:
         lines.append(f"\n## {r.title}")
@@ -244,8 +305,13 @@ def results_text(results: list[SongResult], calls: int, stopped: str | None, mem
                     continue
                 seen.add(c.video_id)
                 n += 1
-                kind = channel_kind(c.channel_id, members_doc, (whos or {}).get(r.title, []))
-                lines.append(f"  {n}. [{q.label}] {c.title}\n     채널: {c.channel} — {kind}\n     게시일: {c.published} · ID: {c.video_id}\n     {c.url}")
+                kind = channel_kind(c.channel_id, members_doc, (whos or {}).get(r.title, []), c.channel, PARTNER_HINTS.get(r.title, ()))
+                where = ""
+                if kind.startswith(("△ 콜라보", "✘")):  # 외부 채널은 판단 근거(주소·핸들·구독자)를 같이 보여준다
+                    extra = (info or {}).get(c.channel_id) or {}
+                    detail = " · ".join(x for x in (extra.get("handle"), _subs_text(extra["subs"]) if extra else "") if x)
+                    where = f"\n     채널 주소: {CHANNEL_URL.format(channel_id=c.channel_id)}" + (f" ({detail})" if detail else "")
+                lines.append(f"  {n}. [{q.label}] {c.title}\n     채널: {c.channel} — {kind}{where}\n     게시일: {c.published} · ID: {c.video_id}\n     {c.url}")
         if not n:
             lines.append("  (후보 없음)")
         for e in r.errors:
@@ -265,6 +331,7 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--plan", action="store_true", help="네트워크 없이 대상·쿼리·예상 유닛만 출력")
     ap.add_argument("--only", help="쉼표로 구분한 곡 제목만 (다시 찾을 때)")
+    ap.add_argument("--global", dest="global_only", action="store_true", help="채널 제한 없이 곡마다 전체 검색만 (--only 필수 — 실수로 10곡을 다 부르지 않게)")
     ap.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS, help=f"search.list 호출 상한 (기본 {DEFAULT_MAX_CALLS})")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # Windows 기본 콘솔(cp949)에서 한글이 깨지거나 예외가 나는 것을 막는다
@@ -273,6 +340,9 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
     redact.configure_logging()
 
     titles = TARGET_TITLES
+    if args.global_only and not args.only:
+        print("--global은 --only와 함께만 쓴다 (전체 검색은 곡마다 100유닛이라 10곡을 다 부르지 않게)", file=sys.stderr)
+        return 2
     if args.only:
         wanted = [t.strip() for t in args.only.split(",") if t.strip()]
         unknown = [t for t in wanted if t not in TARGET_TITLES]
@@ -282,9 +352,9 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
         titles = tuple(wanted)
     songs_doc, members_doc = _read_json(config.DATA_DIR / "songs.json"), _read_json(config.DATA_DIR / "members.json")
     targets, warnings = find_targets(songs_doc, members_doc, titles)
-    print(plan_text(targets, warnings, args.max_calls))
-    if len(first_pass(targets)) > args.max_calls:
-        print(f"1차 호출이 상한 {args.max_calls}회를 넘는다 — 중단", file=sys.stderr)
+    print(plan_text(targets, warnings, args.max_calls, args.global_only))
+    if (len(targets) if args.global_only else len(first_pass(targets))) > args.max_calls:
+        print(f"첫 호출 계획이 상한 {args.max_calls}회를 넘는다 — 중단", file=sys.stderr)
         return 2
     if args.plan or not targets:
         return 0
@@ -302,8 +372,14 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
         return 2
     redact.register(api_key)
 
-    results, calls, stopped = run(targets, members_doc, api_key, get=get, sleep=sleep, max_calls=args.max_calls)
-    print(results_text(results, calls, stopped, members_doc, {t.title: t.who for t in targets}))
+    results, calls, stopped = run(targets, members_doc, api_key, get=get, sleep=sleep, max_calls=args.max_calls, global_only=args.global_only)
+    external = {c.channel_id for r in results for _, cands in r.found for c in cands if is_external(c.channel_id, members_doc)}
+    if external and not stopped:  # 외부 채널 후보가 있으면 핸들·구독자를 한 번에 조회 (1유닛)
+        info = channel_info(external, api_key, get)
+        print(f"(채널 정보 channels.list 1회 = 1유닛, 외부 채널 {len(external)}곳)")
+    else:
+        info = {}
+    print(results_text(results, calls, stopped, members_doc, {t.title: t.who for t in targets}, info))
     return 1 if stopped else 0
 
 

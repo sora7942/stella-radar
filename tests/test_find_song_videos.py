@@ -24,9 +24,25 @@ sys.modules["find_song_videos"] = fsv  # dataclass가 모듈을 찾을 수 있�
 spec.loader.exec_module(fsv)
 
 
+@pytest.fixture(autouse=True)
+def data_dir(monkeypatch, tmp_path):
+    """도구가 읽는 data 폴더를 임시 복사본으로 돌린다. 대표곡 10곡의 yt는 비워 둔다 — 실제 songs.json은 곡을 고를 때마다 채워지므로
+    테스트가 그 상태에 의존하지 않게 하고, 도구가 (실수로라도) 실제 데이터를 쓰지 못하게 한다."""
+    d = tmp_path / "data"
+    d.mkdir()
+    songs = json.loads(SONGS.read_text(encoding="utf-8"))
+    for s in songs["items"]:
+        if s["title"] in fsv.TARGET_TITLES:
+            s["yt"] = None
+    (d / "songs.json").write_text(json.dumps(songs, ensure_ascii=False, indent=1), encoding="utf-8")
+    (d / "members.json").write_bytes((ROOT / "site" / "data" / "members.json").read_bytes())
+    monkeypatch.setattr(config, "DATA_DIR", d)
+    return d
+
+
 @pytest.fixture
-def docs():
-    return json.loads(SONGS.read_text(encoding="utf-8")), json.loads((ROOT / "site" / "data" / "members.json").read_text(encoding="utf-8"))
+def docs(data_dir):
+    return json.loads((data_dir / "songs.json").read_text(encoding="utf-8")), json.loads((data_dir / "members.json").read_text(encoding="utf-8"))
 
 
 def item(video_id, title="영상", channel="채널", published="2026-01-02T00:00:00Z"):
@@ -203,9 +219,10 @@ def test_network_errors_are_recorded_by_type_only(docs):
 
 
 # ============================ songs.json은 쓰지 않는다 ==========================
-def test_run_leaves_the_data_files_untouched(capsys):
-    """내용(해시)뿐 아니라 수정 시각도 본다 — 같은 내용을 다시 저장하는 코드는 해시만으로는 못 잡는다(Windows CRLF 파일은 읽고 다시 쓰면 바이트가 같다)."""
-    files = [SONGS, ROOT / "site" / "data" / "members.json"]
+def test_run_leaves_the_data_files_untouched(data_dir, capsys):
+    """내용(해시)뿐 아니라 수정 시각도 본다 — 같은 내용을 다시 저장하는 코드는 해시만으로는 못 잡는다(Windows CRLF 파일은 읽고 다시 쓰면 바이트가 같다).
+    임시 복사본과 저장소의 실제 파일 둘 다 본다."""
+    files = [data_dir / "songs.json", data_dir / "members.json", SONGS, ROOT / "site" / "data" / "members.json"]
     snap = lambda: [(hashlib.sha256(p.read_bytes()).hexdigest(), p.stat().st_mtime_ns) for p in files]  # noqa: E731
     before = snap()
     fake = FakeSearch(default=ok(item("vid00000001")))
@@ -241,8 +258,101 @@ def test_candidates_are_marked_by_channel_kind(docs):
     results, calls, _ = fsv.run(targets, members, KEY, get=fake, sleep=lambda s: None)
     text = fsv.results_text(results, calls, None, members, {"눈꽃": ["kangji"]})
     assert "✔ 멤버 본인 채널(강지)" in text and "✔ 스텔라이브 공식 채널" in text
-    assert "△ 다른 멤버 채널(" in text and "✘ 외부 채널(공식 아님)" in text
+    assert "△ 다른 멤버 채널(" in text and "✘ 외부 채널(스텔라이브·멤버 채널 아님)" in text
 
 
 def test_channel_kind_without_members_doc_does_not_guess():
     assert fsv.channel_kind("UCx", None, []) == "채널 구분 불가" and fsv.channel_kind("", {"members": {}}, []) == "채널 구분 불가"
+
+
+# ============================ 전체 검색(--global)과 콜라보 상대 채널 ================
+def test_global_mode_skips_channel_search_and_searches_every_song_once(docs):
+    songs, members = docs
+    targets, _ = fsv.find_targets(songs, members, ("SYNC 100%", "눈꽃"))
+    fake = FakeSearch(default=ok(item("vid00000001")))  # 후보가 있어도 전체 검색은 한다
+    results, calls, stopped = fsv.run(targets, members, KEY, get=fake, sleep=lambda s: None, global_only=True)
+    assert calls == len(fake.calls) == 2 and stopped is None
+    assert all("channelId" not in fake.query(i) for i in range(2))
+    assert fake.query(0)["q"] == f"{members['members']['lize']['n']} SYNC 100%"
+
+
+def test_global_requires_only_so_ten_songs_are_not_searched_by_accident(capsys):
+    calls = []
+    # 키가 있어도(= 키 검사로 멈추지 않아도) --only 없는 --global은 요청 전에 거부된다
+    assert fsv.main(["--global"], get=lambda *a, **k: calls.append(a), environ={config.YOUTUBE_API_KEY_ENV: KEY}) == 2 and calls == []
+    assert fsv.main(["--global", "--only", "SYNC 100%"], get=None, environ={}) == 2  # 키가 없어 여기서 멈춤 — 요청 없음
+
+
+def test_global_plan_shows_cost(docs, capsys):
+    assert fsv.main(["--plan", "--global", "--only", "SYNC 100%,DIVE 2 FIGHT,도깨비꽃,Lulala! Lululala!"], get=None, environ={}) == 0
+    assert "전체 검색 4회 = 400유닛" in capsys.readouterr().out
+
+
+def test_global_cap_applies(capsys):
+    assert fsv.main(["--global", "--only", "SYNC 100%,DIVE 2 FIGHT", "--max-calls", "1"], get=None, environ={}) == 2
+
+
+def test_partner_channel_is_estimated_not_declared_official(docs):
+    _, members = docs
+    kind = fsv.channel_kind("UCext", members, ["lize"], "PLATiNA :: LAB Official", fsv.PARTNER_HINTS["SYNC 100%"])
+    assert kind.startswith("△ 콜라보 상대로 추정") and "직접 확인" in kind and "공식 채널" not in kind.replace("공식 여부", "")
+    plain = fsv.channel_kind("UCext", members, ["lize"], "아무 채널", fsv.PARTNER_HINTS["SYNC 100%"])
+    assert plain.startswith("✘ 외부 채널") and "직접 확인" in plain
+
+
+@pytest.mark.parametrize("title, hint, expect", [
+    ("TAK Official", "TAK", True), ("STAKE Games", "TAK", False), ("Riot Games Korea", "Riot", True),
+    ("라이엇 게임즈", "라이엇", True), ("2XKO", "2XKO", True), ("riot games", "Riot", True),
+])
+def test_ascii_hints_match_on_word_boundaries_only(title, hint, expect):
+    assert (fsv._hint_in(title, (hint,)) is not None) == expect
+
+
+def test_is_external(docs):
+    _, members = docs
+    assert not fsv.is_external(members["official"]["yt_id"], members) and not fsv.is_external(members["members"]["lize"]["yt_id"], members)
+    assert not fsv.is_external("", members) and fsv.is_external("UCext", members)
+
+
+def channels_reply(*rows):
+    return make_response(200, json.dumps({"items": [{"id": i, "snippet": {"customUrl": h}, "statistics": s} for i, h, s in rows]}))
+
+
+def test_channel_info_one_batched_call_with_key_in_header():
+    seen = []
+
+    def get(url, **kw):
+        seen.append((url, kw))
+        return channels_reply(("UCa", "@a", {"subscriberCount": "123456"}), ("UCb", "@b", {"hiddenSubscriberCount": True}), ("UCc", "@c", {"subscriberCount": "800"}))
+
+    info = fsv.channel_info({"UCb", "UCa", "UCc", ""}, KEY, get)
+    assert len(seen) == 1 and "/channels?" in seen[0][0] and "id=UCa%2CUCb%2CUCc" in seen[0][0]
+    assert KEY not in seen[0][0] and seen[0][1]["headers"] == {config.YOUTUBE_API_KEY_HEADER: KEY}
+    assert info["UCa"] == {"handle": "@a", "subs": 123456} and info["UCb"]["subs"] is None and info["UCc"]["subs"] == 800
+    assert fsv._subs_text(123456) == "구독자 12.3만" and fsv._subs_text(800) == "구독자 800명" and "비공개" in fsv._subs_text(None)
+
+
+def test_channel_info_failure_is_harmless_and_does_not_leak_the_key(caplog):
+    def get(url, **kw):
+        raise http_error(500, {"error": {"errors": [{"reason": "backendError"}]}})
+
+    assert fsv.channel_info({"UCa"}, KEY, get) == {}
+    assert KEY not in caplog.text and fsv.channel_info(set(), KEY, get=None) == {}  # 비면 요청 자체를 안 한다
+
+
+def test_external_candidates_show_address_handle_and_subscribers(docs, capsys):
+    songs, members = docs
+    snip = lambda vid, cid, ch: {**item(vid), "snippet": {**item(vid)["snippet"], "channelId": cid, "channelTitle": ch}}  # noqa: E731
+    calls = []
+
+    def get(url, **kw):
+        calls.append(url)
+        if "/channels?" in url:
+            return channels_reply(("UCplatina", "@platina_lab", {"subscriberCount": "52000"}))
+        return ok(snip("vid00000001", "UCplatina", "PLATiNA :: LAB"))
+
+    code = fsv.main(["--global", "--only", "SYNC 100%"], get=get, sleep=lambda s: None, environ={config.YOUTUBE_API_KEY_ENV: KEY})
+    out = capsys.readouterr().out
+    assert code == 0 and len(calls) == 2  # 검색 1 + 채널 정보 1
+    assert "△ 콜라보 상대로 추정" in out and "채널 주소: https://www.youtube.com/channel/UCplatina (@platina_lab · 구독자 5.2만)" in out
+    assert KEY not in out
