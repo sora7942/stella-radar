@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from updater import alerts, annotate, config, discord, http, redact, state, tagging, timeutil
+from updater import alerts, annotate, config, discord, http, redact, shorts, state, tagging, timeutil
 from updater.sources import chzzk, stellive_music, stellive_news, youtube_api, youtube_avatar, youtube_rss
 
 log = logging.getLogger("main")
@@ -41,6 +41,7 @@ class Context:
     prev_catalog: list = field(default_factory=list)
     prev_status: dict = field(default_factory=dict)  # status.json의 이전 'members'
     youtube_api_key: str | None = None  # 없으면 RSS로 수집한다. 로그·메시지에 절대 넣지 않는다
+    youtube_api_ok: bool = False  # 이번 실행의 영상 수집이 전부 API로 됐는가 (키 없음·할당량 초과·키 거부면 False). 쇼츠 판별은 True일 때만 한다
     environ: dict = field(default_factory=dict)  # Actions 주석(::warning::) 출력 여부 판단용
 
 
@@ -68,6 +69,7 @@ def run_youtube(ctx: Context) -> SourceResult:
         items, errors = list(res.items), list(res.errors)
         patches = {key: {"uploads": playlist} for key, playlist in res.uploads.items()}
         rss_channels = res.remaining
+        ctx.youtube_api_ok = not (res.quota_exceeded or res.key_rejected)
         log.info("유튜브: API로 %d개 채널 처리 (영상 %d개%s)", len(channels) - len(rss_channels), len(items),
                  f", 실패 {len(errors)}건" if errors else "")
         if res.quota_exceeded:
@@ -86,6 +88,21 @@ def run_youtube(ctx: Context) -> SourceResult:
     if errors and not items:
         raise RuntimeError(f"모든 채널 실패 ({len(errors)}건): {errors[0]}")
     return SourceResult(news_items=items, status_patches=patches or None, errors=errors)
+
+
+def classify_shorts(ctx: Context, items: list) -> None:
+    """병합된 news 항목의 쇼츠 판별 (updater/shorts.py, SPEC 5장). 병합 밖의 단계다: 기존 항목의 백필과 '정해지지 않은 항목의 재시도'가 필요해서
+    (병합은 id가 같으면 기존 항목이 이긴다). 영상 수집이 API로 되지 않은 실행(RSS 대체)에서는 건너뛴다 — 키가 없거나 할당량이 바닥이거나 키가 거부된 상태다.
+    부가 단계라서 여기서 무슨 일이 나도 실행(과 배포)을 멈추지 않는다. 판별되지 않은 항목은 다음 실행에 다시 시도한다."""
+    if not ctx.youtube_api_ok:
+        log.info("쇼츠 판별 건너뜀 — 영상을 YouTube API로 수집하지 않은 실행입니다 (다음 실행에 다시 시도)")
+        return
+    try:
+        report = shorts.fill(items, youtube_rss.channels_from_members(ctx.members), api_key=ctx.youtube_api_key, now=ctx.now, get=ctx.get)
+        log.info("%s", report.summary())
+    except Exception as e:  # 예상 밖의 오류는 종류만 남긴다 (메시지에 URL이 있을 수 있다)
+        log.warning("쇼츠 판별 중 오류(%s) — 건너뛰고 계속합니다", type(e).__name__)
+        log.debug("쇼츠 판별 오류 상세", exc_info=True)
 
 
 def run_news(ctx: Context) -> SourceResult:
@@ -238,6 +255,8 @@ def main(
 
     collected = [it for r in results.values() for it in r.news_items]
     merged, fresh = state.merge_news(prev_news["items"], collected, now_iso=now_iso)
+    if "youtube" in results:  # fresh 항목은 merged와 같은 객체라서, 여기서 채운 short를 알림 판정도 본다
+        classify_shorts(ctx, merged)
     state.write_json(data_dir / "news.json", {"updatedAt": now_iso, "items": merged})
     log.info("news.json: 전체 %d개 (새 항목 %d개) · updatedAt %s", len(merged), len(fresh), now_iso)
     for it in fresh[:10]:

@@ -303,3 +303,29 @@ def test_items_are_modified_in_place_and_other_fields_untouched():
     before = dict(it)
     run([it], api(shorts_of={LIZE: ["S1"]}))
     assert {k: v for k, v in it.items() if k != "short"} == before and list(it)[-1] == "short"
+
+
+# ============================ 알림: 쇼츠 라벨 ================================
+def test_the_alert_carries_the_short_flag_true_false_or_none():
+    from updater import alerts
+    for flag in (True, False):
+        (a,) = alerts.news_alerts([item("V", short=flag)], NOW)
+        assert a["short"] is flag
+    (a,) = alerts.news_alerts([item("V")], NOW)  # 아직 판별 전
+    assert a["short"] is None
+
+
+def test_the_embed_says_short_only_for_a_video_known_to_be_a_short(members):
+    from updater import discord
+
+    def alert(kind="video", **kw):
+        return {"kind": kind, "cat": {"video": "영상", "notice": "공지", "music": "음악", "live": "방송"}[kind], "who": ["lize"], "title": "제목",
+                "url": "https://example.invalid/x", "date": "2026-10-06T11:00:00+09:00", "yt": "V", **kw}
+
+    assert discord.build_embed(alert(short=True), members)["author"]["name"] == "아카네 리제 · 쇼츠"
+    for extra in ({"short": False}, {"short": None}, {}):  # 일반 영상·아직 판별 전·키 없음(예전 형식)은 그대로 '영상'
+        assert discord.build_embed(alert(**extra), members)["author"]["name"] == "아카네 리제 · 영상"
+    for kind, label in (("notice", "공지"), ("music", "음악"), ("live", "방송 시작")):  # 다른 종류의 라벨은 바뀌지 않는다
+        assert discord.build_embed(alert(kind, short=True), members)["author"]["name"].endswith(f"· {label}")
+    e = discord.build_embed(alert(short=True), members)
+    assert e["thumbnail"]["url"].endswith("/V/mqdefault.jpg") and e["title"] == "제목"  # 라벨 말고는 그대로

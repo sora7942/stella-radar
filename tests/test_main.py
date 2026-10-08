@@ -778,7 +778,8 @@ def test_with_a_key_videos_come_from_the_api_and_rss_is_not_requested(data_dir):
     net = Net(api=fake)
     assert api_run(data_dir, net, T1, "--only", "youtube") == 0
     assert net.calls_to(RSS_URL) == []  # API가 기본이라 RSS는 부르지 않는다
-    assert fake.endpoints() == ["channels"] + ["playlistItems"] * 12  # 12개 채널 = channels.list 1 + playlistItems 12
+    # 수집: channels.list 1 + playlistItems 12(채널당 1). 이어서 쇼츠 판별: 영상이 있는 3채널 × (UUSH + UULF) = playlistItems 6 (가짜 목록이 비어 있어 전부 미정)
+    assert fake.endpoints() == ["channels"] + ["playlistItems"] * 12 + ["playlistItems"] * 6
     videos = [i for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
     assert len(videos) == 15 + 15 + 15 and all(v["date"].endswith("+09:00") and v["added"] == T1 for v in videos)
     assert {v["source"] for v in videos} == {"강지 유튜브", "아카네 리제 유튜브", "스텔라이브 공식 유튜브"}
@@ -798,7 +799,8 @@ def test_upload_playlist_ids_are_cached_in_status_and_reused_next_run(data_dir):
     assert read(data_dir, "status")["updatedAt"] == T1
     fake2 = FakeApi()
     api_run(data_dir, Net(api=fake2), T2, "--only", "youtube", "--local-state")
-    assert "channels" not in fake2.endpoints() and fake2.endpoints() == ["playlistItems"] * 12  # 캐시 덕분에 channels.list를 다시 부르지 않는다
+    # 캐시 덕분에 channels.list를 다시 부르지 않는다. playlistItems는 수집 12 + 쇼츠 판별 재시도 6 (30분 전에 처음 본 영상이라 아직 미정)
+    assert "channels" not in fake2.endpoints() and fake2.endpoints() == ["playlistItems"] * 18
 
 
 def test_the_cache_survives_other_sources_rewriting_status(data_dir):

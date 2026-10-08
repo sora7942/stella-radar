@@ -83,7 +83,7 @@ def test_item_without_a_date_key_is_skipped():
 
 def test_alert_carries_what_the_embed_needs():
     (a,) = alerts.news_alerts([item("yt-a", iso(-hours(1)), who=["rin", "nana"], title="T", url="https://u", yt="VID")], NOW)
-    assert a == {"kind": "video", "cat": "영상", "who": ["rin", "nana"], "title": "T", "url": "https://u", "date": iso(-hours(1)), "yt": "VID"}
+    assert a == {"kind": "video", "cat": "영상", "who": ["rin", "nana"], "title": "T", "url": "https://u", "date": iso(-hours(1)), "yt": "VID", "short": None}
 
 
 def test_input_is_not_mutated():

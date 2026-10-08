@@ -54,6 +54,7 @@ def news_alerts(fresh: list[dict], now: datetime) -> list[dict]:
         out.append({
             "kind": kind, "cat": it.get("cat"), "who": list(it.get("who") or []), "title": it.get("title") or "",
             "url": it.get("url"), "date": it["date"], "yt": it.get("yt"),
+            "short": it.get("short"),  # True면 임베드에 '쇼츠'로 표시. 아직 판별 전이면 None(표시 없음)
         })
     return out
 

@@ -15,6 +15,7 @@ from . import config, http
 log = logging.getLogger(__name__)
 
 KIND_LABEL = {"live": "방송 시작", "video": "영상", "notice": "공지", "music": "음악"}
+SHORT_LABEL = "쇼츠"  # 알림 시점에 short가 true인 영상은 '영상' 대신 이 라벨을 쓴다 (판별 전이면 '영상')
 GROUP_ALL_LABEL = "스텔라이브"
 _MAX_NAMES = 3  # 이름이 이보다 많으면 "A, B, C 외 N명"
 _TITLE_LIMIT = 256  # 디스코드 임베드 제목 한도
@@ -60,6 +61,8 @@ def color_of(who: list[str], members: dict) -> int:
 def build_embed(alert: dict, members: dict) -> dict:
     names = names_of(alert["who"], members)
     label = alert.get("cat") if alert["kind"] == "notice" and alert.get("cat") else KIND_LABEL[alert["kind"]]
+    if alert["kind"] == "video" and alert.get("short") is True:
+        label = SHORT_LABEL
     embed = {
         "author": {"name": _clip(f"{names} · {label}", _AUTHOR_LIMIT)},
         "title": _clip(alert.get("title") or f"{names} 방송 시작", _TITLE_LIMIT),
