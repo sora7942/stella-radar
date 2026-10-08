@@ -37,7 +37,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15  # 정상 실행은 몇 분. 이보다 오래 걸리는 실행은 멈춘 것이다 (job이 시작되지도 못하고 waiting에 남는 경우는 watchdog.yml이 맡는다)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

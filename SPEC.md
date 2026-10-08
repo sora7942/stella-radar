@@ -28,7 +28,8 @@ GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다
 ```
 stella-radar/
 ├─ .github/workflows/update.yml   # 수집 → 배포 → (배포 성공 뒤) 알림. 외부 cron이 30분마다 workflow_dispatch로 호출 (+ main push, 수동 실행, 보조 schedule)
-│  └─ keepalive.yml               # 한 달에 한 번 빈 커밋 (60일 비활동으로 GitHub 예약 실행이 꺼지는 것 방지 — 보조 장치)
+│  ├─ keepalive.yml               # 한 달에 한 번 빈 커밋 (60일 비활동으로 GitHub 예약 실행이 꺼지는 것 방지 — 보조 장치)
+│  └─ watchdog.yml                # 갱신 정체 감시: 외부 cron이 1시간마다 workflow_dispatch로 호출 (9장)
 ├─ site/                          # 그대로 Pages에 올라가는 정적 사이트
 │  ├─ index.html                  # 완성본. 데이터 스키마(4장)만 맞추면 됨
 │  └─ data/
@@ -52,7 +53,8 @@ stella-radar/
 │  └─ discord.py                  # 임베드 생성·발송·dry-run 출력
 ├─ tests/ (fixtures/ 포함)
 ├─ main.py                        # 수집 → site/data 갱신 → out/alerts.json (보낼 알림)
-├─ send_alerts.py                 # 배포 성공 뒤 out/alerts.json만 읽어 디스코드로 발송
+├─ send_alerts.py                 # 배포 성공 뒤 out/alerts.json만 읽어 디스코드로 발송 (watchdog.yml도 같은 파일 형식으로 재사용)
+├─ watchdog.py                    # 갱신 정체 점검: 오래된 update 실행 취소 + 경고를 out/alerts.json에 남김 (판정 로직은 updater/watchdog.py)
 ├─ requirements.txt
 ├─ .env.example
 ├─ CLAUDE.md
@@ -160,7 +162,7 @@ stella-radar/
   - 외부 cron에 의존한다: cron-job.org 장애, 토큰 만료·삭제가 있으면 갱신이 멈춘다 → 토큰 만료일을 달력에 적어 두고 cron-job.org의 실패 알림을 켠다. 사이트의 "마지막 관측" 시각으로 확인한다
   - **토큰 값은 cron-job.org의 헤더 칸에만 둔다.** 저장소·문서·GitHub Secret·`.env`·로그·커밋에 남기지 않는다(문서에는 `<토큰>`). 비밀 스캔 테스트가 `github_pat_`·`ghp_` 모양을 잡는다(10장)
 - 보조 트리거: `schedule: cron "7,37 * * * *"`(30분 간격이되 정각·30분을 비킨다 — GitHub 예약 실행은 정각 부근에 몰려 지연되거나 버려질 수 있다), `workflow_dispatch`(입력 `no_alerts`: 알림 없이 실행 = `main.py --no-discord`, 수동 실행도 이것), `push` (main 브랜치, `site/**`·`updater/**` 외에 `main.py`·`send_alerts.py`·`requirements.txt`·`update.yml` 변경도 포함). 외부 cron과 겹쳐 돌아도 `concurrency`로 순서대로 실행되고 새 항목이 없으면 알림도 없다
-- 한 잡(`update`, `environment: github-pages`, `timeout-minutes: 20`)에 모든 단계를 둔다. 액션은 공식 액션의 메이저 버전으로 고정: `checkout@v7`, `setup-python@v7`, `upload-pages-artifact@v5`, `deploy-pages@v5`
+- 한 잡(`update`, `environment: github-pages`, `timeout-minutes: 15`)에 모든 단계를 둔다. 액션은 공식 액션의 메이저 버전으로 고정: `checkout@v7`, `setup-python@v7`, `upload-pages-artifact@v5`, `deploy-pages@v5`
 - `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문(지금은 외부 cron이 주 경로라 이것은 GitHub `schedule`을 위한 보조 장치)
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
 - 권한: `contents: read`, `pages: write`, `id-token: write`
@@ -168,6 +170,12 @@ stella-radar/
 - 업데이터가 실패(예외 종료)해도 배포 단계는 건너뛰고(알림도 나가지 않고), 실행은 실패로 표시 (GitHub 실패 메일). 배포가 실패하면 알림 단계도 돌지 않는다
 - Secret: `DISCORD_WEBHOOK_URL` — **`send_alerts.py` 단계의 `env`에만** 넣는다. 업데이터(`main.py`) 단계에는 노출하지 않는다
 - Secret: `YOUTUBE_API_KEY` — **`main.py` 단계의 `env`에만** 넣는다(업데이터만 읽는다). 없으면 RSS로 수집한다
+- **갱신 정체 감시 `watchdog.yml`**(기능 0-e): 2026-10-07 `waiting`에 남은 `update` 실행 하나가 `pages` 동시 실행 그룹을 잡아 사이트가 약 22.5시간 갱신되지 않았다(외부 cron의 dispatch는 204로 성공해 아무도 몰랐다). `timeout-minutes`는 시작하지 못한 job에는 듣지 않을 수 있어(미확인) 별도 감시를 둔다.
+  - 트리거는 `workflow_dispatch`뿐(입력 없음). 외부 cron이 `POST …/actions/workflows/watchdog.yml/dispatches`를 **1시간마다**, `update.yml`을 부르는 것과 **같은 토큰**으로 호출한다(README). 동시 실행 그룹은 `watchdog`(`pages`와 다름, `cancel-in-progress: true` — 점검 자신이 막히면 다음 점검이 대체), 권한은 `actions: write`·`contents: read`뿐, `timeout-minutes: 10`
+  - 규칙(값은 `config.WATCHDOG_*`, 판정은 `updater/watchdog.py`의 순수 함수): 배포된 `news.json`의 `updatedAt`이 **90분을 넘게** 지났으면 정체 → `update.yml` 실행 중 `queued`·`waiting`·`in_progress` 상태로 **30분을 넘은** 것을 취소(`cancel`이 409면 `force-cancel`) → 디스코드 경고 1건. 정상이면 사이트 확인 1회 외에는 아무것도 하지 않는다. 사이트를 읽을 수 없으면(판정 불가) 아무것도 취소하지 않는다
+  - 경고는 같은 정체(`updatedAt` 기준)로 **처음 한 번 + 6시간마다 한 번**(점검 간격 지터를 위해 10분 여유). 상태를 저장하지 않고, 이전 `watchdog` 실행의 **"경고 발송" 단계가 success였는지**를 Actions API로 읽어 마지막 경고 시각으로 쓴다(단계 이름은 `config.WATCHDOG_ALERT_STEP`). 기록 조회가 실패하면 경고하는 쪽으로 판단한다. 경고가 억제돼도 정체된 실행의 취소는 계속하고 실행 요약에 `::warning::`을 남긴다
+  - 흐름: `python watchdog.py`(env: `GITHUB_TOKEN`만)가 경고를 `out/alerts.json`(7장과 같은 형식)에 남기고 `$GITHUB_OUTPUT`에 `alert=true|false`를 쓴다 → 다음 단계 "경고 발송"(`if: steps.check.outputs.alert == 'true'`, env: `DISCORD_WEBHOOK_URL`만)이 `python send_alerts.py`로 보낸다. `watchdog.py`는 웹훅을 읽지 않는다. 토큰은 헤더로만 보내고 오류는 HTTP 상태·예외 종류만 기록한다
+  - 한계: 이 감시도 같은 외부 cron에 의존한다(cron-job.org가 통째로 멈추면 경고도 나가지 않는다). 정체된 실행이 없는데 사이트가 멈춘 경우(외부 cron 중단·토큰 만료)는 "정체된 실행은 없어요 — 외부 cron·토큰 확인" 경고로 알린다
 - 저장소 Settings → Pages → Source를 **GitHub Actions**로 설정 (README에 안내)
 
 ## 10. 테스트 (네트워크 없이)

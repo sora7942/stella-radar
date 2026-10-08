@@ -27,6 +27,11 @@ def keepalive():
     return load("keepalive.yml")
 
 
+@pytest.fixture(scope="module")
+def watchdog():
+    return load("watchdog.yml")
+
+
 def steps_of(doc):
     (job,) = doc["jobs"].values()
     return job["steps"]
@@ -58,7 +63,7 @@ def test_permissions_are_the_minimum_for_pages(update):
 
 def test_single_job_on_ubuntu_with_pages_environment_and_a_timeout(update):
     (job,) = update[0]["jobs"].values()
-    assert job["runs-on"] == "ubuntu-latest" and job["timeout-minutes"] <= 30
+    assert job["runs-on"] == "ubuntu-latest" and job["timeout-minutes"] == 15  # 정상 실행은 몇 분. 오래 걸리는 실행은 멈춘 것
     assert job["environment"]["name"] == "github-pages" and "steps.deployment.outputs.page_url" in job["environment"]["url"]
 
 
@@ -106,8 +111,8 @@ def test_the_manual_no_alerts_input_only_adds_the_no_discord_flag(update):
     assert run == "python main.py ${{ inputs.no_alerts && '--no-discord' || '' }}"  # 입력 값을 셸에 그대로 끼워 넣지 않는다 (불리언 → 고정 문자열)
 
 
-def test_every_official_action_is_pinned_to_a_major_version(update, keepalive):
-    uses = re.findall(r"uses:\s*(\S+)", update[1] + keepalive[1])
+def test_every_official_action_is_pinned_to_a_major_version(update, keepalive, watchdog):
+    uses = re.findall(r"uses:\s*(\S+)", update[1] + keepalive[1] + watchdog[1])
     assert uses and all(re.fullmatch(r"actions/[\w-]+@v\d+", u) for u in uses), uses
     assert {u.split("@")[0] for u in uses} == {"actions/checkout", "actions/setup-python", "actions/upload-pages-artifact", "actions/deploy-pages"}
 
@@ -136,3 +141,73 @@ def test_keepalive_makes_an_empty_commit_and_uses_no_secrets(keepalive):
 def test_the_keepalive_commit_cannot_trigger_the_update_workflow(keepalive, update):
     # 빈 커밋은 어떤 경로도 바꾸지 않으므로 update.yml의 paths 필터에 걸리지 않는다 (게다가 GITHUB_TOKEN push는 워크플로를 깨우지 않는다)
     assert "paths" in update[0]["on"]["push"] and "push" not in keepalive[0]["on"]
+
+
+# ============================ watchdog.yml (기능 0-e) ==========================
+def test_watchdog_is_manual_only_so_the_external_cron_is_the_only_caller(watchdog):
+    on = watchdog[0]["on"]
+    assert set(on) == {"workflow_dispatch"} and not (on["workflow_dispatch"] or {}).get("inputs")  # schedule·push 없음, 입력 없음(주입 여지 없음)
+
+
+def test_watchdog_has_its_own_concurrency_group_so_it_runs_while_update_is_stuck(watchdog, update):
+    assert watchdog[0]["concurrency"] == {"group": "watchdog", "cancel-in-progress": True}  # 점검 자신이 막히면 다음 점검이 대체한다
+    assert watchdog[0]["concurrency"]["group"] != update[0]["concurrency"]["group"] == "pages"
+
+
+def test_watchdog_permissions_are_only_actions_write_and_contents_read(watchdog):
+    assert watchdog[0]["permissions"] == {"actions": "write", "contents": "read"}  # pages·id-token·contents:write 없음
+    (job,) = watchdog[0]["jobs"].values()
+    assert "permissions" not in job and "environment" not in job  # job 수준에서 권한을 넓히지 않는다. Pages 환경에도 묶이지 않는다
+
+
+def test_only_keepalive_can_write_contents(keepalive, update, watchdog):
+    assert keepalive[0]["permissions"]["contents"] == "write"
+    assert update[0]["permissions"]["contents"] == "read" and watchdog[0]["permissions"]["contents"] == "read"
+
+
+def test_watchdog_job_is_short_lived_on_ubuntu(watchdog):
+    (job,) = watchdog[0]["jobs"].values()
+    assert job["runs-on"] == "ubuntu-latest" and job["timeout-minutes"] <= 10
+
+
+def test_watchdog_step_order_check_then_alert_last(watchdog):
+    steps = steps_of(watchdog[0])
+    order = [find(steps, n)[0] for n in ("actions/checkout", "actions/setup-python", "pip install", "python watchdog.py", "python send_alerts.py")]
+    assert order == sorted(order) and len(set(order)) == 5 and order[-1] == len(steps) - 1
+
+
+def test_the_alert_step_runs_only_when_the_check_asked_for_it_and_its_name_is_the_history_marker(watchdog):
+    from updater import config
+    steps = steps_of(watchdog[0])
+    check, send = find(steps, "python watchdog.py")[1], find(steps, "python send_alerts.py")[1]
+    assert check["id"] == "check" and send["if"] == "steps.check.outputs.alert == 'true'"
+    # 이전 점검 실행에서 이 단계가 success였는지로 '경고를 이미 보냈는가'를 판단한다 — 이름이 바뀌면 중복 억제가 조용히 깨진다
+    assert send["name"] == config.WATCHDOG_ALERT_STEP
+    assert all("continue-on-error" not in s for s in steps)
+
+
+def test_watchdog_secrets_each_go_to_exactly_one_step(watchdog):
+    steps = steps_of(watchdog[0])
+    assert find(steps, "python watchdog.py")[1]["env"] == {"GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"}
+    assert find(steps, "python send_alerts.py")[1]["env"] == {"DISCORD_WEBHOOK_URL": "${{ secrets.DISCORD_WEBHOOK_URL }}"}  # 웹훅은 발송 단계에만
+    assert sorted(re.findall(r"secrets\.([A-Z_]+)", watchdog[1])) == ["DISCORD_WEBHOOK_URL", "GITHUB_TOKEN"]
+    assert "YOUTUBE_API_KEY" not in watchdog[1] and "ANTHROPIC" not in watchdog[1]
+    assert "env" not in watchdog[0] and "env" not in next(iter(watchdog[0]["jobs"].values()))  # workflow·job 수준 env 없음
+    others = [s for s in steps if s not in (find(steps, "python watchdog.py")[1], find(steps, "python send_alerts.py")[1])]
+    assert all("env" not in s for s in others)
+
+
+def test_watchdog_uses_no_expression_injection_surface(watchdog):
+    run_texts = "\n".join(s.get("run", "") for s in steps_of(watchdog[0]))
+    assert "${{" not in run_texts  # run 본문에 컨텍스트 값을 끼워 넣지 않는다 (env로만 전달)
+
+
+def test_watchdog_scripts_exist_and_python_is_312_with_pip_cache(watchdog):
+    for script in ("watchdog.py", "send_alerts.py", "requirements.txt"):
+        assert (ROOT / script).is_file()
+    assert find(steps_of(watchdog[0]), "setup-python")[1]["with"] == {"python-version": "3.12", "cache": "pip"}
+
+
+def test_watchdog_filename_matches_the_config_the_code_uses():
+    from updater import config
+    assert (WORKFLOWS / config.WATCHDOG_WORKFLOW_FILE).is_file() and (WORKFLOWS / config.UPDATE_WORKFLOW_FILE).is_file()

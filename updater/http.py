@@ -12,9 +12,11 @@ def get(url: str, *, session: requests.Session | None = None, headers: dict | No
     return resp
 
 
-def post_json(url: str, payload: dict, *, session: requests.Session | None = None) -> requests.Response:
+def post_json(url: str, payload: dict | None = None, *, session: requests.Session | None = None, headers: dict | None = None) -> requests.Response:
     """POST(JSON). get과 같이 timeout=10과 User-Agent를 강제한다. 4xx/5xx면 requests.HTTPError(.response 포함).
+    payload가 None이면 본문 없이 보낸다 (예: GitHub 실행 취소). headers는 User-Agent 위에 덧붙는다.
     주의: requests 예외의 메시지에는 URL이 들어간다. 웹훅 URL을 다루는 호출자는 예외 메시지를 로그에 남기면 안 된다."""
-    resp = (session or requests).post(url, json=payload, headers={"User-Agent": config.USER_AGENT}, timeout=config.TIMEOUT)
+    merged = {"User-Agent": config.USER_AGENT, **(headers or {})}
+    resp = (session or requests).post(url, json=payload, headers=merged, timeout=config.TIMEOUT)
     resp.raise_for_status()
     return resp

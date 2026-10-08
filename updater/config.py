@@ -99,3 +99,19 @@ DISCORD_MESSAGE_DELAY = 1.0  # 초. 메시지 사이 간격
 DISCORD_RETRY_AFTER_MAX = 10  # 초. 429(속도 제한)면 이만큼까지만 기다렸다가 한 번 더 시도한다
 DISCORD_DEFAULT_COLOR = 0xEDC15A  # 멤버 색을 못 찾을 때(그룹·단체). 사이트 강조색(다크)
 YOUTUBE_THUMBNAIL_URL = "https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"  # 사이트와 같은 썸네일 (핫링크, 저장 안 함)
+
+# --- 갱신 정체 감시 (watchdog.py, 기능 0-e) ------------------------------------------
+# 배포된 사이트의 news.json updatedAt이 오래됐고 update.yml 실행이 정체돼 있으면 그 실행을 취소하고 디스코드에 경고한다.
+# 2026-10-07: waiting 상태로 남은 실행 하나가 concurrency 그룹 `pages`를 잡아 사이트가 약 22.5시간 갱신되지 않았다 (PROGRESS 알려진 문제 3)
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_DEFAULT_REPO = "sora7942/stella-radar"  # Actions에서는 환경변수 GITHUB_REPOSITORY가 우선한다
+UPDATE_WORKFLOW_FILE = "update.yml"
+WATCHDOG_WORKFLOW_FILE = "watchdog.yml"
+WATCHDOG_STALE_MINUTES = 90  # updatedAt이 이보다 오래(넘게) 지났으면 정체. 30분 주기에서 세 번 연속 놓친 정도
+WATCHDOG_RUN_MAX_AGE_MINUTES = 30  # update 실행이 이보다 오래(넘게) queued/waiting/in_progress면 정체된 실행 (정상 실행은 몇 분이고 timeout은 15분)
+WATCHDOG_RUN_STATUSES = ("queued", "waiting", "in_progress")
+WATCHDOG_REPEAT_HOURS = 6  # 같은 정체로는 처음 한 번, 이후 이 간격마다 한 번만 경고한다
+WATCHDOG_REPEAT_GRACE_MINUTES = 10  # 1시간 간격 점검이 몇 분 늦거나 빨라도 6시간째 경고를 한 칸 건너뛰지 않게 하는 여유
+WATCHDOG_ALERT_STEP = "경고 발송"  # watchdog.yml의 단계 이름. 이전 실행에서 이 단계가 success면 그때 경고를 보낸 것이다 (상태를 따로 저장하지 않는다)
+WATCHDOG_RUNS_PER_PAGE = 30  # 이전 점검 실행을 훑는 개수 (1시간 간격 × 7시간 + 수동 실행 여유)
+WATCHDOG_COLOR = 0xE5484D  # 경고 임베드 색
