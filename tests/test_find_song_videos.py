@@ -356,3 +356,70 @@ def test_external_candidates_show_address_handle_and_subscribers(docs, capsys):
     assert code == 0 and len(calls) == 2  # 검색 1 + 채널 정보 1
     assert "△ 콜라보 상대로 추정" in out and "채널 주소: https://www.youtube.com/channel/UCplatina (@platina_lab · 구독자 5.2만)" in out
     assert KEY not in out
+
+
+# ============================ --query: 직접 지정한 검색어 =========================
+LULALA_QUERIES = ["Lulala Lululala 샤콘", "명조 샤콘 Lulala"]
+
+
+def test_custom_queries_replace_the_default_global_query(docs):
+    songs, members = docs
+    targets, _ = fsv.find_targets(songs, members, ("Lulala! Lululala!",))
+    fake = FakeSearch(default=ok(item("vid00000001")))
+    results, calls, stopped = fsv.run(targets, members, KEY, get=fake, sleep=lambda s: None, global_only=True, custom_queries=LULALA_QUERIES)
+    assert calls == len(fake.calls) == 2 and stopped is None
+    assert [fake.query(i)["q"] for i in range(2)] == LULALA_QUERIES  # 멤버 이름이 앞에 붙지 않는다
+    assert all("channelId" not in fake.query(i) for i in range(2))
+    assert [c.video_id for _, cs in results[0].found for c in cs] == ["vid00000001", "vid00000001"]  # 같은 영상은 표에서 한 번만 나온다 (아래 텍스트 시험)
+
+
+def test_same_video_found_by_both_queries_is_listed_once(docs):
+    songs, members = docs
+    targets, _ = fsv.find_targets(songs, members, ("Lulala! Lululala!",))
+    results, calls, _ = fsv.run(targets, members, KEY, get=FakeSearch(default=ok(item("vid00000001"), item("vid00000002"))), sleep=lambda s: None,
+                                global_only=True, custom_queries=LULALA_QUERIES)
+    text = fsv.results_text(results, calls, None)
+    assert text.count("ID: vid00000001") == 1 and text.count("ID: vid00000002") == 1 and "API 호출 2회 = 200유닛" in text
+
+
+def test_query_needs_global_and_exactly_one_song(capsys):
+    calls = []
+    env = {config.YOUTUBE_API_KEY_ENV: KEY}
+    get = lambda *a, **k: calls.append(a)  # noqa: E731
+    for argv in (["--query", "x"], ["--global", "--query", "x"], ["--global", "--only", "눈꽃,불꽃", "--query", "x"], ["--only", "눈꽃", "--query", "x"]):
+        assert fsv.main(argv, get=get, environ=env) == 2
+    assert calls == []  # 어느 경우에도 요청이 나가지 않았다
+
+
+def test_query_plan_and_cap(capsys):
+    argv = ["--global", "--only", "Lulala! Lululala!", *sum((["--query", q] for q in LULALA_QUERIES), [])]
+    assert fsv.main(["--plan", *argv, "--max-calls", "2"], get=None, environ={}) == 0
+    out = capsys.readouterr().out
+    assert "'Lulala Lululala 샤콘'" in out and "'명조 샤콘 Lulala'" in out and "전체 검색 2회 = 200유닛" in out
+    calls = []  # 키가 있어도(= 키 검사로 멈추지 않아도) 계획이 상한을 넘으면 요청 전에 거부된다
+    assert fsv.main([*argv, "--max-calls", "1"], get=lambda *a, **k: calls.append(a), environ={config.YOUTUBE_API_KEY_ENV: KEY}) == 2 and calls == []  # 검색어 2개 > 상한 1
+
+
+def test_query_run_through_main_uses_exactly_two_search_calls_plus_one_channel_lookup(capsys):
+    snip = lambda vid, cid, ch: {**item(vid), "snippet": {**item(vid)["snippet"], "channelId": cid, "channelTitle": ch}}  # noqa: E731
+    calls = []
+
+    def get(url, **kw):
+        calls.append(url)
+        if "/channels?" in url:
+            return channels_reply(("UCwuwa", "@wutheringwaves_kr", {"subscriberCount": "300000"}))
+        return ok(snip("vid00000001", "UCwuwa", "명조: 워더링 웨이브"))
+
+    argv = ["--global", "--only", "Lulala! Lululala!", "--query", LULALA_QUERIES[0], "--query", LULALA_QUERIES[1], "--max-calls", "2"]
+    assert fsv.main(argv, get=get, sleep=lambda s: None, environ={config.YOUTUBE_API_KEY_ENV: KEY}) == 0
+    out = capsys.readouterr().out
+    assert [("/search?" in u) for u in calls] == [True, True, False]  # 검색 2 + 채널 정보 1
+    assert "△ 콜라보 상대로 추정(채널명에 '명조')" in out and "@wutheringwaves_kr" in out
+
+
+@pytest.mark.parametrize("title, expect", [
+    ("명조: 워더링 웨이브", True), ("Wuthering Waves", True), ("Wuthering Waves Official", True), ("Kuro Games", True),
+    ("鳴潮 Wuthering Waves", True), ("Kurosawa Fan", False), ("아카네 리제", False),
+])
+def test_wuthering_waves_hints(title, expect):
+    assert (fsv._hint_in(title, fsv.PARTNER_HINTS["Lulala! Lululala!"]) is not None) == expect

@@ -126,14 +126,17 @@ def global_query(target: Target, members_doc: dict) -> Query:
     return Query(target.title, "global", f"{name} {target.title}".strip(), None, "전체 검색")
 
 
-def plan_text(targets: list[Target], warnings: list[str], max_calls: int, global_only: bool = False) -> str:
+def plan_text(targets: list[Target], warnings: list[str], max_calls: int, global_only: bool = False, custom_queries: list[str] | None = None) -> str:
     lines = [f"대상 {len(targets)}곡"]
     for w in warnings:
         lines.append(f"  경고: {w}")
-    if global_only:  # 채널 제한 없이 곡마다 전체 검색 1회씩 (+ 후보 채널 정보 channels.list 1회 = 1유닛)
+    if global_only:  # 채널 제한 없이 전체 검색 (+ 후보 채널 정보 channels.list 1회 = 1유닛)
+        n = 0
         for t in targets:
-            lines.append(f"  전체  {t.title!r:24} '<멤버 이름> {t.title}' (채널 제한 없음)")
-        lines.append(f"전체 검색 {len(targets)}회 = {len(targets) * SEARCH_UNITS:,}유닛 + 채널 정보(channels.list) 1회 = 1유닛, 호출 상한 {max_calls}회")
+            for q in custom_queries or [f"<멤버 이름> {t.title}"]:
+                lines.append(f"  전체  {t.title!r:24} {q!r} (채널 제한 없음)")
+                n += 1
+        lines.append(f"전체 검색 {n}회 = {n * SEARCH_UNITS:,}유닛 + 채널 정보(channels.list) 1회 = 1유닛, 호출 상한 {max_calls}회")
         return "\n".join(lines)
     queries = first_pass(targets)
     no_channel = [t for t in targets if not t.members]
@@ -193,9 +196,10 @@ def search(query: Query, api_key: str, get=http.get) -> list[Candidate]:
 
 
 def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get, sleep=time.sleep, max_calls: int = DEFAULT_MAX_CALLS,
-        global_only: bool = False) -> tuple[list[SongResult], int, str | None]:
+        global_only: bool = False, custom_queries: list[str] | None = None) -> tuple[list[SongResult], int, str | None]:
     """(곡별 결과, 실제 호출 수, 중단 사유). 호출 수가 max_calls에 닿거나 Abort가 나면 거기서 멈춘다.
-    global_only면 1차(채널 안 검색)를 건너뛰고 곡마다 전체 검색만 한다(후보가 있어도)."""
+    global_only면 1차(채널 안 검색)를 건너뛰고 곡마다 전체 검색만 한다(후보가 있어도).
+    custom_queries가 있으면 global_only에서 기본 쿼리('<멤버 이름> <곡명>') 대신 이 검색어들을 곡마다 하나씩 쓴다."""
     calls = 0
     results = [SongResult(t.title) for t in targets]
     by_title = {r.title: r for r in results}
@@ -222,7 +226,10 @@ def run(targets: list[Target], members_doc: dict, api_key: str, *, get=http.get,
                 call(q)
         for t in targets:
             res = by_title[t.title]
-            if global_only or (not any(cands for _, cands in res.found) and not res.errors):
+            if global_only:
+                for text in custom_queries or [None]:
+                    call(Query(t.title, "global", text, None, "전체 검색") if text else global_query(t, members_doc))
+            elif not any(cands for _, cands in res.found) and not res.errors:
                 call(global_query(t, members_doc))
     except Abort as e:
         stopped = str(e)
@@ -234,6 +241,7 @@ PARTNER_HINTS = {
     "SYNC 100%": ("PLATiNA", "PLATINA", "플라티나"),
     "DIVE 2 FIGHT": ("2XKO", "Riot", "라이엇", "League of Legends", "리그 오브 레전드"),
     "도깨비꽃": ("TAK", "타크"),
+    "Lulala! Lululala!": ("명조", "Wuthering Waves", "鳴潮", "Kuro"),  # 명조: 워더링 웨이브(쿠로게임즈) 콜라보 — 한국·글로벌 채널을 둘 다 잡는다
 }
 CHANNEL_URL = "https://www.youtube.com/channel/{channel_id}"
 
@@ -332,6 +340,7 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
     ap.add_argument("--plan", action="store_true", help="네트워크 없이 대상·쿼리·예상 유닛만 출력")
     ap.add_argument("--only", help="쉼표로 구분한 곡 제목만 (다시 찾을 때)")
     ap.add_argument("--global", dest="global_only", action="store_true", help="채널 제한 없이 곡마다 전체 검색만 (--only 필수 — 실수로 10곡을 다 부르지 않게)")
+    ap.add_argument("--query", action="append", help="--global에서 기본 쿼리 대신 쓸 검색어(여러 번 가능, --only는 곡 하나). 검색어마다 100유닛")
     ap.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS, help=f"search.list 호출 상한 (기본 {DEFAULT_MAX_CALLS})")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # Windows 기본 콘솔(cp949)에서 한글이 깨지거나 예외가 나는 것을 막는다
@@ -343,6 +352,9 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
     if args.global_only and not args.only:
         print("--global은 --only와 함께만 쓴다 (전체 검색은 곡마다 100유닛이라 10곡을 다 부르지 않게)", file=sys.stderr)
         return 2
+    if args.query and not (args.global_only and args.only and len([t for t in args.only.split(",") if t.strip()]) == 1):
+        print("--query는 --global과 --only <곡 하나>와 함께만 쓴다 (검색어가 어느 곡의 것인지 모호하지 않게)", file=sys.stderr)
+        return 2
     if args.only:
         wanted = [t.strip() for t in args.only.split(",") if t.strip()]
         unknown = [t for t in wanted if t not in TARGET_TITLES]
@@ -352,8 +364,9 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
         titles = tuple(wanted)
     songs_doc, members_doc = _read_json(config.DATA_DIR / "songs.json"), _read_json(config.DATA_DIR / "members.json")
     targets, warnings = find_targets(songs_doc, members_doc, titles)
-    print(plan_text(targets, warnings, args.max_calls, args.global_only))
-    if (len(targets) if args.global_only else len(first_pass(targets))) > args.max_calls:
+    print(plan_text(targets, warnings, args.max_calls, args.global_only, args.query))
+    planned = len(targets) * len(args.query or [None]) if args.global_only else len(first_pass(targets))
+    if planned > args.max_calls:
         print(f"첫 호출 계획이 상한 {args.max_calls}회를 넘는다 — 중단", file=sys.stderr)
         return 2
     if args.plan or not targets:
@@ -372,7 +385,7 @@ def main(argv=None, *, get=http.get, sleep=time.sleep, environ=None) -> int:
         return 2
     redact.register(api_key)
 
-    results, calls, stopped = run(targets, members_doc, api_key, get=get, sleep=sleep, max_calls=args.max_calls, global_only=args.global_only)
+    results, calls, stopped = run(targets, members_doc, api_key, get=get, sleep=sleep, max_calls=args.max_calls, global_only=args.global_only, custom_queries=args.query)
     external = {c.channel_id for r in results for _, cands in r.found for c in cands if is_external(c.channel_id, members_doc)}
     if external and not stopped:  # 외부 채널 후보가 있으면 핸들·구독자를 한 번에 조회 (1유닛)
         info = channel_info(external, api_key, get)
