@@ -32,6 +32,7 @@
 - JSON은 `encoding="utf-8"`, `ensure_ascii=False`로 쓴다
 - `news.json` 항목의 `added`는 처음 발견한 시각에서 절대 바꾸지 않는다
 - `site/index.html`을 고칠 때는 SPEC 4장 스키마와 맞는지 확인하고, 데스크톱·모바일(400px) 폭, 라이트·다크 모드에서 확인한다
+- `site/index.html`의 `/* <logic> … */ … /* </logic> */` 구역은 DOM·`window`·`document`를 쓰지 않는 순수 로직만 둔다(멤버·그룹 `M`·`G`는 바깥에서 주입). `tests/test_site_logic.py`가 이 구역만 node로 실행한다(node가 없으면 건너뜀). `localStorage`는 구역 안의 `store`(try/catch)로만 접근한다 — 저장이 막혀도 화면은 동작해야 한다
 
 ## Critical
 - NEVER: 이미지(썸네일·프로필)를 내려받아 저장소에 넣지 않는다. 항상 원본 URL로 링크만 건다
