@@ -207,6 +207,15 @@ def item(source="sl-1", kind="popup", title="STELLA MODE:ON 팝업스토어", st
     (item(kind="popup", title="팝업스토어 운영"), item(kind="other", title="[STELLA MODE:ON] 팝업스토어 운영 안내!"), True),  # kind 다르지만 제목 포함
     (item(kind="popup", title="사전 예약 안내"), item(kind="popup", title="현장 운영 방식"), True),  # 제목은 달라도 kind가 같다
     (item(kind="popup", title="사전 예약 안내"), item(kind="reservation", title="현장 운영 방식"), False),  # kind도 제목도 다름
+    (item(kind="concert", title="리제 콘서트"), item(kind="concert", title="앙코르 공연"), True),
+    (item(kind="broadcast", title="에버리스 방송"), item(kind="broadcast", title="기념 라이브"), True),
+    (item(kind="reservation", title="예약 오픈"), item(kind="reservation", title="티켓 오픈"), True),
+    # goods·other: kind가 같다는 이유로는 합치지 않는다 (같은 날 마감인 서로 다른 굿즈)
+    (item(kind="goods", title="타비 생일 굿즈 판매 마감"), item(kind="goods", title="나나 생일 굿즈 판매 마감"), False),
+    (item(kind="other", title="포토이즘 콜라보 프레임"), item(kind="other", title="콜라보 카페 이벤트"), False),
+    (item(kind="goods", title="굿즈 판매 마감"), item(kind="goods", title="타비 생일 굿즈 판매 마감"), True),  # 제목이 포함되면 합친다
+    (item(kind="other", title="포토이즘 콜라보"), item(kind="other", title="[포토이즘 콜라보] 프레임 안내"), True),
+    (item(kind="goods", title="!!!"), item(kind="goods", title="타비 굿즈 판매 마감"), False),  # 기호뿐인 제목은 포함으로도 합쳐지지 않는다
     # start·end가 다르면 아무것도 보지 않는다
     (item(start="2026-10-23"), item(start="2026-10-24"), False),
     (item(end="2026-11-01"), item(end="2026-11-02"), False),
@@ -487,11 +496,31 @@ def test_a_separate_event_in_the_same_body_is_kept_as_is(members, index):
     assert [(i["kind"], i["end"]) for i in r.doc["items"]] == [("popup", "2026-11-01"), ("other", "2026-11-05")]
 
 
-def test_two_different_goods_with_the_same_deadline_in_different_notices_collapse_under_the_agreed_rule(members, index):
-    """합의된 규칙의 알려진 결과(의도된 동작이라 고정해 둔다): start·end가 같고 kind가 같으면 제목이 달라도 같은 일정이다."""
+def test_two_different_goods_with_the_same_deadline_in_different_notices_both_stay(members, index):
+    """같은 날 마감인 서로 다른 굿즈(다른 공지)는 둘 다 남는다 — goods는 kind가 같다는 이유로 합치지 않는다 (사용자 수정 2026-10-09)."""
     post = FakePost(events_reply(ev("goods", "나나 생일 굿즈 판매 마감", "2026-10-07")), events_reply(ev("goods", "타비 생일 굿즈 판매 마감", "2026-10-07")))
     r = run(doc(), [notice(2, day="2026-10-07"), notice(1, day="2026-10-07")], post, members, index)
-    assert [i["title"] for i in r.doc["items"]] == ["나나 생일 굿즈 판매 마감"] and r.report.duplicates == 1
+    assert sorted(i["title"] for i in r.doc["items"]) == ["나나 생일 굿즈 판매 마감", "타비 생일 굿즈 판매 마감"] and r.report.duplicates == 0 and len(r.fresh) == 2
+
+
+def test_the_same_goods_deadline_repeated_by_two_notices_is_still_merged_by_title(members, index):
+    """'마감 임박' 공지와 '예약 오픈' 공지가 같은 굿즈의 같은 마감일을 말하면 제목이 포함 관계라 하나만 남는다."""
+    post = FakePost(events_reply(ev("goods", "타비 생일 굿즈 판매 마감", "2026-10-07")), events_reply(ev("goods", "2026 아라하시 타비 생일 굿즈 판매 마감", "2026-10-07")))
+    r = run(doc(), [notice(2, day="2026-10-07"), notice(1, day="2026-10-07")], post, members, index)
+    assert len(r.doc["items"]) == 1 and r.report.duplicates == 1
+
+
+def test_two_different_other_events_on_the_same_dates_in_different_notices_both_stay(members, index):
+    post = FakePost(events_reply(ev("other", "포토이즘 콜라보 프레임", "2026-10-23", end="2026-11-05")), events_reply(ev("other", "콜라보 카페 이벤트", "2026-10-23", end="2026-11-05")))
+    r = run(doc(), [notice(2, day="2026-10-08"), notice(1, day="2026-10-07")], post, members, index)
+    assert len(r.doc["items"]) == 2 and r.report.duplicates == 0
+
+
+@pytest.mark.parametrize("kind", ["popup", "concert", "reservation", "broadcast"])
+def test_the_kind_rule_still_applies_to_the_four_alert_kinds(kind, members, index):
+    post = FakePost(events_reply(ev(kind, "첫 번째 일정", "2026-10-23")), events_reply(ev(kind, "전혀 다른 제목", "2026-10-23")))
+    r = run(doc(), [notice(2, day="2026-10-08"), notice(1, day="2026-10-07")], post, members, index)
+    assert len(r.doc["items"]) == 1 and r.report.duplicates == 1 and config.EVENT_DEDUP_SAME_KIND == ("popup", "concert", "reservation", "broadcast")
 
 
 # ---------------------------------------------------------------- 정렬·결정성

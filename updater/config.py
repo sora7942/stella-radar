@@ -110,6 +110,9 @@ EVENTS_KEEP_AFTER_END_DAYS = 30  # 끝난 지 이 일수가 넘은 자동 일정
 EVENTS_PROCESSED_KEEP_DAYS = 90  # processed 기록은 이 일수가 지나면 삭제
 EVENT_KINDS = ("popup", "concert", "broadcast", "reservation", "goods", "other")
 EVENT_ALERT_KINDS = ("popup", "concert", "reservation", "broadcast")  # 디스코드 '일정 추가' 알림 대상 (goods·other는 알리지 않는다)
+# 자동 일정끼리 중복 제거에서 "kind가 같으면 같은 일정"을 적용하는 kind. goods·other는 같은 날 서로 다른 것이 여럿일 수 있어(예: 다른 굿즈의 같은 마감일)
+# kind가 같다는 이유로는 합치지 않고 정규화한 제목이 서로 포함될 때만 합친다
+EVENT_DEDUP_SAME_KIND = ("popup", "concert", "reservation", "broadcast")
 
 # --- 소식 피드 -----------------------------------------------------------------
 NEWS_MAX_ITEMS = 300  # news.json 보관 상한 (date 내림차순)

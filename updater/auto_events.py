@@ -13,8 +13,8 @@
   재시도 횟수가 소진되지 않는다. API 오류가 나면 이 실행의 남은 공지는 부르지 않고 멈춘다
 - 검증 (실패한 항목은 버리고 로그, 공지당 최대 5개): kind 목록, 제목 1~60자, start가 공지 날짜 −7일~+365일, end ≥ start(그리고 start+366일 이내),
   who의 key가 하나라도 유효하지 않거나 비면 공지 제목을 tagging으로 태깅한 값. 자동 일정의 url은 모델 출력이 아니라 공지 URL이다
-- **자동 일정끼리 중복 제거 (사용자 결정 2026-10-09, 저장 시점에 적용)**: 다른 공지에서 나온 일정끼리 start·end가 같고 (정규화한 제목이 한쪽을 포함하거나 kind가 같으면)
-  **먼저 처리된 공지의 일정 하나만 남긴다**(먼저 저장된 것이 이기고, 이번 실행에서는 처리 순서). 버려진 일정은 저장되지 않으므로 알림도 나가지 않는다.
+- **자동 일정끼리 중복 제거 (사용자 결정 2026-10-09, 저장 시점에 적용)**: 다른 공지에서 나온 일정끼리 start·end가 같고 (정규화한 제목이 한쪽을 포함하거나,
+  popup·concert·reservation·broadcast는 kind가 같으면 — goods·other는 kind만으로는 합치지 않는다) **먼저 처리된 공지의 일정 하나만 남긴다**(먼저 저장된 것이 이기고, 이번 실행에서는 처리 순서). 버려진 일정은 저장되지 않으므로 알림도 나가지 않는다.
   같은 공지 안의 일정끼리는 이 규칙을 적용하지 않고, 완전히 같은 것(kind·제목·start·end)만 하나로 합친다
 - 보관: 끝난 지 30일 넘은 자동 일정 삭제, processed는 90일 지난 기록 삭제
 """
@@ -173,14 +173,15 @@ def validate_events(raw: list, *, notice_id: str, notice_title: str, notice_day:
 
 # ---------------------------------------------------------------- 자동 일정끼리 중복 제거
 def is_duplicate(a: dict, b: dict) -> bool:
-    """start·end가 같고 (정규화한 제목이 한쪽을 포함하거나 kind가 같으면) 같은 일정이다.
+    """start·end가 같고 (정규화한 제목이 한쪽을 포함하거나, popup·concert·reservation·broadcast는 kind가 같으면) 같은 일정이다.
+    goods·other는 kind가 같아도 제목이 서로 포함될 때만 같은 일정이다 (같은 날 마감인 서로 다른 굿즈를 지키려고).
     정규화한 제목이 빈 문자열(기호뿐)이면 '포함'은 따지지 않는다 — 빈 문자열은 모든 문자열에 들어 있기 때문."""
     if a["start"] != b["start"] or a.get("end") != b.get("end"):
         return False
     na, nb = norm_title(a["title"]), norm_title(b["title"])
     if na and nb and (na in nb or nb in na):
         return True
-    return a["kind"] == b["kind"]
+    return a["kind"] == b["kind"] and a["kind"] in config.EVENT_DEDUP_SAME_KIND  # goods·other는 kind만으로는 합치지 않는다
 
 
 def find_duplicate(event: dict, stored: list[dict]) -> dict | None:

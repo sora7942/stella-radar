@@ -278,7 +278,7 @@ def test_the_real_popup_event_hides_its_auto_twin_by_start_day_and_same_url():
     """수동 ev-popup(2026-10-23~11-01, url=13905)과 13905에서 뽑은 팝업은 같은 시작일 + 같은 url이라 수동만 남는다."""
     assert "ev-popup" in {m["id"] for m in MANUAL} and next(m for m in MANUAL if m["id"] == "ev-popup")["url"] == NOTICE
     assert merged_ids(MANUAL, [auto("popup", "STELLA MODE:ON 팝업스토어", "2026-10-23", end="2026-11-01", id="a")]) == ["ev-popup-rsv", "ev-popup"]
-    assert merged_ids(MANUAL, [auto("popup", "무관한 제목", "2026-10-23", id="a", url=NOTICE)]) == ["ev-popup-rsv", "ev-popup"]  # 같은 url만으로도
+    assert merged_ids(MANUAL, [auto("popup", "무관한 제목", "2026-10-23", end="2026-11-01", id="a", url=NOTICE)]) == ["ev-popup-rsv", "ev-popup"]  # 제목이 달라도 같은 url + 같은 end
 
 
 def test_a_title_that_contains_the_other_hides_the_auto_event_when_the_start_day_matches():
@@ -310,13 +310,36 @@ def test_known_gap_the_reservation_open_event_is_shown_twice_when_titles_and_url
     assert merged_ids(MANUAL, [auto("reservation", "팝업 네이버 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup"]
 
 
-def test_known_gap_a_separate_event_from_the_same_notice_and_start_day_is_hidden_by_the_same_url_rule():
-    """합의한 규칙의 알려진 부작용(브라우저 확인 중 발견, 사용자에게 보고): 자동 일정의 url은 항상 출처 공지 URL이라, 수동 ev-popup(url=13905)과 같은 날 시작하는
-    13905의 별건 일정(포토이즘 콜라보 10/23~11/05, kind other)은 '같은 시작일 + 같은 url'이 되어 달력에서 숨겨진다 (서버에는 저장되고 알림은 kind other라 없음).
-    end(11/01 vs 11/05)까지 비교하면 구별되지만 합의한 규칙은 아니므로 고치지 않고 이 동작을 기록해 둔다."""
+def test_a_separate_event_from_the_same_notice_and_start_day_stays_when_its_end_differs():
+    """url 일치는 end도 같을 때만 중복이다 (사용자 수정 2026-10-09). 자동 일정의 url은 항상 출처 공지 URL이라, end를 안 보면 수동 ev-popup(url=13905)과 같은 날
+    시작하는 13905의 별건 일정(포토이즘 10/23~11/05, kind other)까지 걸려 숨겨졌다."""
     photoism = auto("other", "PHOTOISM X STELLA MODE:ON 콜라보 프레임", "2026-10-23", end="2026-11-05", id="photo")
-    assert merged_ids(MANUAL, [photoism]) == ["ev-popup-rsv", "ev-popup"]
-    assert merged_ids(MANUAL, [{**photoism, "start": "2026-10-24"}]) == ["ev-popup-rsv", "ev-popup", "photo"]  # 시작일이 다르면 보인다
+    assert merged_ids(MANUAL, [photoism]) == ["ev-popup-rsv", "ev-popup", "photo"]  # 11/05 ≠ 11/01 → 남는다
+    assert merged_ids(MANUAL, [{**photoism, "end": "2026-11-01"}]) == ["ev-popup-rsv", "ev-popup"]  # 끝나는 날이 같으면(= 같은 팝업) 걸러진다
+    assert merged_ids(MANUAL, [{k: v for k, v in photoism.items() if k != "end"}]) == ["ev-popup-rsv", "ev-popup", "photo"]  # 하루짜리(end 없음)도 다르다
+    assert merged_ids(MANUAL, [{**photoism, "start": "2026-10-24"}]) == ["ev-popup-rsv", "ev-popup", "photo"]
+
+
+def test_the_end_condition_applies_only_to_the_url_path_not_to_title_containment():
+    manual = [{"id": "m", "title": "2026 STELLIVE POP-UP STELLA MODE:ON", "start": "2026-10-23", "end": "2026-11-01", "who": ["all"], "url": "https://other.test/x"}]
+    assert merged_ids(manual, [auto(title="STELLA MODE:ON", end="2026-11-05", id="a")]) == ["m"]  # 제목 포함이면 end가 달라도 걸러진다 (합의한 규칙 그대로)
+
+
+def test_same_url_with_no_end_on_both_sides_is_filtered():
+    """둘 다 end가 없으면(하루짜리) end도 같다. 수동 예약 오픈이 공지 url을 달고 있으면 자동 예약 오픈은 걸러진다."""
+    manual = [{"id": "rsv", "title": "예약 오픈 안내", "start": "2026-10-12T20:00:00+09:00", "who": ["all"], "url": NOTICE}]
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", id="a")]) == ["rsv"]
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", end="2026-10-12", id="a")]) == ["rsv"]  # end가 start와 같은 날이면 같은 값이다
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", end="2026-10-13", id="a")]) == ["rsv", "a"]
+
+
+def test_the_real_reservation_event_is_not_caught_by_the_url_path_because_its_url_differs():
+    """실제 수동 ev-popup-rsv의 url은 naver.me(예약 페이지)라 자동 예약 오픈(url=13905)과는 url 경로로 걸리지 않는다 — 둘 다 end가 없어도 마찬가지다.
+    걸러지는 것은 제목이 서로 포함될 때뿐이다 (3-2에서 실제 추출 제목으로 확인)."""
+    rsv = next(m for m in MANUAL if m["id"] == "ev-popup-rsv")
+    assert "end" not in rsv and rsv["url"] != NOTICE
+    assert merged_ids(MANUAL, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup", "a"]
+    assert merged_ids(MANUAL, [auto("reservation", "팝업 네이버 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup"]
 
 
 def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
@@ -327,19 +350,20 @@ def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
 def test_manual_vs_auto_merge_matches_an_independent_reference_model():
     import unicodedata
     norm = lambda t: "".join(c for c in unicodedata.normalize("NFKC", t).casefold() if c.isalnum())  # noqa: E731
-    urls, titles, days = [None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"], ["2026-10-23", "2026-10-24"]
-    specs = [(u, t, d) for u in urls for t in titles for d in days]
+    urls, titles, days, ends = [None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"], ["2026-10-23", "2026-10-24"], [None, "2026-11-01"]
+    specs = [(u, t, d, e) for u in urls for t in titles for d in days for e in ends]
     calls, want = [], []
-    for mu, mt, md in specs:
-        m = {"id": "m", "title": mt, "start": md, "who": ["all"], **({"url": mu} if mu else {})}
-        for au, at, ad in specs:
-            a = {"id": "a", "title": at, "start": ad, "kind": "popup", "who": ["all"], **({"url": au} if au else {})}
+    for mu, mt, md, me in specs:
+        m = {"id": "m", "title": mt, "start": md, "who": ["all"], **({"url": mu} if mu else {}), **({"end": me} if me else {})}
+        for au, at, ad, ae in specs:
+            a = {"id": "a", "title": at, "start": ad, "kind": "popup", "who": ["all"], **({"url": au} if au else {}), **({"end": ae} if ae else {})}
             calls.append(("mergeEvents", [m], [a]))
-            dup = ad == md and ((mu is not None and mu == au) or (norm(at) != "" and norm(mt) != "" and (norm(at) in norm(mt) or norm(mt) in norm(at))))
-            want.append(["m"] if dup else ["m", "a"])
+            same_url = mu is not None and mu == au and (me or md) == (ae or ad)  # url 일치는 끝나는 날(없으면 시작일)도 같을 때만
+            same_title = norm(at) != "" and norm(mt) != "" and (norm(at) in norm(mt) or norm(mt) in norm(at))
+            want.append(["m"] if ad == md and (same_url or same_title) else ["m", "a"])
     got = [[e["id"] for e in r] for r in js(calls)]
     bad = [(calls[i][1][0], calls[i][2][0]) for i in range(len(calls)) if got[i] != want[i]]
-    assert bad == [] and len(calls) == len(specs) ** 2 == 576
+    assert bad == [] and len(calls) == len(specs) ** 2 == 2304
 
 
 def test_goods_toggle_hides_only_goods_and_keeps_everything_else():
