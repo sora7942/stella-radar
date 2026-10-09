@@ -20,6 +20,16 @@ stellive.me 레이아웃이 바뀌면 파서가 0건을 내고 실패하도록 �
 | `chzzk_live_v3_close.json` | 치지직 `polling/v3` live-status (리제) | 방송 종료 상태 실제 응답 (2026-10-07). v2 응답과 `content` 키 51개가 같다 — v3를 대체 엔드포인트로 쓰는 근거 |
 | `chzzk_live_open.json` | — | **합성**: 위 응답에서 `status`=`OPEN`, `liveTitle`, `openDate`, `closeDate`만 바꿈 (방송 중인 실제 응답을 캡처하지 못해서) |
 
+## 공지 상세 페이지 (2026-10-09 캡처, `stellive_news_detail_*.html`)
+`https://stellive.me/news/<번호>` 실제 응답. 원본은 약 390~410KB인데 **3가지만 잘랐다**(나머지 구조·클래스명은 원본 그대로): ① `<script>` 15개 전부 제거(인라인 `xe.lang` 설정 등, 본문과 무관) ② `<meta name="csrf-token">` 제거(세션용 토큰이라 저장소에 남기지 않음) ③ 페이지 안에 통째로 들어 있는 **공지 목록**(`#board_list` 안 `div.bh_item` 361개)에서 앞 2개만 남김. 잘라낸 뒤에도 `div.xe_content`의 텍스트가 원본과 글자까지 같은지 확인했다(4175·455·0자).
+본문은 서버가 렌더링한 HTML의 `div.xe_content`(페이지에 1개, 클래스 `rhymix_content`) 안에 있다. `__NEXT_DATA__`·JSON-LD·별도 API는 없다. **주의: 상세 페이지에는 목록도 같이 들어 있어서 `div.bh_title`·`span.ff-nn`·`.bh_category` 같은 셀렉터는 이 공지가 아니라 목록 첫 항목(타비 굿즈)을 잡는다.** 제목·날짜·분류는 목록(`news.json`)의 값을 쓰고 상세에서는 `div.xe_content`만 읽는다. 목록 앞 2개를 남겨 둔 것이 이 함정을 테스트하기 위해서다.
+
+| 파일 | 원본 | 비고 |
+|---|---|---|
+| `stellive_news_detail_13905.html` | `/news/13905` | 팝업 예약 안내(이벤트). 본문 3,137자(공백 제외)·표 1개·이미지 1개(`16_9.png`, 이미지 주소가 현재 404). 날짜는 `2026년 10월 12일 (월) 오후 8시` 같은 한글 표기이고 `10/12`·`20시` 형식은 없다. 포토이즘 `26.10.23 – 26.11.05`(별건 일정, YY.MM.DD)도 같이 들어 있다 |
+| `stellive_news_detail_goods_14073.html` | `/news/14073` | 굿즈 판매 마감 안내. 본문 351자·이미지 1개. 판매 마감이 `2026년 10월 7일(수) 23시 59분까지`로 글자에 있다 |
+| `stellive_news_detail_imageonly_13838.html` | `/news/13838` | `STELLA MODE:ON IS COMING ②` — 본문 0자·이미지 1개(정방형 포스터). 날짜(`2026.10.23 ~ 11.1`)가 **이미지 안에만** 있다 |
+
 ## YouTube Data API 응답 (2026-10-06 캡처, `youtube_api_*.json`)
 **실제 응답이고 API 키는 들어 있지 않다**(키는 요청 헤더 `X-Goog-Api-Key`로만 보냈고 응답 본문에는 나오지 않는다. 저장 전에 키 문자열·`AIza…` 형식이 없는지 검사했고, `tests/test_secrets_hygiene.py`가 저장소를 계속 검사한다). 표기만 압축(공백 없는 JSON)했다.
 
