@@ -31,7 +31,8 @@ if (input.ls === 'works') globalThis.localStorage = { getItem: k => (k in mem ? 
 else if (input.ls === 'throws') globalThis.localStorage = { getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('QuotaExceededError'); } };
 // input.ls === 'missing' → localStorage 자체가 없다 (접근하면 ReferenceError)
 __ZONE__
-const fns = { membersOf, expand, esc, matchCat, matchGroup, isShort, shortHref, feedFilter, loadHideShorts, saveHideShorts, CATS: () => CATS };
+const fns = { membersOf, expand, esc, matchCat, matchGroup, isShort, shortHref, feedFilter, loadHideShorts, saveHideShorts, CATS: () => CATS,
+  kstDay, timeOf, normTitle, safeHref, normEvent, mergeEvents, visibleEvents, autoChip, loadShowGoods, saveShowGoods };
 console.log(JSON.stringify(input.calls.map(c => fns[c.fn](...c.args))));
 """
 
@@ -196,6 +197,189 @@ def test_a_garbage_stored_value_means_show():
     assert r.returncode == 0 and json.loads(r.stdout) == [False]
 
 
+# ============================ 일정: 수동 + 자동 합치기 (기능 3) ===================
+MANUAL = json.loads((ROOT / "site" / "data" / "events.json").read_text(encoding="utf-8"))["items"]  # 실제 수동 일정: ev-popup-rsv, ev-popup
+NOTICE = "https://stellive.me/news/13905"
+
+
+def auto(kind="popup", title="STELLA MODE:ON 팝업스토어", start="2026-10-23", **kw):
+    return {"id": f"auto-{kind}-{start}", "source": "sl-13905", "kind": kind, "title": title, "start": start, "who": ["all"], "url": NOTICE, **kw}
+
+
+def merged_ids(manual, autos):
+    return [e["id"] for e in one("mergeEvents", manual, autos)]
+
+
+def test_kst_day_reads_dates_and_instants_as_korean_calendar_days():
+    from datetime import datetime, timezone
+    day = lambda y, m, d: int(datetime(y, m, d, tzinfo=timezone.utc).timestamp() * 1000)  # noqa: E731
+    got = js([("kstDay", "2026-10-23"), ("kstDay", "2026-10-12T20:00:00+09:00"), ("kstDay", "2026-10-11T16:00:00Z"), ("kstDay", "2026-10-11T14:59:59Z"), ("kstDay", "내일")])
+    assert got[:4] == [day(2026, 10, 23), day(2026, 10, 12), day(2026, 10, 12), day(2026, 10, 11)] and got[4] is None  # NaN은 JSON에서 null
+
+
+def test_time_of_gives_the_korean_clock_time_only_for_instants():
+    got = js([("timeOf", "2026-10-12T20:00:00+09:00"), ("timeOf", "2026-10-12T11:05:00Z"), ("timeOf", "2026-10-12"), ("timeOf", "엉터리 시각입니다"), ("timeOf", None)])
+    assert got == ["20:00", "20:05", "", "", ""]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("<STELLA MODE:ON> 팝업스토어!", "stellamodeon팝업스토어"), ("STELLA  MODE:ON", "stellamodeon"), ("ＳＴＥＬＬＡ １", "stella1"), ("『!!!』", ""), ("", ""), (None, ""),
+])
+def test_norm_title_drops_spaces_and_symbols_like_the_server(text, expected):
+    assert one("normTitle", text) == expected
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://stellive.me/news/1", "https://stellive.me/news/1"), ("http://x.test/a", "http://x.test/a"), ("HTTPS://X.TEST", "HTTPS://X.TEST"),
+    ("javascript:alert(1)", ""), ("data:text/html,x", ""), ("//evil.test", ""), ("ftp://x", ""), ("", ""), (None, ""), (5, ""),
+])
+def test_safe_href_allows_only_http_and_https(url, expected):
+    assert one("safeHref", url) == expected
+
+
+def test_a_manual_event_keeps_its_note_and_is_an_event():
+    e = one("normEvent", {"id": "m", "title": "팝업", "start": "2026-10-23", "end": "2026-11-01", "who": ["all"], "note": "서울 · 10:00–20:00", "url": "https://x.test/a"}, False)
+    assert (e["kind"], e["auto"], e["note"], e["end"], e["url"]) == ("이벤트", False, "서울 · 10:00–20:00", "2026-11-01", "https://x.test/a")
+
+
+def test_an_auto_event_builds_its_note_from_time_and_place_and_goods_becomes_goods():
+    e = one("normEvent", auto("popup", end="2026-11-01", time="10:00–20:00", place="서울 광진구"), True)
+    assert (e["kind"], e["auto"], e["note"]) == ("이벤트", True, "10:00–20:00 · 서울 광진구")
+    assert one("normEvent", auto("goods", "타비 굿즈 판매 마감", "2026-10-07", time="23:59"), True)["kind"] == "굿즈"
+    for k in ("concert", "reservation", "broadcast", "other"):
+        assert one("normEvent", auto(k), True)["kind"] == "이벤트"  # goods만 따로 보인다
+    assert one("normEvent", auto("goods"), False)["kind"] == "이벤트"  # 수동 일정은 kind를 보지 않는다
+
+
+def test_a_timed_start_shows_its_clock_time_and_hides_the_redundant_time_field():
+    e = one("normEvent", auto("reservation", "예약 오픈", "2026-10-12T20:00:00+09:00", time="20시"), True)
+    assert e["tm"] == "20:00" and e["note"] == ""
+
+
+@pytest.mark.parametrize("bad", [None, "문자열", {}, {"title": "t"}, {"start": "2026-10-23"}, {"title": "", "start": "2026-10-23"}, {"title": 5, "start": "2026-10-23"},
+                                  {"title": "t", "start": 20261023}, {"title": "t", "start": "내일"}, {"title": "t", "start": "2026-10-23", "end": "엉터리"},
+                                  {"title": "t", "start": "2026-10-23", "end": "2026-10-22"}])
+def test_unreadable_events_are_skipped_instead_of_breaking_the_calendar(bad):
+    assert one("normEvent", bad, True) is None and one("mergeEvents", [bad], [bad]) == []
+
+
+def test_missing_who_means_everyone_and_an_unsafe_url_is_dropped():
+    e = one("normEvent", {"title": "t", "start": "2026-10-23", "url": "javascript:alert(1)"}, True)
+    assert e["who"] == ["all"] and e["url"] == ""
+
+
+def test_manual_events_come_first_and_unrelated_auto_events_are_added():
+    got = merged_ids(MANUAL, [auto("concert", "리제 콘서트", "2026-12-01", id="auto-x")])
+    assert got == ["ev-popup-rsv", "ev-popup", "auto-x"]
+    assert one("mergeEvents", None, None) == [] and merged_ids([], [auto(id="only-auto")]) == ["only-auto"]
+
+
+def test_the_real_popup_event_hides_its_auto_twin_by_start_day_and_same_url():
+    """수동 ev-popup(2026-10-23~11-01, url=13905)과 13905에서 뽑은 팝업은 같은 시작일 + 같은 url이라 수동만 남는다."""
+    assert "ev-popup" in {m["id"] for m in MANUAL} and next(m for m in MANUAL if m["id"] == "ev-popup")["url"] == NOTICE
+    assert merged_ids(MANUAL, [auto("popup", "STELLA MODE:ON 팝업스토어", "2026-10-23", end="2026-11-01", id="a")]) == ["ev-popup-rsv", "ev-popup"]
+    assert merged_ids(MANUAL, [auto("popup", "무관한 제목", "2026-10-23", id="a", url=NOTICE)]) == ["ev-popup-rsv", "ev-popup"]  # 같은 url만으로도
+
+
+def test_a_title_that_contains_the_other_hides_the_auto_event_when_the_start_day_matches():
+    manual = [{"id": "m", "title": "2026 STELLIVE POP-UP STELLA MODE:ON", "start": "2026-10-23", "who": ["all"], "url": "https://other.test/x"}]
+    assert merged_ids(manual, [auto(title="STELLA MODE:ON", id="a")]) == ["m"]  # 자동 제목이 수동 제목에 들어 있다
+    assert merged_ids(manual, [auto(title="[2026 STELLIVE POP-UP STELLA MODE:ON] 팝업 안내", id="a")]) == ["m"]  # 수동 제목이 자동 제목에 들어 있다
+    assert merged_ids(manual, [auto(title="완전히 다른 행사", id="a")]) == ["m", "a"]
+
+
+def test_a_different_start_day_is_never_compared_even_with_the_same_url_and_title():
+    manual = [{"id": "m", "title": "팝업스토어", "start": "2026-10-23", "who": ["all"], "url": NOTICE}]
+    assert merged_ids(manual, [auto(title="팝업스토어", start="2026-10-24", id="a")]) == ["m", "a"]
+    assert merged_ids(manual, [auto(title="팝업스토어", start="2026-10-23T10:00:00+09:00", id="b")]) == ["m"]  # 같은 날(시각 포함)은 같은 시작일이다
+
+
+def test_the_start_day_is_the_korean_day_not_the_utc_day():
+    manual = [{"id": "m", "title": "예약 오픈", "start": "2026-10-12T00:30:00+09:00", "who": ["all"]}]  # UTC로는 10-11
+    assert merged_ids(manual, [auto("reservation", "예약 오픈", "2026-10-12", id="a")]) == ["m"]
+
+
+def test_known_gap_the_reservation_open_event_is_shown_twice_when_titles_and_urls_differ():
+    """합의한 규칙(같은 시작일 AND (같은 url OR 제목 포함)) 그대로의 결과를 기록해 둔다: 수동 ev-popup-rsv는 url이 naver.me, 제목이
+    'STELLA MODE:ON 팝업 네이버 예약 오픈'이라서, 13905에서 뽑은 '팝업스토어 예약 오픈'(url=13905)과는 서로 포함하지 않는다.
+    실제 추출 결과로 3-2 게이트에서 다시 확인해 보고한다."""
+    got = merged_ids(MANUAL, [auto("reservation", "팝업스토어 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")])
+    assert got == ["ev-popup-rsv", "ev-popup", "a"]
+    # 제목이 포함 관계이면 숨겨진다
+    assert merged_ids(MANUAL, [auto("reservation", "STELLA MODE:ON 팝업 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup", "a"]  # 여전히 안 겹침 ('네이버'가 빠져 있다)
+    assert merged_ids(MANUAL, [auto("reservation", "팝업 네이버 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup"]
+
+
+def test_known_gap_a_separate_event_from_the_same_notice_and_start_day_is_hidden_by_the_same_url_rule():
+    """합의한 규칙의 알려진 부작용(브라우저 확인 중 발견, 사용자에게 보고): 자동 일정의 url은 항상 출처 공지 URL이라, 수동 ev-popup(url=13905)과 같은 날 시작하는
+    13905의 별건 일정(포토이즘 콜라보 10/23~11/05, kind other)은 '같은 시작일 + 같은 url'이 되어 달력에서 숨겨진다 (서버에는 저장되고 알림은 kind other라 없음).
+    end(11/01 vs 11/05)까지 비교하면 구별되지만 합의한 규칙은 아니므로 고치지 않고 이 동작을 기록해 둔다."""
+    photoism = auto("other", "PHOTOISM X STELLA MODE:ON 콜라보 프레임", "2026-10-23", end="2026-11-05", id="photo")
+    assert merged_ids(MANUAL, [photoism]) == ["ev-popup-rsv", "ev-popup"]
+    assert merged_ids(MANUAL, [{**photoism, "start": "2026-10-24"}]) == ["ev-popup-rsv", "ev-popup", "photo"]  # 시작일이 다르면 보인다
+
+
+def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
+    """자동끼리의 중복 제거는 저장 시점(서버)에서 끝난다. 사이트는 받은 자동 일정을 그대로 보여준다."""
+    assert merged_ids([], [auto(id="a"), auto(id="b")]) == ["a", "b"]
+
+
+def test_manual_vs_auto_merge_matches_an_independent_reference_model():
+    import unicodedata
+    norm = lambda t: "".join(c for c in unicodedata.normalize("NFKC", t).casefold() if c.isalnum())  # noqa: E731
+    urls, titles, days = [None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"], ["2026-10-23", "2026-10-24"]
+    specs = [(u, t, d) for u in urls for t in titles for d in days]
+    calls, want = [], []
+    for mu, mt, md in specs:
+        m = {"id": "m", "title": mt, "start": md, "who": ["all"], **({"url": mu} if mu else {})}
+        for au, at, ad in specs:
+            a = {"id": "a", "title": at, "start": ad, "kind": "popup", "who": ["all"], **({"url": au} if au else {})}
+            calls.append(("mergeEvents", [m], [a]))
+            dup = ad == md and ((mu is not None and mu == au) or (norm(at) != "" and norm(mt) != "" and (norm(at) in norm(mt) or norm(mt) in norm(at))))
+            want.append(["m"] if dup else ["m", "a"])
+    got = [[e["id"] for e in r] for r in js(calls)]
+    bad = [(calls[i][1][0], calls[i][2][0]) for i in range(len(calls)) if got[i] != want[i]]
+    assert bad == [] and len(calls) == len(specs) ** 2 == 576
+
+
+def test_goods_toggle_hides_only_goods_and_keeps_everything_else():
+    evs = one("mergeEvents", MANUAL, [auto("goods", "타비 굿즈 판매 마감", "2026-10-07", id="g"), auto("popup", "다른 팝업", "2026-11-20", id="p"), auto("other", "콜라보", "2026-11-21", id="o")])
+    shown = lambda on: [e["id"] for e in one("visibleEvents", evs, on)]  # noqa: E731
+    assert shown(True) == ["ev-popup-rsv", "ev-popup", "g", "p", "o"]
+    assert shown(False) == ["ev-popup-rsv", "ev-popup", "p", "o"]
+
+
+def test_the_auto_chip_is_only_for_auto_events_and_links_to_the_original_notice():
+    manual = one("normEvent", MANUAL[1], False)
+    assert one("autoChip", manual) == "" and one("autoChip", None) == ""
+    chip = one("autoChip", one("normEvent", auto(), True))
+    assert chip.startswith(f'<a class="autob" href="{NOTICE}" target="_blank" rel="noopener"') and chip.endswith("자동 · 원문</a>")
+    nolink = one("autoChip", one("normEvent", auto(url=""), True))
+    assert nolink.startswith('<span class="autob"') and "href" not in nolink and nolink.endswith(">자동</span>")
+
+
+def test_the_chip_never_carries_the_title_and_escapes_the_url():
+    e = one("normEvent", auto(title="<img src=x onerror=alert(1)>", url='https://x.test/a"onmouseover="alert(1)'), True)
+    chip = one("autoChip", e)
+    assert "<img" not in chip and 'href="https://x.test/a&quot;onmouseover=&quot;alert(1)"' in chip and 'onmouseover="' not in chip
+
+
+def test_show_goods_defaults_to_on_and_round_trips():
+    got = js([("loadShowGoods",), ("saveShowGoods", False), ("loadShowGoods",), ("saveShowGoods", True), ("loadShowGoods",)])
+    assert got == [True, None, False, None, True]
+
+
+@pytest.mark.parametrize("ls", ["throws", "missing"])
+def test_show_goods_storage_failures_leave_the_default_and_never_throw(ls):
+    assert js([("loadShowGoods",), ("saveShowGoods", False), ("loadShowGoods",)], ls=ls) == [True, None, True]
+
+
+def test_a_garbage_stored_show_goods_value_means_on():
+    harness = HARNESS.replace("__ZONE__", zone()).replace("const mem = {};", "const mem = {sr_showGoods: 'maybe'};")
+    r = subprocess.run([NODE, "-e", harness], input=json.dumps({"M": {}, "G": [], "ls": "works", "calls": [{"fn": "loadShowGoods", "args": []}]}), capture_output=True, text=True)
+    assert r.returncode == 0 and json.loads(r.stdout) == [True]
+
+
 # ============================ index.html 구조 ===================================
 def test_the_logic_zone_is_dom_free():
     z = zone()
@@ -235,3 +419,38 @@ def test_new_styles_use_theme_tokens_only():
 def test_the_vertical_thumbnail_box_is_nine_by_sixteen_and_cropped_not_stretched():
     rules = " ".join(re.findall(r"\.fthumb\.vert[^{]*\{[^}]*\}", HTML))
     assert "aspect-ratio:9/16" in rules and "object-fit:cover" in rules and "max-width:none" in rules
+
+
+# ============================ 일정 화면 구조 (기능 3) ===============================
+def test_the_goods_toggle_exists_above_the_calendar_and_in_the_upcoming_panel_and_both_share_one_state():
+    assert 'id="showgoods"' in HTML and 'id="showgoods-up"' in HTML
+    assert HTML.index('id="v-grid"') < HTML.index('id="showgoods"') < HTML.index('id="mnav"')  # 달력 위 막대: 보기 방식 · 굿즈 토글 · 월 이동
+    assert HTML.index('id="showgoods-up"') < HTML.index('id="upnext"')  # 소식 탭의 패널 머리
+    assert 'showGoods=v;saveShowGoods(v);syncGoods();renderUpcoming();' in HTML and HTML.count('["#showgoods","#showgoods-up"]') == 2
+
+
+def test_every_event_view_goes_through_the_same_filtered_list():
+    """달력 그리드·목록·다가오는 일정 패널·'다음:' 문구는 모두 evList()(= 병합 + 굿즈 토글)에서 나온다."""
+    assert "function evList(){return visibleEvents(mergeEvents(DATA.events,DATA.auto),showGoods);}" in HTML
+    body = HTML[HTML.index("function eventsOn("):HTML.index("function linked(")]
+    assert body.count("evList()") == 2 and "DATA.events" not in body  # eventsOn(그리드·일별 목록) + allEvents(패널·다음·월별 목록)
+    assert HTML.count("+autoChip(e)+") == 3  # 사용처: 다가오는 일정 패널·목록 보기·일별 목록 (함수 정의는 따로)
+
+
+def test_auto_events_are_loaded_but_a_failure_cannot_break_the_page():
+    line = next(l for l in HTML.splitlines() if 'getJSON("data/auto_events.json")' in l)
+    assert line.rstrip().endswith("// 없거나 실패해도 수동 일정만으로 동작한다") or ".catch(function(){})" in line
+
+
+def test_the_new_event_styles_use_theme_tokens_only():
+    css = re.findall(r"(?:\.autob|a\.autob:hover|\.pill\.goods|\.ekind\.goods|\.chip\.sm|\.panel h3\.hd|#showgoods)(?:[^{]*)\{[^}]*\}", HTML)
+    assert len(css) >= 7
+    for rule in css:
+        assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", rule), f"하드코딩된 색: {rule}"
+    assert "var(--sunk)" in "".join(css) and "var(--muted)" in "".join(css)
+
+
+def test_event_titles_and_places_are_always_escaped_before_going_into_innerhtml():
+    body = HTML[HTML.index("function eventsOn("):HTML.index("function moveMonth(")]
+    assert "innerHTML" in body
+    assert "+e.title+" not in body and "+e.note+" not in body and "+e.place+" not in body  # 날것으로 이어 붙이지 않는다
