@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from updater import alerts, annotate, config, discord, http, redact, shorts, state, tagging, timeutil
-from updater.sources import chzzk, stellive_music, stellive_news, youtube_api, youtube_avatar, youtube_rss
+from updater import alerts, annotate, auto_events, config, discord, http, redact, shorts, state, tagging, timeutil
+from updater.sources import chzzk, claude_events, stellive_music, stellive_news, youtube_api, youtube_avatar, youtube_rss
 
 log = logging.getLogger("main")
 
@@ -42,6 +42,9 @@ class Context:
     prev_status: dict = field(default_factory=dict)  # status.json의 이전 'members'
     youtube_api_key: str | None = None  # 없으면 RSS로 수집한다. 로그·메시지에 절대 넣지 않는다
     youtube_api_ok: bool = False  # 이번 실행의 영상 수집이 전부 API로 됐는가 (키 없음·할당량 초과·키 거부면 False). 쇼츠 판별은 True일 때만 한다
+    anthropic_api_key: str | None = None  # 공지 일정 추출(Claude)용. 없으면 그 단계만 건너뛴다. 로그·메시지에 절대 넣지 않는다
+    claude_model: str = config.CLAUDE_DEFAULT_MODEL
+    post: callable = http.post_json  # Claude 호출 통로 (테스트가 가짜를 주입한다). 디스코드 발송 수단이 아니다
     environ: dict = field(default_factory=dict)  # Actions 주석(::warning::) 출력 여부 판단용
 
 
@@ -105,6 +108,34 @@ def classify_shorts(ctx: Context, items: list) -> None:
         log.debug("쇼츠 판별 오류 상세", exc_info=True)
 
 
+def run_events(ctx: Context, prev: dict, news_items: list) -> tuple[dict, list]:
+    """병합된 news의 공지(sl-*)에서 일정을 뽑아 auto_events 문서를 갱신한다 (updater/auto_events.py, SPEC-v1.1 기능 3) → (새 문서, 이번에 새로 저장된 일정).
+    부가 단계라서 여기서 무슨 일이 나도 실행(과 배포)을 멈추지 않는다. 키가 없거나 중간에 실패하면 이전 문서를 **그대로** 돌려준다 — 배포는 site/ 전체를
+    올리므로, 문서를 쓰지 않으면 저장소의 빈 시드가 배포본의 누적 일정·처리 기록을 덮어쓴다."""
+    kept = {"updatedAt": prev.get("updatedAt"), "processed": prev.get("processed") or {}, "items": prev.get("items") or []}
+    if not ctx.anthropic_api_key:
+        log.warning("%s가 없어 공지 일정 추출을 건너뜁니다 — 이전 일정은 그대로 유지합니다", config.ANTHROPIC_API_KEY_ENV)
+        return kept, []
+    try:
+        client = claude_events.Client(ctx.anthropic_api_key, model=ctx.claude_model, post=ctx.post)
+        res = auto_events.run(prev, news_items, members=ctx.members, index=ctx.index, client=client, now=ctx.now, now_iso=ctx.now_iso,
+                              get=ctx.get, sleep=ctx.sleep)
+    except Exception as e:  # 예상 밖의 오류는 종류만 남긴다 (메시지에 URL이 있을 수 있다)
+        log.warning("공지 일정 추출 중 오류(%s) — 건너뛰고 계속합니다", type(e).__name__)
+        log.debug("일정 추출 오류 상세", exc_info=True)
+        return kept, []
+    rep = res.report
+    log.info("%s", rep.summary())
+    if isinstance(rep.abort, claude_events.KeyRejected):  # 상태·error.type만 담겼다 (키·응답 본문 없음)
+        annotate.warning("Claude API", f"Claude API 키 확인 필요 ({rep.abort}) — 공지 일정 추출을 건너뛰었습니다. 다음 실행에 다시 시도합니다. "
+                         "Secret ANTHROPIC_API_KEY가 맞는지 확인하세요", environ=ctx.environ)
+    elif isinstance(rep.abort, claude_events.RequestRejected):
+        annotate.warning("Claude API", f"Claude API가 요청을 거부했습니다 ({rep.abort}) — 공지 일정 추출을 건너뛰었습니다. 크레딧 잔액·모델 이름을 확인하세요",
+                         environ=ctx.environ)
+    doc = {"updatedAt": ctx.now_iso, "processed": res.doc["processed"], "items": res.doc["items"]}
+    return doc, res.fresh
+
+
 def run_news(ctx: Context) -> SourceResult:
     return SourceResult(news_items=stellive_news.collect(ctx.index, get=ctx.get))
 
@@ -146,20 +177,23 @@ def run_chzzk(ctx: Context) -> SourceResult:
 
 # 이름 → 실행 함수 (실행 순서)
 SOURCES = {"youtube": run_youtube, "news": run_news, "music": run_music, "avatar": run_avatar, "chzzk": run_chzzk}
+# 수집기가 아니라 병합된 공지에서 일정을 뽑는 병합 뒤 단계 (기능 3). --only와 config.ENABLED_SOURCES에서는 소스처럼 이름으로 고른다
+STAGE_EVENTS = "events"
 
 
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="스텔라 레이더 업데이터")
     p.add_argument("--dry-run", action="store_true", help="데이터 파일은 쓰되 알림 파일은 남기지 않고, 보낼 내용을 콘솔에 출력한다")
     p.add_argument("--no-discord", action="store_true", help="알림을 남기지 않는다 (발송 단계가 보낼 것이 없게 된다)")
-    p.add_argument("--only", help=f"쉼표로 구분한 소스만 실행 ({', '.join(SOURCES)})")
+    p.add_argument("--only", help=f"쉼표로 구분한 소스만 실행 ({', '.join(SOURCES)}, {STAGE_EVENTS})")
     p.add_argument("--local-state", action="store_true", help="이전 상태를 배포본 대신 로컬 site/data/에서 읽는다")
     args = p.parse_args(argv)
     names = [n.strip() for n in args.only.split(",") if n.strip()] if args.only else list(config.ENABLED_SOURCES)
-    unknown = [n for n in names if n not in SOURCES]
+    unknown = [n for n in names if n not in SOURCES and n != STAGE_EVENTS]
     if unknown:
-        p.error(f"알 수 없는 소스: {', '.join(unknown)} (가능: {', '.join(SOURCES)})")
+        p.error(f"알 수 없는 소스: {', '.join(unknown)} (가능: {', '.join([*SOURCES, STAGE_EVENTS])})")
     args.sources = [n for n in SOURCES if n in names]  # 항상 정해진 실행 순서대로
+    args.events = STAGE_EVENTS in names  # 공지 일정 추출 (병합 뒤 단계)
     return args
 
 
@@ -171,14 +205,15 @@ def discard_pending_alerts(alerts_file: Path) -> None:
         log.warning("이전 알림 파일을 지우지 못했습니다(%s) — 발송 단계가 옛 알림을 보낼 수 있습니다", type(e).__name__)
 
 
-def notify(args, members: dict, fresh: list, prev_status: dict, new_status: dict, now: datetime, now_iso: str, alerts_file: Path) -> None:
+def notify(args, members: dict, fresh: list, prev_status: dict, new_status: dict, now: datetime, now_iso: str, alerts_file: Path,
+           fresh_events: list = (), news_items: list = ()) -> None:
     """알림 대상을 고르고 → dry-run이면 콘솔에 출력만, 아니면 보낼 내용을 alerts_file에 남긴다 (발송은 배포 성공 뒤 send_alerts.py).
     알림은 부가 기능이다 — 여기서 무슨 일이 나도 실행(과 배포)을 멈추지 않는다."""
     try:
-        todo = alerts.build_alerts(fresh, prev_status, new_status, now)
+        todo = alerts.build_alerts(fresh, prev_status, new_status, now, fresh_events=fresh_events, news_items=news_items)
         counts = {k: sum(a["kind"] == k for a in todo) for k in alerts.KIND_ORDER}
-        log.info("알림 대상 %d건 (새 항목 %d건 중) — 방송 %d · 공지 %d · 새 곡 %d · 영상 %d",
-                 len(todo), len(fresh), counts["live"], counts["notice"], counts["music"], counts["video"])
+        log.info("알림 대상 %d건 (새 항목 %d건·새 일정 %d건 중) — 방송 %d · 공지 %d · 일정 %d · 새 곡 %d · 영상 %d",
+                 len(todo), len(fresh), len(fresh_events), counts["live"], counts["notice"], counts["event"], counts["music"], counts["video"])
         messages = discord.build_messages(todo, members, site_url=config.site_url())
         if not messages:
             return
@@ -200,6 +235,7 @@ def main(
     argv=None,
     *,
     get=http.get,
+    claude_post=http.post_json,  # Claude 호출 통로(테스트가 가짜를 주입한다). 디스코드 발송 수단이 아니다 — main.py는 디스코드로 보내지 않는다
     data_dir: Path | str = config.DATA_DIR,
     alerts_file: Path | str | None = None,
     now=timeutil.now_kst,
@@ -211,6 +247,8 @@ def main(
     environ = os.environ if environ is None else environ
     api_key = (environ.get(config.YOUTUBE_API_KEY_ENV) or "").strip() or None
     redact.register(api_key)
+    claude_key = (environ.get(config.ANTHROPIC_API_KEY_ENV) or "").strip() or None
+    redact.register(claude_key)
     data_dir = Path(data_dir)
     alerts_file = Path(alerts_file or config.ALERTS_FILE)  # 호출 시점에 읽는다 (테스트가 바꿀 수 있게)
     discard_pending_alerts(alerts_file)
@@ -219,7 +257,8 @@ def main(
 
     members = state.read_json(data_dir / "members.json")
     ctx = Context(members=members, index=tagging.build_index(members), now=started, now_iso=now_iso, get=get, sleep=sleep,
-                  youtube_api_key=api_key, environ=environ)
+                  youtube_api_key=api_key, environ=environ, anthropic_api_key=claude_key, post=claude_post,
+                  claude_model=(environ.get(config.CLAUDE_MODEL_ENV) or "").strip() or config.CLAUDE_DEFAULT_MODEL)
 
     def load(name):
         return state.load_previous(name, local_dir=data_dir, get=get, sleep=sleep, local_only=args.local_state)
@@ -231,6 +270,8 @@ def main(
         # 아바타·방송 상태·(API로 도는) 유튜브만 status 상태가 필요하다 (업로드 재생목록 ID 캐시)
         if {"avatar", "chzzk"} & set(args.sources) or ("youtube" in args.sources and api_key):
             ctx.prev_status = load("status")["members"]
+        if args.events:
+            prev_events = load("auto_events")
     except state.StateLoadError as e:
         log.error("이전 상태를 읽지 못해 중단합니다 (배포는 건너뜁니다): %s", e)
         return 1
@@ -249,7 +290,7 @@ def main(
         except Exception as e:  # 소스 하나의 실패가 전체를 멈추지 않는다 (해당 소스의 이전 데이터는 그대로 남는다)
             log.error("소스 %s 실패: %s: %s", name, type(e).__name__, redact.mask(str(e)))  # 예외 메시지에 비밀이 섞였더라도 가린다
 
-    if not any(not r.failed for r in results.values()):
+    if args.sources and not any(not r.failed for r in results.values()):  # 수집기를 하나도 안 돌린 실행(--only events)은 해당 없음
         log.error("모든 소스가 실패해 중단합니다 (파일을 쓰지 않습니다)")
         return 1
 
@@ -257,12 +298,19 @@ def main(
     merged, fresh = state.merge_news(prev_news["items"], collected, now_iso=now_iso)
     if "youtube" in results:  # fresh 항목은 merged와 같은 객체라서, 여기서 채운 short를 알림 판정도 본다
         classify_shorts(ctx, merged)
-    state.write_json(data_dir / "news.json", {"updatedAt": now_iso, "items": merged})
-    log.info("news.json: 전체 %d개 (새 항목 %d개) · updatedAt %s", len(merged), len(fresh), now_iso)
-    for it in fresh[:10]:
-        log.info("  + [%s] %s — %s", it["cat"], it["title"], it["id"])
-    if len(fresh) > 10:
-        log.info("  … 외 %d건", len(fresh) - 10)
+    if args.sources:  # 수집기를 하나도 안 돌린 실행(--only events)은 소식을 다시 쓰지 않는다 (updatedAt이 '방금 수집했다'로 거짓이 된다)
+        state.write_json(data_dir / "news.json", {"updatedAt": now_iso, "items": merged})
+        log.info("news.json: 전체 %d개 (새 항목 %d개) · updatedAt %s", len(merged), len(fresh), now_iso)
+        for it in fresh[:10]:
+            log.info("  + [%s] %s — %s", it["cat"], it["title"], it["id"])
+        if len(fresh) > 10:
+            log.info("  … 외 %d건", len(fresh) - 10)
+
+    fresh_events: list = []
+    if args.events:  # 병합된 news의 공지에서 일정 추출. 키가 없거나 실패해도 이전 문서를 그대로 쓴다 (배포가 시드로 덮어쓰지 않게)
+        events_doc, fresh_events = run_events(ctx, prev_events, merged)
+        state.write_json(data_dir / "auto_events.json", events_doc)
+        log.info("auto_events.json: 일정 %d개 (이번 +%d개) · 처리한 공지 %d개", len(events_doc["items"]), len(fresh_events), len(events_doc["processed"]))
 
     music = results.get("music")
     if music is not None:
@@ -280,7 +328,7 @@ def main(
         log.info("status.json: 멤버 %d명 · 방송 중 %s", len(members_status), ", ".join(live_now) or "없음")
 
     # 파일을 다 쓴 뒤에 알린다. 이전/새 status가 같으면(치지직을 안 돌렸거나 전부 실패) 방송 알림은 나오지 않는다
-    notify(args, members, fresh, ctx.prev_status, members_status, started, now_iso, alerts_file)
+    notify(args, members, fresh, ctx.prev_status, members_status, started, now_iso, alerts_file, fresh_events=fresh_events, news_items=merged)
     return 0
 
 

@@ -81,7 +81,8 @@ CHZZK_RETRY_DELAY = 1.0  # 초
 CHZZK_FAIL_WARN_STREAK = 3  # 같은 멤버의 확인이 이 횟수(실행 단위)만큼 연속 실패하면 Actions ::warning:: 주석
 
 # 기본으로 돌리는 소스. 치지직이 Actions(해외 IP)에서 막히면 여기서 "chzzk"만 뺀다 (CLAUDE.md). --only는 이 목록과 무관하게 지정한 것만 돌린다
-ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk")
+# "events"는 수집기가 아니라 병합된 공지에서 일정을 뽑는 병합 뒤 단계다 (기능 3). ANTHROPIC_API_KEY가 없으면 그 단계만 건너뛴다
+ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk", "events")
 
 # --- 공지 일정 자동 추출 (기능 3, SPEC-v1.1) ---------------------------------------------
 # Claude API는 이 기능에서만 쓴다. 호출은 requests로 직접(SDK 없음), 키는 x-api-key 헤더로만 보내고 로그·예외에는 HTTP 상태와 error.type만 남긴다

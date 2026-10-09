@@ -14,12 +14,13 @@ from . import config, http
 
 log = logging.getLogger(__name__)
 
-KIND_LABEL = {"live": "방송 시작", "video": "영상", "notice": "공지", "music": "음악"}
+KIND_LABEL = {"live": "방송 시작", "video": "영상", "notice": "공지", "music": "음악", "event": "📅 일정 추가"}
 SHORT_LABEL = "쇼츠"  # 알림 시점에 short가 true인 영상은 '영상' 대신 이 라벨을 쓴다 (판별 전이면 '영상')
 GROUP_ALL_LABEL = "스텔라이브"
 _MAX_NAMES = 3  # 이름이 이보다 많으면 "A, B, C 외 N명"
 _TITLE_LIMIT = 256  # 디스코드 임베드 제목 한도
 _AUTHOR_LIMIT = 256
+_DESCRIPTION_LIMIT = 4096
 
 
 def _clip(text: str, limit: int) -> str:
@@ -70,6 +71,8 @@ def build_embed(alert: dict, members: dict) -> dict:
     }
     if alert.get("url"):
         embed["url"] = alert["url"]
+    if alert.get("description"):  # 일정 알림의 날짜·시간·장소 한 줄
+        embed["description"] = _clip(alert["description"], _DESCRIPTION_LIMIT)
     if alert.get("yt"):
         embed["thumbnail"] = {"url": config.YOUTUBE_THUMBNAIL_URL.format(video_id=alert["yt"])}
     date = alert.get("date")
@@ -100,6 +103,8 @@ def format_dry_run(messages: list[dict]) -> str:
         for n, e in enumerate(msg["embeds"], 1):
             lines.append(f"   {n:>2}. {e['author']['name']}")
             lines.append(f"       제목: {e['title']}")
+            if "description" in e:
+                lines.append(f"       설명: {e['description']}")
             extra = [f"색 #{e['color']:06X}"]
             if "timestamp" in e:
                 extra.append(f"시각 {e['timestamp']}")

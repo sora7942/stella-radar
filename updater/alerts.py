@@ -7,6 +7,9 @@
 - 영상(yt-)   : 게시 시각이 ALERT_VIDEO_HOURS 이내
 - 공지(sl-)   : 날짜가 ALERT_NOTICE_DAYS 이내 (달력 기준 — 공지는 날짜만 있다)
 - 새 곡(mu-)  : 발매일이 MUSIC_ALERT_DAYS 이내 (달력 기준)
+- 일정(auto-) : 이번에 새로 저장된 자동 일정 중 kind가 EVENT_ALERT_KINDS(popup·concert·reservation·broadcast)이고 start가 미래이며,
+                **출처 공지가 ALERT_NOTICE_DAYS 이내**인 것 (최초 채우기·늦은 재시도 때 오래된 공지의 일정이 쏟아지는 것 방지). goods·other는 알리지 않는다.
+                다른 공지와 겹쳐 저장되지 않은 일정은 새 일정이 아니므로 알림도 없다 (updater/auto_events.py의 중복 제거)
 - 방송 시작   : 새 since가 이전에 저장된 since와 다를 때만 새 방송. 같은 since면 확인 공백이 길었어도 알리지 않는다.
                 단, since가 ALERT_LIVE_MAX_AGE_HOURS보다 오래됐으면 늦은 알림이라 알리지 않는다.
                 since가 없으면(또는 읽을 수 없으면) 이전 규칙: 꺼짐→켜짐일 때만
@@ -20,8 +23,9 @@ from . import config, timeutil
 
 log = logging.getLogger(__name__)
 
-# 알림 종류 → 정렬 순서. 한 번에 20건을 넘으면 뒤가 잘리므로 급한 것(방송, 공지)이 앞에 오게 한다
-KIND_ORDER = {"live": 0, "notice": 1, "music": 2, "video": 3}
+# 알림 종류 → 정렬 순서. 한 번에 20건을 넘으면 뒤가 잘리므로 급한 것(방송, 공지, 일정)이 앞에 오게 한다
+KIND_ORDER = {"live": 0, "notice": 1, "event": 2, "music": 3, "video": 4}
+_WEEKDAYS = "월화수목금토일"
 _KIND_BY_PREFIX = {"yt": "video", "sl": "notice", "mu": "music"}
 
 
@@ -57,6 +61,58 @@ def news_alerts(fresh: list[dict], now: datetime) -> list[dict]:
             "short": it.get("short"),  # True면 임베드에 '쇼츠'로 표시. 아직 판별 전이면 None(표시 없음)
         })
     return out
+
+
+def _md(day) -> str:
+    return f"{day.month}/{day.day}({_WEEKDAYS[day.weekday()]})"
+
+
+def describe_event(ev: dict) -> str:
+    """일정 한 줄 설명: '10/23(금) ~ 11/1(일) · 10:00–20:00 · 장소', '10/12(월) 20:00'. 시각이 start에 있으면 time 필드는 따로 붙이지 않는다."""
+    start = timeutil.parse_kst(ev["start"]).astimezone(config.KST)
+    timed = len(ev["start"]) > 10
+    when = _md(start.date()) + (start.strftime(" %H:%M") if timed else "")
+    if ev.get("end"):
+        end = timeutil.parse_kst(ev["end"]).astimezone(config.KST)
+        if end.date() != start.date():
+            when += " ~ " + _md(end.date()) + (end.strftime(" %H:%M") if len(ev["end"]) > 10 else "")
+        elif len(ev["end"]) > 10:
+            when += end.strftime(" ~ %H:%M")
+    parts = [when]
+    if ev.get("time") and not timed:
+        parts.append(ev["time"])
+    if ev.get("place"):
+        parts.append(ev["place"])
+    return " · ".join(parts)
+
+
+def _is_future(start: str, now: datetime) -> bool:
+    """시각이 있으면 지금보다 뒤, 날짜만 있으면 오늘 이후(오늘 포함)."""
+    if len(start) > 10:
+        return timeutil.parse_kst(start) > now
+    return timeutil.parse_kst(start).astimezone(config.KST).date() >= now.astimezone(config.KST).date()
+
+
+def event_alerts(fresh_events: list[dict], news_items: list[dict], now: datetime) -> list[dict]:
+    """이번에 새로 저장된 자동 일정 → '일정 추가' 알림. 모듈 설명의 일정 규칙을 따른다. 시작이 빠른 순."""
+    notice_dates = {it.get("id"): it.get("date") for it in news_items}
+    picked = []
+    for ev in fresh_events:
+        if ev.get("kind") not in config.EVENT_ALERT_KINDS:
+            continue
+        try:
+            if not _is_future(ev["start"], now):
+                continue
+            notice_date = notice_dates.get(ev.get("source"))
+            if not notice_date or _days_ago(notice_date, now) > config.ALERT_NOTICE_DAYS:
+                continue
+            picked.append((timeutil.parse_kst(ev["start"]), {
+                "kind": "event", "cat": "일정", "who": list(ev.get("who") or []), "title": ev.get("title") or "", "url": ev.get("url"),
+                "date": None, "yt": None, "description": describe_event(ev),
+            }))
+        except (KeyError, ValueError, TypeError):
+            log.warning("일정을 읽을 수 없어 알림에서 제외: %s", ev.get("id"))
+    return [a for _, a in sorted(picked, key=lambda t: t[0])]
 
 
 def _parse_since(value) -> datetime | None:
@@ -103,6 +159,8 @@ def _sort_key(alert: dict):
     return (KIND_ORDER[alert["kind"]], -when.timestamp())
 
 
-def build_alerts(fresh_news: list[dict], prev_members: dict, new_members: dict, now: datetime) -> list[dict]:
-    """방송 → 공지 → 새 곡 → 영상 순, 같은 종류 안에서는 최신순."""
-    return sorted(live_alerts(prev_members, new_members, now) + news_alerts(fresh_news, now), key=_sort_key)
+def build_alerts(fresh_news: list[dict], prev_members: dict, new_members: dict, now: datetime, *, fresh_events: list[dict] = (),
+                 news_items: list[dict] = ()) -> list[dict]:
+    """방송 → 공지 → 일정 → 새 곡 → 영상 순, 같은 종류 안에서는 최신순(일정은 시작이 빠른 순)."""
+    return sorted(live_alerts(prev_members, new_members, now) + news_alerts(fresh_news, now) + event_alerts(list(fresh_events), list(news_items), now),
+                  key=_sort_key)

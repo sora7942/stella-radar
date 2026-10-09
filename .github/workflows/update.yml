@@ -55,6 +55,7 @@ jobs:
         run: python main.py ${{ inputs.no_alerts && '--no-discord' || '' }}
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # 공지 일정 추출(Claude). 이 단계에만 둔다. 없으면 그 단계만 건너뛴다
 
       - uses: actions/upload-pages-artifact@v5
         with:

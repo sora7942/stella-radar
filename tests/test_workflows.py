@@ -92,15 +92,24 @@ def test_python_312_with_pip_cache_and_pages_artifact_is_the_site_folder(update)
     assert find(steps, "upload-pages-artifact")[1]["with"] == {"path": "site"}  # site/ 밖(out/alerts.json)은 배포에 올라가지 않는다
 
 
-def test_the_collect_step_takes_only_the_youtube_key_and_the_alert_step_only_the_webhook(update):
+def test_the_collect_step_takes_only_the_api_keys_and_the_alert_step_only_the_webhook(update):
     steps = steps_of(update[0])
-    assert find(steps, "python main.py")[1]["env"] == {"YOUTUBE_API_KEY": "${{ secrets.YOUTUBE_API_KEY }}"}
+    assert find(steps, "python main.py")[1]["env"] == {"YOUTUBE_API_KEY": "${{ secrets.YOUTUBE_API_KEY }}",
+                                                         "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}"}
     assert find(steps, "python send_alerts.py")[1]["env"] == {"DISCORD_WEBHOOK_URL": "${{ secrets.DISCORD_WEBHOOK_URL }}"}
+
+
+def test_the_anthropic_key_is_in_the_main_py_step_only(update):
+    """기능 3: 키를 읽는 것은 업데이터(main.py)뿐이다. 다른 단계(발송·배포·설치)와 워크플로·잡 수준에는 없다."""
+    steps = steps_of(update[0])
+    holders = [s.get("run") or s.get("uses") for s in steps if "ANTHROPIC_API_KEY" in (s.get("env") or {})]
+    assert holders == [find(steps, "python main.py")[1]["run"]]
+    assert update[1].count("ANTHROPIC_API_KEY") == 2  # 이름(env 키)과 secrets 참조 한 번씩
 
 
 def test_secrets_are_referenced_nowhere_else(update):
     text = update[1]
-    assert sorted(re.findall(r"secrets\.([A-Z_]+)", text)) == ["DISCORD_WEBHOOK_URL", "YOUTUBE_API_KEY"]
+    assert sorted(re.findall(r"secrets\.([A-Z_]+)", text)) == ["ANTHROPIC_API_KEY", "DISCORD_WEBHOOK_URL", "YOUTUBE_API_KEY"]
     assert "GITHUB_TOKEN" not in text and "secrets:" not in text and "inherit" not in text
     # job·workflow 수준 env에 비밀을 두면 모든 단계에 노출된다
     assert "env" not in update[0] and "env" not in next(iter(update[0]["jobs"].values()))
