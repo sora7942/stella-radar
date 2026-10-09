@@ -4,7 +4,7 @@
 
 ## Stack
 - 사이트: `site/index.html` 한 파일 (바닐라 HTML/CSS/JS, 빌드 없음) + `site/data/*.json`
-- 업데이터: Python 3.12 (로컬 conda env: `stella`) — requests, feedparser, beautifulsoup4, python-dotenv, pytest
+- 업데이터: Python 3.12 (로컬 conda env: `stella`) — requests, feedparser, beautifulsoup4, python-dotenv, pytest. 공지 일정 추출에만 Claude API(SDK 없이 `requests`)
 - 실행 환경: GitHub Actions (ubuntu-latest), 로컬은 Windows + PowerShell
 
 ## Commands
@@ -19,14 +19,14 @@
 
 ## Structure
 - 사람이 고치는 데이터: `site/data/members.json`, `songs.json`, `events.json` — 업데이터는 읽기만 한다
-- 자동 생성 데이터: `site/data/news.json`, `catalog.json`, `status.json` — 업데이터만 쓴다
+- 자동 생성 데이터: `site/data/news.json`, `catalog.json`, `status.json`, `auto_events.json`(공지에서 뽑은 일정 + 처리 기록) — 업데이터만 쓴다
 - URL·주기·개수 제한·알림 규칙은 `updater/config.py` 한 곳에만 둔다
 - 수집기는 `updater/sources/`에 소스별 파일로 두고, SPEC 4장 형식을 반환한다
 - 테스트용 저장 응답은 `tests/fixtures/`
 - 일회성 도구는 `tools/`에 둔다(예: `tools/find_song_videos.py`). 업데이터·`main.py`·`send_alerts.py`는 `tools/`를 import하지 않는다(`tests/test_find_song_videos.py`가 확인). `tools/`는 `updater`(http·config·redact)를 import해도 된다
 
 ## Rules
-- 모든 외부 HTTP 요청에 `timeout=10`과 User-Agent 헤더를 넣는다
+- 모든 외부 HTTP 요청에 `timeout=10`과 User-Agent 헤더를 넣는다. **예외는 Claude API 호출 하나뿐이다**: `timeout=config.CLAUDE_TIMEOUT`(30) — 모델 응답을 기다리기 때문이고, `http.post_json(timeout=)`으로만 바꾼다
 - 소스 하나가 실패해도 전체 실행은 계속한다. 실패한 소스는 로그에 남긴다
 - 시간은 timezone-aware datetime, 저장은 `+09:00` ISO 문자열
 - JSON은 `encoding="utf-8"`, `ensure_ascii=False`로 쓴다
@@ -40,6 +40,7 @@
 - NEVER: 실제 디스코드 발송은 사용자가 요청할 때만 한다. 개발 중에는 `--dry-run`
 - NEVER: `DISCORD_WEBHOOK_URL`을 코드·로그·커밋에 남기지 않는다 (`.env`는 `.gitignore`). requests 예외 메시지에는 URL이 들어 있으니 발송 실패는 예외 종류·HTTP 상태만 기록한다
 - NEVER: `YOUTUBE_API_KEY`를 코드·로그·예외 메시지·커밋에 남기지 않는다. 키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보내고, API 오류는 HTTP 상태와 reason 코드만 기록한다(예외 메시지·응답 본문 금지). `updater/redact.py`가 마지막 방어선이고 `tests/test_secrets_hygiene.py`가 저장소를 스캔한다
+- NEVER: `ANTHROPIC_API_KEY`를 코드·로그·예외 메시지·파일·커밋에 남기지 않는다. 키는 `x-api-key` 헤더로만 보내고, API 오류는 HTTP 상태와 `error.type`만 기록한다(예외 메시지·응답 본문·모델 출력 원문 금지, `raise … from None`). 워크플로에서는 **`main.py` 단계 env에만** 넣는다(`test_workflows.py`가 확인). 값을 `main(claude_post=)`·테스트 밖으로 새게 하지 않는다
 - NEVER: 외부 cron용 GitHub 토큰(`github_pat_…`)을 저장소·로그·문서·GitHub Secret·`.env`에 남기지 않는다. 값은 cron-job.org의 헤더 칸에만 있고 문서에는 `<토큰>`만 쓴다. `tests/test_secrets_hygiene.py`가 `github_pat_`·`ghp_`·`sk-ant-` 모양을 잡는다
 - 새로 만든 비밀 파일·픽스처는 커밋 전에 `pytest -q tests/test_secrets_hygiene.py`로 확인한다 (커밋될 파일 전체와 로컬 `.env`의 실제 값을 대조한다)
 - 웹훅 URL은 `send_alerts.py`만 읽는다. `main.py`와 `watchdog.py`는 디스코드로 보내지 않고 알림을 `out/alerts.json`(site/ 밖, `.gitignore`)에 남긴다
@@ -50,6 +51,7 @@
 - 아티팩트 시절 데이터를 그대로 가져왔다: 노래 대표곡 `songs.json`의 `yt`는 대부분 null이고, 사이트가 catalog에서 제목으로 찾아 채운다
 - 유튜브 영상은 YouTube Data API가 기본이고 RSS는 키가 없거나, 할당량이 초과됐거나, 키가 거부됐을 때만 쓴다(`updater/sources/youtube_api.py`, RSS 코드는 `youtube_rss.py`에 그대로). 키 거부는 Actions 주석 "YouTube API 키 확인 필요"로 알린다. 5xx·네트워크 같은 그 밖의 API 실패는 RSS로 돌리지 않는다. 하루 약 580유닛(한도 10,000)이며 `search.list`(호출당 100유닛)는 업데이터 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS` 허용 목록). 예외는 일회성 `tools/find_song_videos.py`뿐이다(`--plan`으로 비용 확인, 호출 상한 21회 = 2,100유닛, `songs.json`은 쓰지 않음)
 - **쇼츠 판별(`updater/shorts.py`)**: news 항목 `short`(bool)는 **필드 없음 = 미정**(다음 실행에 재시도, 처음 발견 24시간 뒤엔 false 확정)이고 **한 번 정해진 값은 바꾸지 않는다**. 채널의 UUSH(쇼츠)·UULF(동영상) 재생목록 첫 페이지를 `playlistItems`로 채널당 최대 1회씩 본다(비공식 관례, 12채널·309개 실측 일치). 영상 수집이 API로 되지 않은 실행(RSS 대체 등)에서는 건너뛰고, 조회 실패면 그 채널은 아무것도 바꾸지 않는다. 알림은 알림 시점에 `short:true`면 "쇼츠" 라벨. `mu-` 음악 항목은 대상이 아니다
+- **공지 일정 추출(기능 3, `updater/auto_events.py`)**: 공지 상세 페이지에는 공지 목록이 같이 들어 있어 본문은 `div.xe_content`만 읽고 제목·날짜·분류는 목록 값을 쓴다. 키(`ANTHROPIC_API_KEY`)가 없으면 그 단계만 건너뛰되 **이전 `auto_events.json`을 그대로 다시 쓴다**(배포가 `site/` 전체를 올려 빈 시드가 누적 일정을 덮는 것 방지). API 오류(키 거부·4xx·429·5xx·네트워크)는 `processed`에 기록하지 않고 그 실행의 남은 공지를 멈춘다(재시도 횟수 소진 방지). **자동 일정끼리는 start·end가 같고 (정규화한 제목 포함 또는 kind 같음)이면 먼저 처리된 공지의 것 하나만 저장**한다(알림도 그 하나만, 사용자 결정). 수동 vs 자동은 사이트에서 '같은 시작일 AND (같은 url 또는 제목 포함)'일 때 수동만 보인다 — 알려진 한계는 SPEC 5장. `main(claude_post=)`는 Claude 호출 통로일 뿐 디스코드 발송 수단이 아니다
 - 치지직 live-status는 비공식 API라 언제든 막힐 수 있다. 막히면 그 소스만 끄고 보고한다. v2가 5xx면 v3(`config.CHZZK_LIVE_STATUS_URLS`)로 대체하고, 같은 멤버가 연속 3회 실패하면 Actions 주석 경고가 나온다(`status.json` 멤버의 `liveFails`, SPEC 4장). 후야 방송이 Actions(해외 IP)에서 v2만 HTTP 500 `code 9004`("해외 시청 불가능한 컨텐츠")로 막혔고 v3는 통과했다(PROGRESS)
 - 사이트는 치지직 `live.checkedAt`이 2시간 넘게 지난 LIVE를 숨긴다 (`site/index.html`의 `LIVE_MAX_AGE_MS`). 치지직 요청이 실패한 멤버는 이전 live 값이 그대로 남지만 checkedAt이 멈추므로, 소스를 끄거나 계속 실패해도 오래된 LIVE는 사라진다
 - **정기 실행은 외부 cron(cron-job.org)이 30분마다 `workflow_dispatch`를 호출하는 것이 주 경로다**(SPEC 9장). GitHub `schedule`(`7,37`, UTC)은 이 저장소에서 처음엔 한 번도 시작되지 않았고 이후에도 간헐적이라 보조일 뿐이고(돌더라도 몇 분씩 늦거나 건너뛴다), 겹쳐 돌아도 `concurrency`와 '새 항목 없음 → 알림 없음'으로 안전하다. 외부 cron이 멈추거나 토큰이 만료되면 갱신이 멈추므로 사이트의 "마지막 관측" 시각으로 확인한다

@@ -4,7 +4,7 @@
 
 - 사이트: https://sora7942.github.io/stella-radar/ (GitHub Pages)
 - 30분마다 GitHub Actions가 새 소식을 모아 사이트를 다시 배포하고, 새 영상·공지·방송 시작은 디스코드로 알립니다.
-- 공개 저장소의 무료 Actions만 씁니다. 서버·LLM 호출·비용이 없습니다. PC를 꺼도 동작합니다.
+- 공개 저장소의 무료 Actions만 씁니다. 서버·비용이 없습니다(LLM은 공식 공지에서 일정을 뽑는 데만 쓰고 월 수백 원 수준, 키가 없으면 그 기능만 꺼집니다). PC를 꺼도 동작합니다.
 - 비공식 사이트이며 스텔라이브와 관련이 없습니다. **이미지는 저장하지 않고** 원본 주소로 링크만 겁니다(프로필 사진·영상 썸네일).
 
 요구사항과 데이터 스키마는 [SPEC.md](SPEC.md), 작업 규칙은 [CLAUDE.md](CLAUDE.md), 진행 기록은 [PROGRESS.md](PROGRESS.md)에 있습니다.
@@ -27,7 +27,7 @@ update.yml (외부 cron이 30분마다 호출 · 수동 · main push · GitHub �
 
 - 데이터를 커밋하지 않습니다. 실행 때마다 **배포된 사이트의 `data/*.json`을 이전 상태로** 읽고 새 결과를 이어 붙여 다시 배포합니다.
 - 알림이 배포보다 먼저 나가면 배포 실패 때 같은 알림이 중복되므로, 알림은 **배포 성공 뒤 별도 단계**에서 보냅니다. 대신 그 단계가 실패하면 그 알림은 다시 시도하지 않습니다(최대 한 번).
-- 사람이 고치는 데이터: `site/data/members.json`, `songs.json`, `events.json`. 업데이터는 읽기만 합니다. 자동 생성: `news.json`, `catalog.json`, `status.json`.
+- 사람이 고치는 데이터: `site/data/members.json`, `songs.json`, `events.json`. 업데이터는 읽기만 합니다. 자동 생성: `news.json`, `catalog.json`, `status.json`, `auto_events.json`(공지에서 뽑은 일정).
 
 ## 로컬에서 실행
 
@@ -48,7 +48,7 @@ python -m http.server -d site 8000           # http://localhost:8000 에서 사�
 pytest -q                                    # 테스트 (네트워크·디스코드를 부르지 않음)
 ```
 
-- `.env.example`을 `.env`로 복사해 값을 채웁니다(`.env`는 커밋되지 않습니다). `YOUTUBE_API_KEY`는 `python main.py`가, `DISCORD_WEBHOOK_URL`은 `python send_alerts.py`만 읽습니다.
+- `.env.example`을 `.env`로 복사해 값을 채웁니다(`.env`는 커밋되지 않습니다). `YOUTUBE_API_KEY`·`ANTHROPIC_API_KEY`는 `python main.py`가(**`ANTHROPIC_API_KEY`가 `.env`에 있으면 `python main.py`가 실제로 Claude API를 부릅니다** — 로컬 확인은 `--only` 로 범위를 줄이세요), `DISCORD_WEBHOOK_URL`은 `python send_alerts.py`만 읽습니다.
 - 로컬에서 `main.py`를 `--dry-run` 없이 돌리면 `site/data/*.json`이 바뀝니다. 커밋하지 말고 `git restore site/data`로 되돌리세요(`catalog.json`은 저장소의 시드로 돌아갑니다).
 - **`.env`에 웹훅이 있으면 `python send_alerts.py`(`--dry-run` 없이)는 실제로 발송합니다.**
 
@@ -60,6 +60,7 @@ pytest -q                                    # 테스트 (네트워크·디스�
    ```powershell
    gh secret set YOUTUBE_API_KEY          # YouTube Data API v3 키 (없으면 RSS로 수집)
    gh secret set DISCORD_WEBHOOK_URL      # 디스코드 웹훅 URL (없으면 알림을 보내지 못하고 경고만 남김)
+   gh secret set ANTHROPIC_API_KEY        # Claude API 키 (없으면 공지 일정 추출만 건너뜀. main.py 단계에만 전달됨)
    ```
    키는 Google Cloud에서 *YouTube Data API v3*를 켠 프로젝트의 API 키입니다. 가능하면 키 제한을 "YouTube Data API v3"로만 걸고, IP 제한은 걸지 마세요(Actions의 IP는 매번 다릅니다).
 3. **첫 실행**: *Actions → update → Run workflow*. 첫 실행은 배포본이 없어서 시드 데이터에서 시작하며, 2일 이내 공지나 6시간 이내 영상 등이 **실제로 디스코드에 발송**됩니다. 알림 없이 돌리려면 *no_alerts*를 체크하세요.
