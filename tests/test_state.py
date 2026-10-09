@@ -264,6 +264,35 @@ def test_write_json_failure_leaves_original_intact(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["news.json"]
 
 
+# ============================ auto_events (기능 3) ===============================
+AUTO_DOC = {"updatedAt": "2026-10-09T13:00:00+09:00", "processed": {"sl-1": {"at": "2026-10-09T13:00:00+09:00", "result": "none", "tries": 1}}, "items": []}
+
+
+def test_auto_events_default_has_processed_and_items(tmp_path):
+    doc = load("auto_events", FakeGet(make_response(404)), tmp_path)
+    assert doc == {"updatedAt": None, "processed": {}, "items": []}
+
+
+def test_auto_events_remote_is_used_and_404_falls_back_to_the_repo_seed(tmp_path):
+    get = FakeGet(make_response(200, json.dumps(AUTO_DOC)))
+    assert load("auto_events", get, tmp_path) == AUTO_DOC and "data/auto_events.json?t=" in get.calls[0]
+    write_local(tmp_path, "auto_events", AUTO_DOC)
+    assert load("auto_events", FakeGet(make_response(404)), tmp_path) == AUTO_DOC
+
+
+@pytest.mark.parametrize("body", [{"items": []}, {"processed": {}}, {"processed": [], "items": []}, {"processed": {}, "items": {}}, []])
+def test_auto_events_shape_is_validated_and_a_bad_body_is_a_failure_not_a_fallback(tmp_path, body):
+    write_local(tmp_path, "auto_events", AUTO_DOC)
+    with pytest.raises(state.StateLoadError):
+        load("auto_events", FakeGet(make_response(200, json.dumps(body))), tmp_path)
+
+
+def test_the_repo_seed_for_auto_events_is_empty_and_valid():
+    seed = json.loads((config.DATA_DIR / "auto_events.json").read_text(encoding="utf-8"))
+    assert seed == {"updatedAt": None, "processed": {}, "items": []}
+    assert "auto_events" in config.STATE_FILES
+
+
 # ============================ status 병합 ========================================
 def test_status_patch_updates_only_the_patched_fields_and_members():
     prev = {

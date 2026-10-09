@@ -57,6 +57,8 @@ def _list_key(name: str) -> str:
 
 
 def default_doc(name: str) -> dict:
+    if name == "auto_events":  # 일정 자동 추출 (기능 3): 처리 기록 + 일정 목록
+        return {"updatedAt": None, "processed": {}, "items": []}
     return {"updatedAt": None, _list_key(name): {} if name == "status" else []}
 
 
@@ -65,6 +67,8 @@ def _validate(name: str, doc) -> dict:
     expected = dict if name == "status" else list
     if not isinstance(doc, dict) or not isinstance(doc.get(key), expected):
         raise ValueError(f"{name}.json 형식이 올바르지 않음 ('{key}'가 {expected.__name__}이어야 함)")
+    if name == "auto_events" and not isinstance(doc.get("processed"), dict):
+        raise ValueError("auto_events.json 형식이 올바르지 않음 ('processed'가 dict여야 함)")
     return doc
 
 
@@ -88,7 +92,7 @@ def load_previous(
     now=time.time,
     local_only: bool = False,
 ) -> dict:
-    """name = news | catalog | status. 규칙은 모듈 설명 참고."""
+    """name = news | catalog | status | auto_events. 규칙은 모듈 설명 참고."""
     local_path = Path(local_dir) / f"{name}.json"
     if local_only:
         return _read_local(name, local_path)

@@ -8,7 +8,7 @@ DATA_DIR = ROOT / "site" / "data"
 
 # --- 사이트 / 이전 상태 -------------------------------------------------------
 DEFAULT_SITE_URL = "https://sora7942.github.io/stella-radar/"
-STATE_FILES = ("news", "catalog", "status")  # 업데이터가 쓰는 파일 (이전 상태를 배포본에서 읽는다)
+STATE_FILES = ("news", "catalog", "status", "auto_events")  # 업데이터가 쓰는 파일 (이전 상태를 배포본에서 읽는다)
 STATE_LOAD_ATTEMPTS = 3  # 404가 아닌 읽기 실패는 이만큼 재시도한 뒤 실행을 실패 처리한다
 STATE_LOAD_BACKOFF = 1.0  # 초. 재시도마다 2배
 
@@ -82,6 +82,33 @@ CHZZK_FAIL_WARN_STREAK = 3  # 같은 멤버의 확인이 이 횟수(실행 단�
 
 # 기본으로 돌리는 소스. 치지직이 Actions(해외 IP)에서 막히면 여기서 "chzzk"만 뺀다 (CLAUDE.md). --only는 이 목록과 무관하게 지정한 것만 돌린다
 ENABLED_SOURCES = ("youtube", "news", "music", "avatar", "chzzk")
+
+# --- 공지 일정 자동 추출 (기능 3, SPEC-v1.1) ---------------------------------------------
+# Claude API는 이 기능에서만 쓴다. 호출은 requests로 직접(SDK 없음), 키는 x-api-key 헤더로만 보내고 로그·예외에는 HTTP 상태와 error.type만 남긴다
+ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"  # 환경변수 (GitHub Secret / 로컬 .env). 업데이터(main.py)만 읽는다
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_API_VERSION = "2023-06-01"
+CLAUDE_API_KEY_HEADER = "x-api-key"
+CLAUDE_MODEL_ENV = "CLAUDE_MODEL"  # 모델을 바꾸고 싶을 때 (코드 수정 없이)
+CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5"
+CLAUDE_MAX_TOKENS = 800
+CLAUDE_TIMEOUT = 30  # 초. 모델 응답은 몇 초~십수 초 걸려서 TIMEOUT(10)보다 길다 — CLAUDE.md Rules의 유일한 예외
+EVENTS_PER_RUN = 5  # 실행당 처리하는 공지 수 상한 (최대 비용을 묶는다). 최신 공지부터, error 재시도도 포함
+EVENTS_WINDOW_DAYS = 45  # 공지 날짜가 오늘부터 이 일수 이내인 것만 대상 (달력 기준)
+EVENTS_MAX_TRIES = 3  # 모델 출력이 깨져 error가 된 공지는 이 횟수까지만 다시 시도한다
+EVENTS_BODY_MAX_CHARS = 6000  # 모델에 보내는 본문 상한
+EVENTS_NO_TEXT_CHARS = 50  # 본문 글자 수(공백 제외)가 이보다 적으면 포스터 이미지뿐인 공지로 보고 API를 부르지 않는다 (no_text, 재시도 없음)
+EVENTS_PER_NOTICE = 5  # 공지 하나에서 받아들이는 일정 수 상한
+EVENT_TITLE_MAX = 60  # 일정 제목 길이 상한 (1~60자)
+EVENT_TIME_MAX = 30  # 선택 필드 time(예: "10:00–20:00") 길이 상한
+EVENT_PLACE_MAX = 60  # 선택 필드 place 길이 상한
+EVENT_START_MIN_DAYS = -7  # start는 공지 날짜 기준 이 일수 이후부터
+EVENT_START_MAX_DAYS = 365  # start는 공지 날짜 기준 이 일수 이내까지
+EVENT_MAX_SPAN_DAYS = 366  # end는 start로부터 이 일수 이내 (환각으로 먼 미래의 end가 달력에 남는 것 방지)
+EVENTS_KEEP_AFTER_END_DAYS = 30  # 끝난 지 이 일수가 넘은 자동 일정은 삭제
+EVENTS_PROCESSED_KEEP_DAYS = 90  # processed 기록은 이 일수가 지나면 삭제
+EVENT_KINDS = ("popup", "concert", "broadcast", "reservation", "goods", "other")
+EVENT_ALERT_KINDS = ("popup", "concert", "reservation", "broadcast")  # 디스코드 '일정 추가' 알림 대상 (goods·other는 알리지 않는다)
 
 # --- 소식 피드 -----------------------------------------------------------------
 NEWS_MAX_ITEMS = 300  # news.json 보관 상한 (date 내림차순)
