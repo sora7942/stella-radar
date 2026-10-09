@@ -418,11 +418,12 @@ function normEvent(e,auto){
   var s=kstDay(e.start),en=e.end?kstDay(e.end):s;if(isNaN(s)||isNaN(en)||en<s)return null;  // 읽을 수 없는 항목은 건너뛴다 (화면은 계속 동작)
   var tm=timeOf(e.start);
   var note=auto?[tm?"":e.time,e.place].filter(function(x){return typeof x==="string"&&x;}).join(" · "):(e.note||"");
-  return {id:e.id,title:e.title,start:e.start,end:e.end||"",who:Array.isArray(e.who)?e.who:["all"],url:safeHref(e.url),note:note,tm:tm,s:s,en:en,auto:!!auto,
+  return {id:e.id,title:e.title,start:e.start,end:e.end||"",who:Array.isArray(e.who)?e.who:["all"],url:safeHref(e.url),note:note,tm:tm,at:tm?new Date(e.start).getTime():null,s:s,en:en,auto:!!auto,
     kind:(auto&&e.kind==="goods")?"굿즈":"이벤트"};}
 // 수동 일정이 항상 우선: 시작일이 같고 ((같은 url 이면서 끝나는 날도 같거나) 제목이 서로 한쪽을 포함[공백·기호 제거])이면 그 자동 일정은 보여주지 않는다. 시작일이 다르면 비교하지 않는다.
+// 둘 다 시각이 있는 start(예: 예약 오픈 20:00)가 완전히 같으면 제목·url이 달라도 같은 일정이다 (수동 예약 링크 naver.me와 자동 공지 URL이 달라도 걸러지게). 날짜만 있는 일정에는 적용하지 않는다
 // 자동 일정의 url은 항상 출처 공지 URL이라 url만으로는 같은 공지의 별건 일정(포토이즘 11/05 vs 팝업 11/01)까지 걸리므로 end(없으면 start)도 같을 때만 url 일치로 본다
-function dupOfManual(a,m){if(a.s!==m.s)return false;if(a.url&&m.url&&a.url===m.url&&a.en===m.en)return true;
+function dupOfManual(a,m){if(a.s!==m.s)return false;if(a.at!==null&&m.at!==null&&a.at===m.at)return true;if(a.url&&m.url&&a.url===m.url&&a.en===m.en)return true;
   var x=normTitle(a.title),y=normTitle(m.title);return !!x&&!!y&&(x.indexOf(y)>=0||y.indexOf(x)>=0);}
 function mergeEvents(manual,auto){var man=(manual||[]).map(function(e){return normEvent(e,false);}).filter(Boolean),out=man.slice();
   (auto||[]).forEach(function(a){var n=normEvent(a,true);if(n&&!man.some(function(m){return dupOfManual(n,m);}))out.push(n);});return out;}

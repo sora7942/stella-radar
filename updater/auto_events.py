@@ -6,7 +6,9 @@
                 "time": "10:00–20:00", "place": "...", "who": ["all"], "url": "https://stellive.me/news/13905"}]}
 
 규칙
-- 대상: processed에 없는 공지(sl-*) 중 공지 날짜가 오늘부터 45일 이내인 것. 최신 공지부터 실행당 최대 5건 (error 재시도도 5건에 포함).
+- 대상: processed에 없는 공지(sl-*) 중 공지 날짜가 오늘부터 45일 이내인 것. **오래된 공지(공지 번호 오름차순)부터** 실행당 최대 5건 (error 재시도도 5건에 포함).
+  원 공지가 먼저 처리돼야 같은 일정을 다시 말하는 뒤 공지(FAQ 등)가 중복으로 걸러지고 원 공지의 일정이 남는다 (사용자 결정 2026-10-09). 대신 첫 백필 때는
+  새 공지가 밀린 공지 뒤에 처리된다
   error는 모델 출력이 깨졌을 때(JSON 재시도까지 실패)와 상세 페이지가 4xx이거나 본문 컨테이너를 못 찾았을 때만 센다 — 최대 3회까지 재시도한다.
   `no_text`(본문 50자 미만, 포스터 이미지뿐)는 API를 부르지 않고 재시도도 없다. `none`·`events`도 다시 처리하지 않는다
 - **API 오류(키 거부·4xx·429·5xx·네트워크)와 상세 페이지의 일시 오류(5xx·네트워크)는 processed에 기록하지 않는다.** 그래야 키 문제나 장애 동안 공지들의
@@ -14,7 +16,7 @@
 - 검증 (실패한 항목은 버리고 로그, 공지당 최대 5개): kind 목록, 제목 1~60자, start가 공지 날짜 −7일~+365일, end ≥ start(그리고 start+366일 이내),
   who의 key가 하나라도 유효하지 않거나 비면 공지 제목을 tagging으로 태깅한 값. 자동 일정의 url은 모델 출력이 아니라 공지 URL이다
 - **자동 일정끼리 중복 제거 (사용자 결정 2026-10-09, 저장 시점에 적용)**: 다른 공지에서 나온 일정끼리 start·end가 같고 (정규화한 제목이 한쪽을 포함하거나,
-  popup·concert·reservation·broadcast는 kind가 같으면 — goods·other는 kind만으로는 합치지 않는다) **먼저 처리된 공지의 일정 하나만 남긴다**(먼저 저장된 것이 이기고, 이번 실행에서는 처리 순서). 버려진 일정은 저장되지 않으므로 알림도 나가지 않는다.
+  popup·concert·reservation·broadcast는 kind가 같으면 — goods·other는 kind만으로는 합치지 않는다) **먼저 처리된 공지의 일정 하나만 남긴다**(먼저 저장된 것이 이기고, 이번 실행에서는 처리 순서 = 공지 번호 오름차순). 버려진 일정은 저장되지 않으므로 알림도 나가지 않는다.
   같은 공지 안의 일정끼리는 이 규칙을 적용하지 않고, 완전히 같은 것(kind·제목·start·end)만 하나로 합친다
 - 보관: 끝난 지 30일 넘은 자동 일정 삭제, processed는 90일 지난 기록 삭제
 """
@@ -203,7 +205,7 @@ def notice_number(news_id: str) -> str | None:
 
 
 def select_targets(news_items: list[dict], processed: dict, today: date) -> list[dict]:
-    """처리할 공지(최신 공지부터, 최대 EVENTS_PER_RUN). 이미 처리된 공지는 제외하되 error는 시도 횟수가 남아 있으면 포함한다."""
+    """처리할 공지(오래된 공지 = 공지 번호 오름차순부터, 최대 EVENTS_PER_RUN). 이미 처리된 공지는 제외하되 error는 시도 횟수가 남아 있으면 포함한다."""
     picked = []
     for it in news_items:
         number = notice_number(it.get("id", ""))
@@ -221,7 +223,7 @@ def select_targets(news_items: list[dict], processed: dict, today: date) -> list
             if not retry:
                 continue
         picked.append((day, int(number), it))
-    picked.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    picked.sort(key=lambda t: t[1])  # 공지 번호 오름차순 (= 오래된 공지부터)
     return [it for _, _, it in picked[: config.EVENTS_PER_RUN]]
 
 

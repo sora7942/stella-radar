@@ -299,17 +299,6 @@ def test_the_start_day_is_the_korean_day_not_the_utc_day():
     assert merged_ids(manual, [auto("reservation", "예약 오픈", "2026-10-12", id="a")]) == ["m"]
 
 
-def test_known_gap_the_reservation_open_event_is_shown_twice_when_titles_and_urls_differ():
-    """합의한 규칙(같은 시작일 AND (같은 url OR 제목 포함)) 그대로의 결과를 기록해 둔다: 수동 ev-popup-rsv는 url이 naver.me, 제목이
-    'STELLA MODE:ON 팝업 네이버 예약 오픈'이라서, 13905에서 뽑은 '팝업스토어 예약 오픈'(url=13905)과는 서로 포함하지 않는다.
-    실제 추출 결과로 3-2 게이트에서 다시 확인해 보고한다."""
-    got = merged_ids(MANUAL, [auto("reservation", "팝업스토어 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")])
-    assert got == ["ev-popup-rsv", "ev-popup", "a"]
-    # 제목이 포함 관계이면 숨겨진다
-    assert merged_ids(MANUAL, [auto("reservation", "STELLA MODE:ON 팝업 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup", "a"]  # 여전히 안 겹침 ('네이버'가 빠져 있다)
-    assert merged_ids(MANUAL, [auto("reservation", "팝업 네이버 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup"]
-
-
 def test_a_separate_event_from_the_same_notice_and_start_day_stays_when_its_end_differs():
     """url 일치는 end도 같을 때만 중복이다 (사용자 수정 2026-10-09). 자동 일정의 url은 항상 출처 공지 URL이라, end를 안 보면 수동 ev-popup(url=13905)과 같은 날
     시작하는 13905의 별건 일정(포토이즘 10/23~11/05, kind other)까지 걸려 숨겨졌다."""
@@ -326,20 +315,36 @@ def test_the_end_condition_applies_only_to_the_url_path_not_to_title_containment
 
 
 def test_same_url_with_no_end_on_both_sides_is_filtered():
-    """둘 다 end가 없으면(하루짜리) end도 같다. 수동 예약 오픈이 공지 url을 달고 있으면 자동 예약 오픈은 걸러진다."""
-    manual = [{"id": "rsv", "title": "예약 오픈 안내", "start": "2026-10-12T20:00:00+09:00", "who": ["all"], "url": NOTICE}]
-    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", id="a")]) == ["rsv"]
-    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", end="2026-10-12", id="a")]) == ["rsv"]  # end가 start와 같은 날이면 같은 값이다
-    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", end="2026-10-13", id="a")]) == ["rsv", "a"]
+    """둘 다 end가 없으면(하루짜리) end도 같다. 날짜만 있는 수동 일정이 공지 url을 달고 있으면 같은 날 자동 일정은 걸러진다 (시각 규칙과 무관하게 url + end 경로)."""
+    manual = [{"id": "m", "title": "예약 안내", "start": "2026-10-12", "who": ["all"], "url": NOTICE}]
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12", id="a")]) == ["m"]
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12", end="2026-10-12", id="a")]) == ["m"]  # end가 start와 같은 날이면 같은 값이다
+    assert merged_ids(manual, [auto("reservation", "무관한 제목", "2026-10-12", end="2026-10-13", id="a")]) == ["m", "a"]
 
 
-def test_the_real_reservation_event_is_not_caught_by_the_url_path_because_its_url_differs():
-    """실제 수동 ev-popup-rsv의 url은 naver.me(예약 페이지)라 자동 예약 오픈(url=13905)과는 url 경로로 걸리지 않는다 — 둘 다 end가 없어도 마찬가지다.
-    걸러지는 것은 제목이 서로 포함될 때뿐이다 (3-2에서 실제 추출 제목으로 확인)."""
+def test_the_real_reservation_event_hides_its_auto_twin_by_the_identical_start_time():
+    """실제 수동 ev-popup-rsv(url=naver.me, 시작 2026-10-12 20:00)는 url·제목이 달라도, 둘 다 시각이 있는 start가 완전히 같으므로 자동 예약 오픈이 걸러진다 (사용자 결정 2026-10-09).
+    3-2의 실제 추출 결과 '2026-10-12T20:00:00+09:00'(제목 'STELLA MODE:ON 팝업스토어 사전 예약 오픈', url=13962)가 그 사례다."""
     rsv = next(m for m in MANUAL if m["id"] == "ev-popup-rsv")
-    assert "end" not in rsv and rsv["url"] != NOTICE
-    assert merged_ids(MANUAL, [auto("reservation", "무관한 제목", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup", "a"]
-    assert merged_ids(MANUAL, [auto("reservation", "팝업 네이버 예약 오픈", "2026-10-12T20:00:00+09:00", id="a")]) == ["ev-popup-rsv", "ev-popup"]
+    assert "end" not in rsv and rsv["url"] != NOTICE and len(rsv["start"]) > 10
+    real = auto("reservation", "STELLA MODE:ON 팝업스토어 사전 예약 오픈", "2026-10-12T20:00:00+09:00", id="a", url="https://stellive.me/news/13962")
+    assert merged_ids(MANUAL, [real]) == ["ev-popup-rsv", "ev-popup"]
+    assert merged_ids(MANUAL, [{**real, "title": "전혀 다른 제목", "url": ""}]) == ["ev-popup-rsv", "ev-popup"]  # 제목·url과 무관
+    assert merged_ids(MANUAL, [{**real, "start": "2026-10-12T11:00:00Z"}]) == ["ev-popup-rsv", "ev-popup"]  # 같은 시각(UTC 표기)도 같은 start
+    assert merged_ids(MANUAL, [{**real, "kind": "other"}]) == ["ev-popup-rsv", "ev-popup"]  # kind와도 무관
+
+
+def test_the_time_rule_needs_the_exact_same_instant_and_never_applies_to_date_only_events():
+    rsv = [next(m for m in MANUAL if m["id"] == "ev-popup-rsv")]
+    mk = lambda start, kind="reservation": auto(kind, "무관한 제목", start, id="a", url="https://stellive.me/news/1")  # noqa: E731
+    assert merged_ids(rsv, [mk("2026-10-12T20:01:00+09:00")]) == ["ev-popup-rsv", "a"]  # 1분만 달라도 다른 일정
+    assert merged_ids(rsv, [mk("2026-10-12T19:00:00+09:00")]) == ["ev-popup-rsv", "a"]
+    assert merged_ids(rsv, [mk("2026-10-12")]) == ["ev-popup-rsv", "a"]  # 같은 날이라도 날짜만 있는 자동 일정은 걸리지 않는다
+    assert merged_ids(rsv, [mk("2026-10-13T20:00:00+09:00")]) == ["ev-popup-rsv", "a"]  # 다른 날 같은 시각
+    dateonly = [{"id": "m", "title": "수동 일정", "start": "2026-10-12", "who": ["all"], "url": "https://x.test/m"}]
+    assert merged_ids(dateonly, [mk("2026-10-12T20:00:00+09:00")]) == ["m", "a"]  # 수동이 날짜만이면 시각 규칙 대상이 아니다
+    assert merged_ids(dateonly, [mk("2026-10-12")]) == ["m", "a"]  # 둘 다 날짜만 있는 같은 날의 서로 다른 일정은 걸리지 않는다
+    assert merged_ids(dateonly, [mk("2026-10-12", kind="goods")]) == ["m", "a"]
 
 
 def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
@@ -350,7 +355,8 @@ def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
 def test_manual_vs_auto_merge_matches_an_independent_reference_model():
     import unicodedata
     norm = lambda t: "".join(c for c in unicodedata.normalize("NFKC", t).casefold() if c.isalnum())  # noqa: E731
-    urls, titles, days, ends = [None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"], ["2026-10-23", "2026-10-24"], [None, "2026-11-01"]
+    urls, titles, days, ends = ([None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"],
+                                ["2026-10-23", "2026-10-24", "2026-10-23T20:00:00+09:00"], [None, "2026-11-01"])
     specs = [(u, t, d, e) for u in urls for t in titles for d in days for e in ends]
     calls, want = [], []
     for mu, mt, md, me in specs:
@@ -358,12 +364,14 @@ def test_manual_vs_auto_merge_matches_an_independent_reference_model():
         for au, at, ad, ae in specs:
             a = {"id": "a", "title": at, "start": ad, "kind": "popup", "who": ["all"], **({"url": au} if au else {}), **({"end": ae} if ae else {})}
             calls.append(("mergeEvents", [m], [a]))
-            same_url = mu is not None and mu == au and (me or md) == (ae or ad)  # url 일치는 끝나는 날(없으면 시작일)도 같을 때만
+            same_day = ad[:10] == md[:10]
+            same_url = mu is not None and mu == au and (me or md[:10]) == (ae or ad[:10])  # url 일치는 끝나는 날(없으면 시작일)도 같을 때만
             same_title = norm(at) != "" and norm(mt) != "" and (norm(at) in norm(mt) or norm(mt) in norm(at))
-            want.append(["m"] if ad == md and (same_url or same_title) else ["m", "a"])
+            same_instant = len(ad) > 10 and len(md) > 10 and ad == md  # 둘 다 시각이 있고 start가 완전히 같다 (표기가 모두 +09:00라 문자열 비교 = 시각 비교)
+            want.append(["m"] if same_day and (same_url or same_title or same_instant) else ["m", "a"])
     got = [[e["id"] for e in r] for r in js(calls)]
     bad = [(calls[i][1][0], calls[i][2][0]) for i in range(len(calls)) if got[i] != want[i]]
-    assert bad == [] and len(calls) == len(specs) ** 2 == 2304
+    assert bad == [] and len(calls) == len(specs) ** 2 == 5184
 
 
 def test_goods_toggle_hides_only_goods_and_keeps_everything_else():

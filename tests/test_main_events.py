@@ -265,7 +265,7 @@ def test_the_same_popup_in_two_recent_notices_is_stored_once_and_alerted_once(da
     post = FakePost(events_reply(popup(end="2026-11-01")), events_reply(ev("popup", "팝업스토어 이용 안내", "2026-10-23", end="2026-11-01")))
     go(data_dir, NoticeNet(), post, dry=False)
     doc = read(data_dir, "auto_events")
-    assert [i["source"] for i in doc["items"]] == ["sl-14044"] and len(post.calls) == 2  # 먼저 처리된(최신) 공지의 것 하나
+    assert [i["source"] for i in doc["items"]] == ["sl-14028"] and len(post.calls) == 2  # 먼저 처리된(오래된, 번호가 작은) 공지의 것 하나
     assert len(event_embeds(alerts_in_file())) == 1
     assert {r["result"] for r in doc["processed"].values()} == {"events"}
 

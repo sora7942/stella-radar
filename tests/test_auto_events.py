@@ -240,17 +240,18 @@ def test_find_duplicate_only_looks_at_other_notices():
 
 
 # ---------------------------------------------------------------- 대상 선정
-def test_targets_are_newest_first_within_45_days_and_capped_at_five():
+def test_targets_are_oldest_first_by_notice_number_within_45_days_and_capped_at_five():
     news = [notice(i, day=f"2026-10-0{i}") for i in range(1, 8)] + [notice(99, day="2026-08-25"), notice(98, day="2026-08-24")]  # 45일·46일 전
     got = [n["id"] for n in ae.select_targets(news, {}, date(2026, 10, 9))]
-    assert got == ["sl-7", "sl-6", "sl-5", "sl-4", "sl-3"]  # 5개 상한, 최신순
+    assert got == ["sl-1", "sl-2", "sl-3", "sl-4", "sl-5"]  # 5개 상한, 오래된(번호가 작은) 공지부터 — 사용자 결정 2026-10-09
     got = [n["id"] for n in ae.select_targets([notice(99, day="2026-08-25"), notice(98, day="2026-08-24")], {}, date(2026, 10, 9))]
     assert got == ["sl-99"]  # 45일 전은 포함, 46일 전은 제외
 
 
-def test_same_day_notices_are_ordered_by_number_descending():
-    news = [notice(100), notice(300), notice(200)]
-    assert [n["id"] for n in ae.select_targets(news, {}, date(2026, 10, 9))] == ["sl-300", "sl-200", "sl-100"]
+def test_the_order_is_by_notice_number_not_by_date():
+    news = [notice(300, day="2026-09-28"), notice(100, day="2026-10-08"), notice(200, day="2026-10-01")]  # 번호와 날짜 순서가 어긋나도 번호가 기준
+    assert [n["id"] for n in ae.select_targets(news, {}, date(2026, 10, 9))] == ["sl-100", "sl-200", "sl-300"]
+    assert [n["id"] for n in ae.select_targets([notice(100), notice(300), notice(200)], {}, date(2026, 10, 9))] == ["sl-100", "sl-200", "sl-300"]
 
 
 def test_only_notices_are_targets_and_unreadable_dates_are_skipped():
@@ -272,7 +273,7 @@ def test_error_retries_share_the_five_slot_cap_with_new_notices():
     news = [notice(i, day=f"2026-10-0{i}") for i in range(1, 8)]
     processed = {"sl-1": {"result": "error", "tries": 1}, "sl-2": {"result": "error", "tries": 1}}
     got = [n["id"] for n in ae.select_targets(news, processed, date(2026, 10, 9))]
-    assert got == ["sl-7", "sl-6", "sl-5", "sl-4", "sl-3"]  # 최신이 먼저라 오래된 error 재시도는 밀린다
+    assert got == ["sl-1", "sl-2", "sl-3", "sl-4", "sl-5"]  # 오래된 공지부터라 error 재시도(1·2)가 먼저 가고 새 공지는 뒤로 밀린다
 
 
 # ---------------------------------------------------------------- 보관
@@ -386,7 +387,7 @@ def test_api_error_midway_keeps_what_was_already_processed(members, index):
     post = FakePost(events_reply(ev(title="첫번째 일정")), error_reply(500))
     news = [notice(3, day="2026-10-03"), notice(2, day="2026-10-02"), notice(1, day="2026-10-01")]
     r = run(doc(), news, post, members, index)
-    assert list(r.doc["processed"]) == ["sl-3"] and [i["title"] for i in r.doc["items"]] == ["첫번째 일정"] and len(post.calls) == 2
+    assert list(r.doc["processed"]) == ["sl-1"] and [i["title"] for i in r.doc["items"]] == ["첫번째 일정"] and len(post.calls) == 2  # 오래된 공지(sl-1)부터
 
 
 @pytest.mark.parametrize("page_outcome,result", [(404, "error"), (403, "error"), (410, "error")])
@@ -418,7 +419,7 @@ def test_at_most_five_notices_per_run_and_the_rest_next_time(members, index):
     news = [notice(i, day=f"2026-10-0{i}") for i in range(1, 8)]
     post = FakePost(events_reply())
     r1 = run(doc(), news, post, members, index)
-    assert r1.report.targets == 5 and len(post.calls) == 5 and sorted(r1.doc["processed"]) == ["sl-3", "sl-4", "sl-5", "sl-6", "sl-7"]
+    assert r1.report.targets == 5 and len(post.calls) == 5 and sorted(r1.doc["processed"]) == ["sl-1", "sl-2", "sl-3", "sl-4", "sl-5"]
     r2 = run(r1.doc, news, post, members, index)
     assert r2.report.targets == 2 and sorted(r2.doc["processed"]) == [f"sl-{i}" for i in range(1, 8)]
     assert run(r2.doc, news, post, members, index).report.targets == 0
@@ -455,22 +456,58 @@ def test_goods_deadline_notice_makes_one_goods_event(members, index):
 
 
 # ---------------------------------------------------------------- 자동 일정끼리 중복 제거 (실행 흐름)
-def test_same_popup_in_several_notices_is_kept_once_from_the_notice_processed_first(members, index):
-    """13905·13907·13930·13962 — 모두 같은 팝업 기간을 말한다. 먼저 처리된 공지의 일정 하나만 남고, 나머지는 저장도 알림도 되지 않는다."""
+def test_same_popup_in_several_notices_is_kept_once_from_the_original_notice_processed_first(members, index):
+    """13905·13907·13930·13962 — 모두 같은 팝업 기간을 말한다. 오래된 공지(번호 오름차순)부터 처리하므로 원 공지(13905)의 일정 하나만 남고 나머지는 저장도 알림도 되지 않는다."""
     popup = dict(end="2026-11-01")
-    post = FakePost(
-        events_reply(ev("popup", "STELLA MODE:ON 팝업스토어", "2026-10-23", **popup), ev("reservation", "팝업 예약 오픈", "2026-10-12T20:00+09:00")),   # 첫 번째 처리
+    post = FakePost(   # 처리 순서: 13905 → 13907 → 13930 → 13962
+        events_reply(ev("popup", "STELLA MODE:ON 팝업스토어", "2026-10-23", **popup), ev("reservation", "팝업 예약 오픈", "2026-10-12T20:00+09:00")),   # 13905(원 공지)
         events_reply(ev("popup", "<STELLA MODE:ON> 팝업 현장 픽업 서비스", "2026-10-23", **popup)),                                              # 같은 start·end, kind 같음
         events_reply(ev("other", "STELLA MODE:ON 팝업스토어 1차 MD", "2026-10-23", **popup)),                                                   # kind 다르지만 제목 포함
         events_reply(ev("popup", "팝업스토어 이용 FAQ", "2026-10-24", end="2026-11-01")))                                                        # start가 다르면 유지
     news = [notice(13962, day="2026-09-28"), notice(13930, day="2026-09-28"), notice(13907), notice(13905)]
     r = run(doc(), news, post, members, index)
     sources = [(i["source"], i["kind"], i["start"][:10]) for i in r.doc["items"]]
-    assert sources == [("sl-13962", "reservation", "2026-10-12"), ("sl-13962", "popup", "2026-10-23"), ("sl-13905", "popup", "2026-10-24")]
+    assert sources == [("sl-13905", "reservation", "2026-10-12"), ("sl-13905", "popup", "2026-10-23"), ("sl-13962", "popup", "2026-10-24")]
     assert r.report.duplicates == 2 and r.report.new_items == 3
     assert sorted(i["id"] for i in r.fresh) == sorted(i["id"] for i in r.doc["items"]) and len(r.fresh) == 3  # 알림 후보도 이 3개뿐
     # 중복으로 걸러진 공지도 처리 완료다 (다시 부르지 않는다)
     assert all(r.doc["processed"][f"sl-{n}"]["result"] == "events" for n in (13962, 13930, 13907, 13905))
+
+
+def test_the_notices_are_processed_in_ascending_number_order(members, index):
+    site = Site()
+    run(doc(), [notice(300, day="2026-10-01"), notice(100, day="2026-10-05"), notice(200, day="2026-10-03")], FakePost(events_reply()), members, index, site=site)
+    assert [u.rsplit("/", 1)[1] for u in site.calls] == ["100", "200", "300"]
+
+
+def test_the_first_backfill_keeps_the_original_notice_even_when_newer_notices_say_the_same(members, index):
+    """실제 사례의 모사(3-2): 14073·13962·13930·13907·13905를 한 번에 백필하면 popup·reservation은 원 공지 13905의 것이 남고, 뒤 공지(FAQ 13962)는 중복으로 걸러진다."""
+    news = [notice(14073, "2026-10-07"), notice(13962, "2026-09-28"), notice(13930, "2026-09-28"), notice(13907, "2026-09-27"), notice(13905, "2026-09-27")]
+    popup = ev("popup", "STELLA MODE:ON 팝업스토어", "2026-10-23", end="2026-11-01")
+    rsv = ev("reservation", "팝업스토어 예약 오픈", "2026-10-12T20:00+09:00")
+    post = FakePost(
+        events_reply(rsv, popup, ev("other", "포토이즘 콜라보 프레임", "2026-10-23", end="2026-11-05")),   # 13905
+        events_reply(),                                                                                     # 13907
+        events_reply(),                                                                                     # 13930
+        events_reply(ev("popup", "2026 STELLIVE POP-UP STELLA MODE:ON", "2026-10-23", end="2026-11-01"), ev("reservation", "사전 예약 오픈", "2026-10-12T20:00+09:00")),  # 13962
+        events_reply(ev("goods", "타비 생일 굿즈 판매 마감", "2026-10-07")))                                  # 14073
+    r = run(doc(), news, post, members, index)
+    kept = {(i["kind"], i["source"]) for i in r.doc["items"]}
+    assert ("popup", "sl-13905") in kept and ("reservation", "sl-13905") in kept and ("other", "sl-13905") in kept and ("goods", "sl-14073") in kept
+    assert not any(src == "sl-13962" for _, src in kept) and len(r.doc["items"]) == 4 and r.report.duplicates == 2
+    assert all(i["url"] in ("https://stellive.me/news/13905", "https://stellive.me/news/14073") for i in r.doc["items"])
+
+
+def test_across_several_runs_a_lower_numbered_notice_is_always_processed_before_a_higher_one(members, index):
+    """첫 백필이 여러 실행에 걸쳐도(5건 상한) 처리 순서는 번호 오름차순이다 — 그래서 어느 실행에서든 원 공지가 뒤 공지보다 먼저 저장된다."""
+    numbers = [13700 + 7 * i for i in range(13)]
+    news = [notice(n, day="2026-10-05") for n in reversed(numbers)]
+    site, state, seen = Site(), doc(), []
+    for _ in range(4):
+        before = len(site.calls)
+        state = run(state, news, FakePost(events_reply()), members, index, site=site).doc
+        seen += [int(u.rsplit("/", 1)[1]) for u in site.calls[before:]]
+    assert seen == numbers and len(state["processed"]) == 13  # 5 + 5 + 3, 중복 요청 없음
 
 
 def test_the_stored_item_wins_over_a_later_notice_across_runs_and_the_dropped_one_is_not_alerted(members, index):
