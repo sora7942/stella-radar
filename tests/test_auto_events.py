@@ -96,6 +96,24 @@ def test_norm_title_keeps_only_letters_and_digits():
     assert ae.norm_title("『!!!』") == ""
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 굿즈 판매 마감", "stellive여름신의상공개기념아크릴스탠드"),
+    ("STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 판매 마감", "stellive여름신의상공개기념아크릴스탠드"),
+    ("2026 STELLIVE POP-UP STELLA MODE:ON", "stellivepopupstellamodeon"), ("2026년 팝업 안내 공지", "년팝업"),
+    ("예약 오픈 안내", ""), ("굿즈 판매 마감", ""), ("공지", ""), ("『!!!』", ""),
+    ("20261023 일정", "20261023일정"), ("a2026b", "ab"), ("2026 2027 2028", ""), ("1999 콘서트", "콘서트"), ("12345 콘서트", "12345콘서트"), ("2026", ""),
+    ("판굿즈매", "판매"),  # 한 번만 훑는다 — 뺀 자리에서 새로 생긴 단어는 다시 빼지 않는다 (사이트의 한 번짜리 replace와 같은 동작)
+])
+def test_match_title_drops_years_and_common_words_on_top_of_norm_title(text, expected):
+    assert ae.match_title(text) == expected
+
+
+def test_match_title_uses_the_configured_word_list():
+    from updater import config
+    assert config.EVENT_TITLE_STOPWORDS == ("굿즈", "판매", "마감", "예약", "오픈", "안내", "공지")  # 사이트 matchTitle(index.html)의 목록과 같아야 한다 (test_site_logic이 결과를 비교)
+    assert all(ae.match_title(w) == "" for w in config.EVENT_TITLE_STOPWORDS)
+
+
 def test_valid_who_keys_are_members_groups_and_all_but_not_boss(members):
     keys = ae.valid_who_keys(members)
     assert {"lize", "kangji", "everys", "universe", "cliche", "all"} <= keys and "boss" not in keys
@@ -213,7 +231,15 @@ def item(source="sl-1", kind="popup", title="STELLA MODE:ON 팝업스토어", st
     # goods·other: kind가 같다는 이유로는 합치지 않는다 (같은 날 마감인 서로 다른 굿즈)
     (item(kind="goods", title="타비 생일 굿즈 판매 마감"), item(kind="goods", title="나나 생일 굿즈 판매 마감"), False),
     (item(kind="other", title="포토이즘 콜라보 프레임"), item(kind="other", title="콜라보 카페 이벤트"), False),
-    (item(kind="goods", title="굿즈 판매 마감"), item(kind="goods", title="타비 생일 굿즈 판매 마감"), True),  # 제목이 포함되면 합친다
+    (item(kind="goods", title="타비 굿즈 판매 마감"), item(kind="goods", title="2026 아라하시 타비 생일 굿즈 판매 마감"), True),  # 제목이 포함되면 합친다
+    (item(kind="goods", title="굿즈 판매 마감"), item(kind="goods", title="타비 생일 굿즈 판매 마감"), False),  # 흔한 단어를 빼면 빈 제목이라 합치지 않는다 (사용자 규칙 2026-10-10)
+    # 흔한 단어·연도를 뺀 제목으로 비교 (사용자 결정 2026-10-10)
+    (item(kind="goods", title="STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 굿즈 판매 마감", start="2026-10-04"),
+     item(kind="goods", title="STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 판매 마감", start="2026-10-04"), True),  # 10/4 신의상 스탠드: '굿즈' 한 단어 차이
+    (item(kind="goods", title="타비 생일 굿즈 마감"), item(kind="goods", title="나나 생일 굿즈 마감"), False),  # 같은 날 다른 굿즈는 둘 다 남는다
+    (item(kind="goods", title="타비 생일 굿즈 판매 마감"), item(kind="goods", title="나나 생일 굿즈 판매 마감 안내"), False),
+    (item(kind="other", title="2026 포토이즘 콜라보 프레임"), item(kind="other", title="포토이즘 콜라보 프레임 안내"), True),  # 연도·안내를 빼면 같다
+    (item(kind="other", title="예약 오픈 안내"), item(kind="other", title="오픈 공지"), False),  # 둘 다 흔한 단어뿐 → 빈 제목 → 합치지 않는다
     (item(kind="other", title="포토이즘 콜라보"), item(kind="other", title="[포토이즘 콜라보] 프레임 안내"), True),
     (item(kind="goods", title="!!!"), item(kind="goods", title="타비 굿즈 판매 마감"), False),  # 기호뿐인 제목은 포함으로도 합쳐지지 않는다
     # start·end가 다르면 아무것도 보지 않는다
@@ -231,6 +257,10 @@ def test_empty_normalized_title_never_matches_by_containment():
     """기호뿐인 제목은 정규화하면 ''이고 ''는 모든 문자열에 들어 있다 — 그걸로 중복 판정하면 안 된다."""
     assert ae.is_duplicate(item(kind="popup", title="!!!"), item(kind="other", title="STELLA MODE:ON")) is False
     assert ae.is_duplicate(item(kind="popup", title="!!!"), item(kind="popup", title="STELLA MODE:ON")) is True  # kind가 같으면 같다
+    # 흔한 단어뿐인 제목도 정규화하면 ''이다 — 같은 규칙
+    assert ae.is_duplicate(item(kind="goods", title="굿즈 판매 마감"), item(kind="goods", title="신의상 스탠드 굿즈 판매 마감")) is False
+    assert ae.is_duplicate(item(kind="other", title="굿즈 판매 마감"), item(kind="other", title="2026 안내")) is False
+    assert ae.is_duplicate(item(kind="popup", title="예약 오픈"), item(kind="popup", title="사전 신청")) is True  # kind가 같으면(popup) 같다
 
 
 def test_find_duplicate_only_looks_at_other_notices():
@@ -545,6 +575,32 @@ def test_the_same_goods_deadline_repeated_by_two_notices_is_still_merged_by_titl
     post = FakePost(events_reply(ev("goods", "타비 생일 굿즈 판매 마감", "2026-10-07")), events_reply(ev("goods", "2026 아라하시 타비 생일 굿즈 판매 마감", "2026-10-07")))
     r = run(doc(), [notice(2, day="2026-10-07"), notice(1, day="2026-10-07")], post, members, index)
     assert len(r.doc["items"]) == 1 and r.report.duplicates == 1
+
+
+def test_the_same_goods_deadline_with_and_without_the_word_goods_is_merged(members, index):
+    """달력에서 본 문제 (나) 10/4 신의상 스탠드: 13557 '…스탠드 굿즈 판매 마감'과 14028 '…스탠드 판매 마감'은 이제 저장 시점에 하나로 합쳐지고 먼저 처리된 13557이 남는다."""
+    t1, t2 = "STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 굿즈 판매 마감", "STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 판매 마감"
+    post = FakePost(events_reply(ev("goods", t1, "2026-10-04")), events_reply(ev("goods", t2, "2026-10-04")))
+    r = run(doc(), [notice(13557, day="2026-10-01"), notice(14028, day="2026-10-02")], post, members, index)
+    assert [(i["source"], i["title"]) for i in r.doc["items"]] == [("sl-13557", t1)] and r.report.duplicates == 1 and len(r.fresh) == 1
+
+
+def test_birthday_goods_of_different_members_with_the_same_deadline_both_stay(members, index):
+    post = FakePost(events_reply(ev("goods", "타비 생일 굿즈 마감", "2026-10-07")), events_reply(ev("goods", "나나 생일 굿즈 마감", "2026-10-07")))
+    r = run(doc(), [notice(1, day="2026-10-05"), notice(2, day="2026-10-06")], post, members, index)
+    assert sorted(i["title"] for i in r.doc["items"]) == ["나나 생일 굿즈 마감", "타비 생일 굿즈 마감"] and r.report.duplicates == 0
+
+
+def test_a_title_made_only_of_common_words_is_never_merged_by_containment(members, index):
+    post = FakePost(events_reply(ev("goods", "굿즈 판매 마감", "2026-10-07")), events_reply(ev("goods", "타비 생일 굿즈 판매 마감", "2026-10-07")))
+    r = run(doc(), [notice(1, day="2026-10-05"), notice(2, day="2026-10-06")], post, members, index)
+    assert len(r.doc["items"]) == 2 and r.report.duplicates == 0
+
+
+def test_inside_one_notice_only_exactly_equal_events_are_merged_even_with_common_words(members, index):
+    """같은 공지 안의 '완전히 같은 일정' 판정은 흔한 단어를 빼지 않는다 (norm_title). 서로 다른 일정을 합치면 안 된다."""
+    v = validate([ev("goods", "굿즈 판매 마감", "2026-10-07"), ev("goods", "예약 판매 마감", "2026-10-07")], members, index)
+    assert len(v.events) == 2 and v.dropped == 0
 
 
 def test_two_different_other_events_on_the_same_dates_in_different_notices_both_stay(members, index):

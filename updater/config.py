@@ -113,6 +113,9 @@ EVENT_ALERT_KINDS = ("popup", "concert", "reservation", "broadcast")  # 디스�
 # 자동 일정끼리 중복 제거에서 "kind가 같으면 같은 일정"을 적용하는 kind. goods·other는 같은 날 서로 다른 것이 여럿일 수 있어(예: 다른 굿즈의 같은 마감일)
 # kind가 같다는 이유로는 합치지 않고 정규화한 제목이 서로 포함될 때만 합친다
 EVENT_DEDUP_SAME_KIND = ("popup", "concert", "reservation", "broadcast")
+# 중복 판정용 제목 비교(`auto_events.match_title`)에서 빼는 흔한 단어. 같은 일정을 공지마다 "굿즈 판매 마감"/"판매 마감"처럼 달리 쓰는 것을 같게 보려는 것이다.
+# 4자리 연도(19xx·20xx)도 뺀다. **사이트의 `matchTitle`(site/index.html)에도 같은 목록이 있다** — 바꾸면 둘을 같이 고친다(테스트가 같은 입력으로 두 결과를 비교한다)
+EVENT_TITLE_STOPWORDS = ("굿즈", "판매", "마감", "예약", "오픈", "안내", "공지")
 
 # --- 소식 피드 -----------------------------------------------------------------
 NEWS_MAX_ITEMS = 300  # news.json 보관 상한 (date 내림차순)

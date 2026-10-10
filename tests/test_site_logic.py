@@ -32,7 +32,7 @@ else if (input.ls === 'throws') globalThis.localStorage = { getItem() { throw ne
 // input.ls === 'missing' → localStorage 자체가 없다 (접근하면 ReferenceError)
 __ZONE__
 const fns = { membersOf, expand, esc, matchCat, matchGroup, isShort, shortHref, feedFilter, loadHideShorts, saveHideShorts, CATS: () => CATS,
-  kstDay, timeOf, normTitle, safeHref, normEvent, mergeEvents, visibleEvents, autoChip, loadShowGoods, saveShowGoods };
+  kstDay, timeOf, normTitle, matchTitle, safeHref, normEvent, mergeEvents, visibleEvents, autoChip, loadShowGoods, saveShowGoods };
 console.log(JSON.stringify(input.calls.map(c => fns[c.fn](...c.args))));
 """
 
@@ -229,6 +229,33 @@ def test_norm_title_drops_spaces_and_symbols_like_the_server(text, expected):
     assert one("normTitle", text) == expected
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 굿즈 판매 마감", "stellive여름신의상공개기념아크릴스탠드"),
+    ("STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 판매 마감", "stellive여름신의상공개기념아크릴스탠드"),  # 굿즈 유무만 다른 10/4 두 건이 같아진다
+    ("2026 STELLIVE POP-UP STELLA MODE:ON", "stellivepopupstellamodeon"), ("2026년 팝업 안내 공지", "년팝업"), ("예약 오픈 안내", ""), ("굿즈 판매 마감", ""),
+    ("20261023 일정", "20261023일정"), ("a2026b", "ab"), ("2026 2027 2028", ""), ("1999 콘서트", "콘서트"), ("12345 콘서트", "12345콘서트"), ("2026", ""),
+    ("『!!!』", ""), ("", ""), (None, ""),
+])
+def test_match_title_also_drops_years_and_common_words(text, expected):
+    assert one("matchTitle", text) == expected
+
+
+def test_the_sites_common_word_list_is_exactly_the_servers_config_list():
+    """결과 비교(아래)는 예시 입력에 달려 있어서, 한쪽에만 단어가 더 있는 경우를 놓칠 수 있다. 목록 자체를 직접 비교한다."""
+    from updater import config
+    found = re.findall(r"var TITLE_STOP=/([^/]+)/g;", zone())
+    assert len(found) == 1 and found[0].split("|") == list(config.EVENT_TITLE_STOPWORDS)
+
+
+def test_match_title_is_the_same_function_as_the_servers():
+    """사이트의 matchTitle과 서버의 auto_events.match_title은 같은 입력에 같은 결과를 내야 한다 (단어 목록·연도 규칙이 두 곳에 있어서 어긋나면 안 된다)."""
+    from updater import auto_events as ae, config
+    words = list(config.EVENT_TITLE_STOPWORDS)
+    corpus = ["타비 생일 굿즈 마감", "나나 생일 굿즈 마감", "판굿즈매", "예약 판매 오픈 안내 공지", "2026 아라하시 타비 생일 굿즈 판매 마감", "2026-10-04 마감", "ＳＴＥＬＬＡ １２３４ 굿즈", "20260", "02026",
+              "A2026 2027B 마감", "2026 2027", "STELLA   MODE:ON!!", "『안내』", "공지공지 공지", "ß 굿즈", "٢٠٢٦ 굿즈"] + words + [w + w for w in words] + [f"{w} 2026 {w}" for w in words]
+    assert js([("matchTitle", t) for t in corpus]) == [ae.match_title(t) for t in corpus]
+
+
 @pytest.mark.parametrize("url,expected", [
     ("https://stellive.me/news/1", "https://stellive.me/news/1"), ("http://x.test/a", "http://x.test/a"), ("HTTPS://X.TEST", "HTTPS://X.TEST"),
     ("javascript:alert(1)", ""), ("data:text/html,x", ""), ("//evil.test", ""), ("ftp://x", ""), ("", ""), (None, ""), (5, ""),
@@ -281,6 +308,50 @@ def test_the_real_popup_event_hides_its_auto_twin_by_start_day_and_same_url():
     assert merged_ids(MANUAL, [auto("popup", "무관한 제목", "2026-10-23", end="2026-11-01", id="a", url=NOTICE)]) == ["ev-popup-rsv", "ev-popup"]  # 제목이 달라도 같은 url + 같은 end
 
 
+REAL_POPUP = auto("popup", "STELLA MODE:ON 팝업 스토어", "2026-10-23", end="2026-11-01", id="auto-sl-13865-1", source="sl-13865", url="https://stellive.me/news/13865", time="10:00–20:00", place="서울특별시 광진구 광나루로 441")
+
+
+def test_the_real_popup_from_another_notice_hides_behind_the_manual_one_by_the_same_date_range():
+    """달력에서 본 문제 (가): 수동 ev-popup(url 13905, 제목 '2026 STELLIVE POP-UP STELLA MODE:ON')과 자동 13865의 팝업(url 13865, 제목 'STELLA MODE:ON 팝업 스토어')은
+    url이 다르고 제목도 서로 포함되지 않지만, 둘 다 날짜만 있고 start·end가 같고 기간이 10일이라 같은 일정이다."""
+    assert merged_ids(MANUAL, [REAL_POPUP]) == ["ev-popup-rsv", "ev-popup"]
+
+
+def test_the_same_date_range_rule_needs_date_only_on_both_sides_and_a_range_longer_than_one_day():
+    manual = [{"id": "m", "title": "수동 행사", "start": "2026-10-23", "end": "2026-11-01", "who": ["all"], "url": "https://x.test/m"}]
+    mk = lambda **kw: auto("other", "전혀 다른 이름", "2026-10-23", end="2026-11-01", id="a", url="https://stellive.me/news/1", **kw)  # noqa: E731
+    assert merged_ids(manual, [mk()]) == ["m"]  # 기준: 걸린다
+    assert merged_ids(manual, [{**mk(), "end": "2026-11-05"}]) == ["m", "a"]  # 끝나는 날이 다르다(포토이즘 10/23~11/05)
+    assert merged_ids(manual, [{**mk(), "start": "2026-10-24"}]) == ["m", "a"]  # 시작일이 다르다
+    assert merged_ids(manual, [{**mk(), "end": "2026-11-01T20:00:00+09:00"}]) == ["m", "a"]  # 자동 end에 시각이 있으면 '날짜만'이 아니다
+    assert merged_ids(manual, [{**mk(), "start": "2026-10-23T10:00:00+09:00"}]) == ["m", "a"]  # 자동 start에 시각이 있다 (시각 규칙도 한쪽만 시각이라 적용 안 됨)
+    assert merged_ids([{**manual[0], "start": "2026-10-23T10:00:00+09:00"}], [mk()]) == ["m", "a"]  # 수동 start에 시각이 있다
+    assert merged_ids([{**manual[0], "end": "2026-11-01T20:00:00+09:00"}], [mk()]) == ["m", "a"]  # 수동 end에 시각이 있다
+    assert merged_ids([{k: v for k, v in manual[0].items() if k != "end"}], [mk()]) == ["m", "a"]  # 한쪽만 end가 없다
+
+
+def test_one_day_events_never_match_by_the_date_range_rule():
+    """하루짜리 일정은 같은 날 서로 다른 것이 여럿일 수 있어 기간 규칙을 적용하지 않는다. 하루 굿즈 마감이 같은 날의 수동 일정에 가려지면 안 된다."""
+    manual = [{"id": "m", "title": "수동 일정", "start": "2026-10-04", "who": ["all"], "url": "https://x.test/m"}]
+    goods = auto("goods", "신의상 스탠드 판매 마감", "2026-10-04", id="g", time="23:59", url="https://stellive.me/news/1")
+    assert merged_ids(manual, [goods]) == ["m", "g"]
+    assert merged_ids(manual, [{**goods, "end": "2026-10-04"}]) == ["m", "g"]  # end가 start와 같은 날이면 하루짜리다
+    two_days = [{**manual[0], "end": "2026-10-05"}]
+    assert merged_ids(two_days, [{**goods, "end": "2026-10-05"}]) == ["m"]  # 이틀 이상이면 하루를 넘는 기간이다
+
+
+def test_photoism_next_to_the_real_popup_still_shows():
+    photoism = auto("other", "PHOTOISM X STELLA MODE:ON 콜라보 프레임", "2026-10-23", end="2026-11-05", id="auto-sl-13905-2", source="sl-13905")
+    assert merged_ids(MANUAL, [REAL_POPUP, photoism]) == ["ev-popup-rsv", "ev-popup", "auto-sl-13905-2"]
+
+
+def test_common_words_do_not_block_the_title_containment_against_manual_events():
+    manual = [{"id": "m", "title": "2026 신의상 스탠드 굿즈 판매 마감", "start": "2026-10-04", "who": ["all"], "url": "https://x.test/m"}]
+    assert merged_ids(manual, [auto("goods", "신의상 스탠드 판매 마감", "2026-10-04", id="a")]) == ["m"]
+    assert merged_ids(manual, [auto("goods", "굿즈 판매 마감", "2026-10-04", id="a")]) == ["m", "a"]  # 흔한 단어뿐이라 빈 문자열 → 합치지 않는다
+    assert merged_ids(manual, [auto("goods", "타비 생일 굿즈 판매 마감", "2026-10-04", id="a")]) == ["m", "a"]
+
+
 def test_a_title_that_contains_the_other_hides_the_auto_event_when_the_start_day_matches():
     manual = [{"id": "m", "title": "2026 STELLIVE POP-UP STELLA MODE:ON", "start": "2026-10-23", "who": ["all"], "url": "https://other.test/x"}]
     assert merged_ids(manual, [auto(title="STELLA MODE:ON", id="a")]) == ["m"]  # 자동 제목이 수동 제목에 들어 있다
@@ -295,8 +366,8 @@ def test_a_different_start_day_is_never_compared_even_with_the_same_url_and_titl
 
 
 def test_the_start_day_is_the_korean_day_not_the_utc_day():
-    manual = [{"id": "m", "title": "예약 오픈", "start": "2026-10-12T00:30:00+09:00", "who": ["all"]}]  # UTC로는 10-11
-    assert merged_ids(manual, [auto("reservation", "예약 오픈", "2026-10-12", id="a")]) == ["m"]
+    manual = [{"id": "m", "title": "팝업 사전 예약 오픈", "start": "2026-10-12T00:30:00+09:00", "who": ["all"]}]  # UTC로는 10-11
+    assert merged_ids(manual, [auto("reservation", "팝업 사전 예약 오픈", "2026-10-12", id="a")]) == ["m"]  # (제목이 '예약 오픈'뿐이면 흔한 단어만 남아 빈 제목이라 합쳐지지 않는다)
 
 
 def test_a_separate_event_from_the_same_notice_and_start_day_stays_when_its_end_differs():
@@ -347,15 +418,60 @@ def test_the_time_rule_needs_the_exact_same_instant_and_never_applies_to_date_on
     assert merged_ids(dateonly, [mk("2026-10-12", kind="goods")]) == ["m", "a"]
 
 
-def test_auto_events_are_not_deduplicated_against_each_other_on_the_site():
-    """자동끼리의 중복 제거는 저장 시점(서버)에서 끝난다. 사이트는 받은 자동 일정을 그대로 보여준다."""
-    assert merged_ids([], [auto(id="a"), auto(id="b")]) == ["a", "b"]
+REAL_STANDS = [auto("goods", "STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 굿즈 판매 마감", "2026-10-04", id="auto-sl-13557-2", source="sl-13557", time="23:59", url="https://stellive.me/news/13557"),
+               auto("goods", "STELLIVE 여름 신의상 공개 기념 아크릴 스탠드 판매 마감", "2026-10-04", id="auto-sl-14028-1", source="sl-14028", time="23:59", url="https://stellive.me/news/14028")]
+
+
+def test_the_two_stored_stand_deadlines_show_as_one_line_and_the_earlier_notice_wins():
+    """달력에서 본 문제 (나): 서버가 예전 규칙(공백·기호만 뺀 제목)으로 저장한 두 건이 사이트에서 한 줄로 보인다. 어느 쪽이 먼저 오든 먼저 처리된(번호가 작은) 공지의 것이 남는다."""
+    assert merged_ids([], REAL_STANDS) == ["auto-sl-13557-2"]
+    assert merged_ids([], REAL_STANDS[::-1]) == ["auto-sl-13557-2"]
+
+
+def test_different_goods_with_the_same_deadline_both_show():
+    tabi = auto("goods", "타비 생일 굿즈 마감", "2026-10-07", id="t", source="sl-1", url="https://stellive.me/news/1")
+    nana = auto("goods", "나나 생일 굿즈 마감", "2026-10-07", id="n", source="sl-2", url="https://stellive.me/news/2")
+    assert merged_ids([], [tabi, nana]) == ["t", "n"]
+    assert merged_ids([], [tabi, {**nana, "title": "굿즈 판매 마감"}]) == ["t", "n"]  # 빈 제목은 합치지 않는다
+
+
+def test_auto_events_of_the_same_notice_are_never_merged_with_each_other():
+    assert merged_ids([], [auto(id="a"), auto(id="b")]) == ["a", "b"]  # 같은 공지(source 같음) 안의 일정끼리는 서버도 합치지 않는다
+    assert merged_ids([], [auto(id="a", source="sl-1"), auto(id="b", source="sl-2")]) == ["a"]  # 다른 공지면 popup은 kind가 같아 합쳐진다
+    assert merged_ids([], [auto("other", "콜라보 프레임", id="a", source="sl-1"), auto("other", "카페 이벤트", id="b", source="sl-2")]) == ["a", "b"]  # other는 kind만으로는 합치지 않는다
+
+
+def test_the_winner_among_auto_duplicates_is_the_smaller_notice_number_not_the_text_order():
+    """공지 번호는 숫자로 비교한다 (sl-9 < sl-10). 문자열로 비교하면 sl-10이 이긴다."""
+    nine, ten = auto(id="nine", source="sl-9"), auto(id="ten", source="sl-10")
+    assert merged_ids([], [ten, nine]) == ["nine"] and merged_ids([], [nine, ten]) == ["nine"]
+    no_src = [{k: v for k, v in auto(id=i).items() if k != "source"} for i in ("x", "y")]
+    assert merged_ids([], no_src) == ["x", "y"]  # source가 없으면 같은 공지로 보고 합치지 않는다
+
+
+def test_auto_vs_auto_merge_matches_the_servers_rule_with_greedy_oldest_notice_first():
+    """서버의 is_duplicate·find_duplicate를 그대로 기준으로 삼는다: 공지 번호 오름차순(같으면 목록 순서)으로 훑으며 먼저 남긴 것과 겹치면 버린다."""
+    from updater import auto_events as ae
+    titles = ["타비 생일 굿즈 판매 마감", "타비 생일 마감", "나나 생일 굿즈 마감", "팝업스토어", "굿즈 판매 마감", "!!!"]
+    specs = [(src, kind, t, st, en) for src in ("sl-9", "sl-10") for kind in ("popup", "goods") for t in titles for st in ("2026-10-04", "2026-10-05") for en in (None, "2026-10-06")]
+    raws = [auto(kind, t, st, id=f"{src}|{kind}|{t}|{st}|{en}", source=src, **({"end": en} if en else {})) for src, kind, t, st, en in specs]
+    pairs = [[a, b] for a in raws for b in raws if a is not b]
+    got = [[e["id"] for e in r] for r in js([("mergeEvents", [], p) for p in pairs])]
+    bad = []
+    for p, g in zip(pairs, got):
+        kept = []
+        for it_ in sorted(p, key=lambda x: int(x["source"][3:])):  # 파이썬 sorted는 안정 정렬이라 같은 번호는 목록 순서
+            if ae.find_duplicate(it_, kept) is None:
+                kept.append(it_)
+        want = [x["id"] for x in p if x in kept]
+        if g != want:
+            bad.append((p[0]["id"], p[1]["id"], g, want))
+    assert bad == [] and len(pairs) == len(raws) * (len(raws) - 1) == 96 * 95
 
 
 def test_manual_vs_auto_merge_matches_an_independent_reference_model():
-    import unicodedata
-    norm = lambda t: "".join(c for c in unicodedata.normalize("NFKC", t).casefold() if c.isalnum())  # noqa: E731
-    urls, titles, days, ends = ([None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!"],
+    from updater.auto_events import match_title as norm  # 제목 정규화는 서버와 같은 함수(위의 대응 시험이 사이트와 같음을 보장)
+    urls, titles, days, ends = ([None, "https://a.test/1", "https://a.test/2"], ["팝업스토어", "STELLA MODE:ON 팝업스토어 안내", "무관한 일정", "!!!", "예약 오픈 안내"],
                                 ["2026-10-23", "2026-10-24", "2026-10-23T20:00:00+09:00"], [None, "2026-11-01"])
     specs = [(u, t, d, e) for u in urls for t in titles for d in days for e in ends]
     calls, want = [], []
@@ -368,10 +484,11 @@ def test_manual_vs_auto_merge_matches_an_independent_reference_model():
             same_url = mu is not None and mu == au and (me or md[:10]) == (ae or ad[:10])  # url 일치는 끝나는 날(없으면 시작일)도 같을 때만
             same_title = norm(at) != "" and norm(mt) != "" and (norm(at) in norm(mt) or norm(mt) in norm(at))
             same_instant = len(ad) > 10 and len(md) > 10 and ad == md  # 둘 다 시각이 있고 start가 완전히 같다 (표기가 모두 +09:00라 문자열 비교 = 시각 비교)
-            want.append(["m"] if same_day and (same_url or same_title or same_instant) else ["m", "a"])
+            same_range = len(ad) == 10 and len(md) == 10 and me is not None and me == ae and ae > ad  # 둘 다 날짜만 있고 start·end가 같고 기간이 하루를 넘는다
+            want.append(["m"] if same_day and (same_url or same_title or same_instant or same_range) else ["m", "a"])
     got = [[e["id"] for e in r] for r in js(calls)]
     bad = [(calls[i][1][0], calls[i][2][0]) for i in range(len(calls)) if got[i] != want[i]]
-    assert bad == [] and len(calls) == len(specs) ** 2 == 5184
+    assert bad == [] and len(calls) == len(specs) ** 2 == 8100
 
 
 def test_goods_toggle_hides_only_goods_and_keeps_everything_else():

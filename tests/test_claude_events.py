@@ -208,6 +208,16 @@ def test_system_prompt_states_the_rules_the_validator_relies_on():
     assert "YYYY-MM-DDTHH:MM+09:00" in p
 
 
+def test_system_prompt_says_a_notice_or_info_release_time_is_not_an_event_and_broadcast_needs_an_explicit_live():
+    """달력에서 본 문제 (다): 공지 13887 '오늘 저녁 6시 … 정보가 공지될 예정'을 모델이 방송 9/27 18:00으로 뽑았다. broadcast는 방송·라이브가 그 시각에 진행된다고 명시된 경우만."""
+    p = ce.SYSTEM_PROMPT
+    assert "진행된다고 명시된" in p and "공지·정보·티저·이미지가 공개되는 시각은 일정이 아닙니다" in p
+    assert "공지될 예정" in p and "애매하면 일정을 빼세요" in p
+    broadcast_line = next(line for line in p.splitlines() if line.strip().startswith("- broadcast:"))
+    assert "명시된" in broadcast_line and "규칙 10" in broadcast_line
+    assert "10. **공지·정보·티저" in p  # 규칙 번호가 broadcast 설명의 참조와 맞는다
+
+
 def test_prompt_never_contains_the_api_key():
     c, post = client(events_reply())
     ce.extract(c, title="t", date="2026-10-01", body="본문", members={"members": {"a": {"n": "에이"}}, "groups": []})
