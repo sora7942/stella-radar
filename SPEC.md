@@ -202,8 +202,9 @@ stella-radar/
 - `keepalive.yml`(SPEC 3장 구조에 추가): 매달 1일 빈 커밋. 쓰기 권한(`contents: write`)은 이 워크플로만 갖는다. 데이터를 커밋하지 않아 저장소 활동이 없으면 GitHub가 60일 뒤 예약 실행을 끄기 때문(지금은 외부 cron이 주 경로라 이것은 GitHub `schedule`을 위한 보조 장치)
 - `concurrency: { group: pages, cancel-in-progress: false }` — 겹쳐 실행 방지
 - 권한: `contents: read`, `pages: write`, `id-token: write`
-- 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages` → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)
+- 단계: checkout → Python 3.12 + pip 캐시 → `python main.py` → `actions/upload-pages-artifact`(path: `site`) → `actions/deploy-pages`(첫 시도, `continue-on-error`) → [실패했을 때만: `sleep 30` → `actions/deploy-pages` 재시도] → **`python send_alerts.py`** (7장: 배포가 성공한 뒤에만 도는 마지막 단계. 알림 파일 `out/alerts.json`은 같은 잡의 러너에 남아 있으므로 별도 잡·아티팩트 전달이 필요 없다)
 - 업데이터가 실패(예외 종료)해도 배포 단계는 건너뛰고(알림도 나가지 않고), 실행은 실패로 표시 (GitHub 실패 메일). 배포가 실패하면 알림 단계도 돌지 않는다
+- **배포 재시도**: `deploy-pages`가 업로드 직후 "No artifacts named github-pages"(`Found 0 artifact(s)`)로 드물게 실패한다(GitHub 쪽 일시 오류, 2026-10-08·10-09·10-12). 그래서 첫 `deploy-pages`(id `deployment`)만 `continue-on-error`로 두고, 그 `outcome`이 `failure`일 때만 30초 대기 후 같은 액션을 한 번 더 돌린다(id `deployment_retry`). 두 번째도 실패하면 job이 실패한다. 알림 단계는 `steps.deployment.outcome == 'success' || steps.deployment_retry.outcome == 'success'`일 때만 돈다(`tests/test_workflows.py`가 지킨다)
 - Secret: `DISCORD_WEBHOOK_URL` — **`send_alerts.py` 단계의 `env`에만** 넣는다. 업데이터(`main.py`) 단계에는 노출하지 않는다
 - Secret: `YOUTUBE_API_KEY` — **`main.py` 단계의 `env`에만** 넣는다(업데이터만 읽는다). 없으면 RSS로 수집한다
 - Secret: `ANTHROPIC_API_KEY` — **`main.py` 단계의 `env`에만** 넣는다(업데이터만 읽는다). 없으면 공지 일정 추출만 건너뛴다(5장). 이 키는 다른 단계·`watchdog.yml`에 없다(테스트가 확인)

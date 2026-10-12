@@ -67,23 +67,51 @@ def test_single_job_on_ubuntu_with_pages_environment_and_a_timeout(update):
     assert job["environment"]["name"] == "github-pages" and "steps.deployment.outputs.page_url" in job["environment"]["url"]
 
 
+FIRST_FAILED = "steps.deployment.outcome == 'failure'"  # outcome은 continue-on-error를 적용하기 전의 실제 결과다
+
+
+def deploy_steps(doc):
+    return [s for s in steps_of(doc) if s.get("uses", "").startswith("actions/deploy-pages@")]
+
+
 def test_step_order_collect_then_deploy_then_alerts(update):
     steps = steps_of(update[0])
-    order = [find(steps, n)[0] for n in ("actions/checkout", "actions/setup-python", "pip install", "python main.py", "upload-pages-artifact", "deploy-pages", "python send_alerts.py")]
-    assert order == sorted(order) and len(set(order)) == 7
+    first, retry = deploy_steps(update[0])
+    order = [find(steps, n)[0] for n in ("actions/checkout", "actions/setup-python", "pip install", "python main.py", "upload-pages-artifact")]
+    order += [steps.index(first), steps.index(retry), find(steps, "python send_alerts.py")[0]]
+    assert order == sorted(order) and len(set(order)) == 8
     assert order[-1] == len(steps) - 1  # 알림이 맨 마지막이다 (배포 뒤)
 
 
-def test_alerts_only_run_when_every_earlier_step_succeeded(update):
+def test_deploy_is_tried_twice_with_a_30s_wait_and_only_the_first_may_fail(update):
+    """deploy-pages 간헐 실패 대응: 첫 시도는 실패를 삼키고, 실패했을 때만 30초 뒤 한 번 더 한다. 두 번째 실패는 job을 실패시킨다."""
     steps = steps_of(update[0])
-    for s in steps:
-        assert "continue-on-error" not in s, f"{s.get('name') or s.get('uses') or s.get('run')}: 실패를 삼키면 배포가 실패해도 알림 단계가 돈다"
-        assert "if" not in s, "조건을 달면 앞 단계 실패 때도 돌 수 있다 (always()/failure())"
+    first, retry = deploy_steps(update[0])
+    assert first["id"] == "deployment" and first["continue-on-error"] is True and "if" not in first
+    assert retry["id"] == "deployment_retry" and "continue-on-error" not in retry and retry["if"] == FIRST_FAILED
+    assert retry["uses"] == first["uses"] and retry.get("with") == first.get("with")  # 같은 액션·같은 아티팩트로 다시 배포
+    (wait,) = [s for s in steps if s.get("run", "").startswith("sleep")]
+    assert wait["run"] == "sleep 30" and wait["if"] == FIRST_FAILED
+    assert [steps.index(first) + 1, steps.index(wait) + 1] == [steps.index(wait), steps.index(retry)]  # 실패 → 대기 → 재시도
 
 
-def test_the_deploy_step_has_the_id_the_environment_url_refers_to(update):
-    _, deploy = find(steps_of(update[0]), "deploy-pages")
-    assert deploy["id"] == "deployment"
+def test_alerts_only_run_when_one_of_the_deploy_attempts_succeeded(update):
+    steps = steps_of(update[0])
+    first, retry = deploy_steps(update[0])
+    _, alert = find(steps, "python send_alerts.py")
+    assert alert["if"] == "steps.deployment.outcome == 'success' || steps.deployment_retry.outcome == 'success'"
+    # 상태 함수(always/failure/cancelled)가 없어야 앞 단계가 실패했을 때 돌지 않는다 (암묵적 success()가 유지된다)
+    assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", alert["if"])
+    # 조건은 대기·재시도·알림 단계에만, 실패를 삼키는 것은 첫 배포 하나에만 — 다른 단계가 삼키면 수집·배포 실패 때도 알림이 돈다
+    assert [s for s in steps if "if" in s] == [s for s in steps if s.get("run") == "sleep 30"] + [retry, alert]
+    assert [s for s in steps if "continue-on-error" in s] == [first]
+
+
+def test_the_deploy_steps_have_the_ids_the_environment_url_refers_to(update):
+    first, retry = deploy_steps(update[0])
+    assert (first["id"], retry["id"]) == ("deployment", "deployment_retry")
+    url = update[0]["jobs"]["update"]["environment"]["url"]
+    assert "steps.deployment.outputs.page_url" in url and "steps.deployment_retry.outputs.page_url" in url  # 재시도로 성공해도 환경 URL이 채워진다
 
 
 def test_python_312_with_pip_cache_and_pages_artifact_is_the_site_folder(update):

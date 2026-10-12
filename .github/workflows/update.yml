@@ -1,6 +1,7 @@
 # 30분마다 새 소식을 모아 사이트를 다시 배포하고, 배포가 성공한 뒤에 디스코드 알림을 보낸다 (SPEC 9장).
 # - 업데이터(main.py)가 실패하면 배포와 알림은 건너뛰고 실행은 실패로 표시된다.
-# - 배포가 실패하면 알림도 나가지 않는다 (알림 단계는 앞 단계가 모두 성공했을 때만 돈다).
+# - 배포(deploy-pages)는 일시 오류가 드물게 나서(업로드 직후 "No artifacts named github-pages") 첫 시도가 실패하면 30초 뒤 한 번 더 시도한다.
+#   두 번 다 실패하면 job이 실패하고 알림은 나가지 않는다 (알림 단계는 배포 시도 중 하나가 성공했을 때만 돈다).
 # - Secret은 필요한 단계의 env에만 넣는다: YOUTUBE_API_KEY → main.py, DISCORD_WEBHOOK_URL → send_alerts.py.
 name: update
 
@@ -40,7 +41,7 @@ jobs:
     timeout-minutes: 15  # 정상 실행은 몇 분. 이보다 오래 걸리는 실행은 멈춘 것이다 (job이 시작되지도 못하고 waiting에 남는 경우는 watchdog.yml이 맡는다)
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
 
@@ -63,8 +64,19 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v5
+        continue-on-error: true  # 첫 시도의 일시 오류만 삼킨다. 실패하면 아래에서 한 번 더 시도하고, 그것도 실패해야 job이 실패한다
+
+      - name: 배포 재시도 대기 (첫 시도가 실패했을 때만)
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - id: deployment_retry
+        name: 배포 재시도 (첫 시도가 실패했을 때만)
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
 
       - name: 알림 발송 (배포가 성공한 뒤에만)
+        if: steps.deployment.outcome == 'success' || steps.deployment_retry.outcome == 'success'
         run: python send_alerts.py
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
