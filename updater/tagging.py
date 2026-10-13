@@ -1,7 +1,8 @@
 """제목 → who 태그. 사전은 members.json에서 만들고, 오탐 방어용 목록만 이 파일에 둔다.
 
 규칙 (SPEC 5장):
-- 풀네임·이름·성(예: '아카네 리제', '리제', '아카네')과 영문 표기, 유닛명(에버리스/유니버스/클리셰, 영문 포함)을 사전으로 관리
+- 풀네임·이름·성(예: '아카네 리제', '리제', '아카네')과 영문 표기, 유닛명(에버리스/유니버스/클리셰/어비스, 영문 포함)을 사전으로 관리.
+  유닛은 members.json의 groups에서 읽으므로 새 기수는 members.json에 넣기만 하면 된다 (기수 별칭 '4기'는 아래 GROUP_ALIASES)
 - 여러 명이 걸리면 모두 태그(등장 순서), 하나도 없으면 'all'
 - 그룹명을 먼저 찾아 그 구간을 지운다 → '유니버스'가 멤버 '유니'로 걸리지 않는다
 - 긴 이름부터 찾고 지운다 → '하나코 나나'는 한 명으로만 센다
@@ -16,13 +17,22 @@ from dataclasses import dataclass
 ALL = "all"
 
 # 한글 이름을 품은 흔한 단어 — 이름 매칭 전에 지운다 (예: 바나나 ⊃ 나나, 유니폼 ⊃ 유니)
-BLOCKLIST = ("바나나", "유니폼", "유니콘", "유니크", "유니온", "유니티", "유니버설", "리코더", "리제로")
+BLOCKLIST = ("바나나", "유니폼", "유니콘", "유니크", "유니온", "유니티", "유니버설", "리코더", "리제로",
+             "메리트", "메리 크리스마스", "메리크리스마스", "하나요?", "4기통")  # 어비스 이름·별칭을 품은 흔한 말: 메리트·Merry Christmas·'어떻게 하나요?'·4기통
 
 # 별명. 확인된 표기만 넣는다. 한글 별명은 '단어 시작'에서만 매칭한다(앞 글자가 한글이면 제외) — 가부키의 '부키'를 막기 위해.
 # - kangji: gangzi — 유튜브 핸들 @GANGZI1 · X @GANGZIIII (members.json links)
 # - shibuki: 부키 — 공식 채널 핫클립 설명란에서 시부키를 '부키'로 줄여 쓴다
 #   ('03:20 부키 - 부키 벌레', '린, 부키, 리코 - 귀하다', '시부키 - 압축 부키')
 ALIASES: dict[str, tuple[str, ...]] = {"kangji": ("gangzi",), "shibuki": ("부키",)}
+
+# 기수 별칭 — 그룹 key → 줄임말. 한글은 단어 시작에서만 매칭한다('14기'의 '4기', '3기생'의 '기생'을 막기 위해 숫자 뒤·글자 뒤는 제외).
+# 확인된 것만 넣는다: 4기생 어비스(공식 표기 'STELLIVE 4th Generation ABYSS', 공지 14262)
+GROUP_ALIASES: dict[str, tuple[str, ...]] = {"abyss": ("4기생", "4기")}
+
+# 일상 한국어 속에 흔히 나오는 이름 조각 — 단어 시작에서만 매칭한다('스토아', '아메리카노' 속 '토아'·'메리'를 막는다).
+# 어비스 멤버: 토아(스토아), 메리(아메리카노), 하나요(뭐 하나요)
+WORD_START_NAMES = frozenset({"토아", "메리", "하나요"})
 
 _HANGUL = "가-힣"
 _PARTICLES = "이랑|한테|에게|이|가|은|는|을|를|의|도|와|과|에|랑|만"
@@ -62,6 +72,7 @@ class _Term:
 class TagIndex:
     terms: tuple[_Term, ...]  # 그룹 먼저, 각각 긴 것부터
     blocklist: tuple[str, ...]
+    group_keys: frozenset  # members.json의 그룹 key (boss 제외) — 아티스트 문자열에서 유닛으로 센다
     artists: dict  # 정규화한 이름 전체 일치 → who key (아티스트 문자열 파싱용: 멤버 영문·한글명, 유닛명, STELLIVE → all)
 
 
@@ -80,6 +91,7 @@ def build_index(members: dict) -> TagIndex:
             en = _norm(g["en"])
             names |= {en, _strip_accents(en)}  # cliché / cliche
         groups += _terms(names, g["key"])
+        groups += _terms({_norm(a) for a in GROUP_ALIASES.get(g["key"], ())}, g["key"], word_start=True)
 
     people: list[_Term] = []
     for key, m in members["members"].items():
@@ -88,7 +100,9 @@ def build_index(members: dict) -> TagIndex:
             tokens = full.split()
             if len(tokens) > 1:  # 성·이름 따로 ('아카네', '리제' / 'Akane', 'Lize')
                 names |= {_norm(tokens[0]), _norm(tokens[-1])}
-        people += _terms(names, key)
+        risky = {n for n in names if n in WORD_START_NAMES}
+        people += _terms(names - risky, key)
+        people += _terms(risky, key, word_start=True)
         people += _terms({_norm(a) for a in ALIASES.get(key, ())}, key, word_start=True)
 
     artists: dict[str, str] = {}
@@ -105,7 +119,8 @@ def build_index(members: dict) -> TagIndex:
     artists.update({"stellive": ALL, "스텔라이브": ALL})
 
     ordered = sorted(groups, key=lambda t: -len(t.text)) + sorted(people, key=lambda t: -len(t.text))
-    return TagIndex(terms=tuple(ordered), blocklist=tuple(_norm(w) for w in BLOCKLIST), artists=artists)
+    group_keys = frozenset(g["key"] for g in members.get("groups", []) if g["key"] != "boss")
+    return TagIndex(terms=tuple(ordered), blocklist=tuple(_norm(w) for w in BLOCKLIST), group_keys=group_keys, artists=artists)
 
 
 def tag_text(text: str, index: TagIndex) -> list[str]:
@@ -154,6 +169,6 @@ def parse_artist(artist: str, index: TagIndex) -> ArtistInfo:
         key = index.artists.get(name)
         if key and key not in who:
             who.append(key)
-    members = [k for k in who if k not in (ALL, "everys", "universe", "cliche")]
-    groups = [k for k in who if k in ("everys", "universe", "cliche")]
+    members = [k for k in who if k != ALL and k not in index.group_keys]
+    groups = [k for k in who if k in index.group_keys]
     return ArtistInfo(who=who, members=members, groups=groups, all=ALL in who, tokens=tokens)

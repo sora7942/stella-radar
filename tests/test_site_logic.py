@@ -32,7 +32,8 @@ else if (input.ls === 'throws') globalThis.localStorage = { getItem() { throw ne
 // input.ls === 'missing' → localStorage 자체가 없다 (접근하면 ReferenceError)
 __ZONE__
 const fns = { membersOf, expand, esc, matchCat, matchGroup, isShort, shortHref, feedFilter, loadHideShorts, saveHideShorts, CATS: () => CATS,
-  kstDay, timeOf, normTitle, matchTitle, safeHref, normEvent, mergeEvents, visibleEvents, autoChip, loadShowGoods, saveShowGoods };
+  kstDay, timeOf, normTitle, matchTitle, safeHref, normEvent, mergeEvents, visibleEvents, autoChip, loadShowGoods, saveShowGoods,
+  bdParts, groupChips, chipMembers };
 console.log(JSON.stringify(input.calls.map(c => fns[c.fn](...c.args))));
 """
 
@@ -198,7 +199,8 @@ def test_a_garbage_stored_value_means_show():
 
 
 # ============================ 일정: 수동 + 자동 합치기 (기능 3) ===================
-MANUAL = json.loads((ROOT / "site" / "data" / "events.json").read_text(encoding="utf-8"))["items"]  # 실제 수동 일정: ev-popup-rsv, ev-popup
+MANUAL_ALL = json.loads((ROOT / "site" / "data" / "events.json").read_text(encoding="utf-8"))["items"]
+MANUAL = [e for e in MANUAL_ALL if not e["id"].startswith("ev-abyss-debut-")]  # 실제 수동 일정 중 팝업 관련: ev-popup-rsv, ev-popup (어비스 데뷔 방송은 아래 어비스 절에서)
 NOTICE = "https://stellive.me/news/13905"
 
 
@@ -603,3 +605,66 @@ def test_event_titles_and_places_are_always_escaped_before_going_into_innerhtml(
     body = HTML[HTML.index("function eventsOn("):HTML.index("function moveMonth(")]
     assert "innerHTML" in body
     assert "+e.title+" not in body and "+e.note+" not in body and "+e.place+" not in body  # 날것으로 이어 붙이지 않는다
+
+
+# ============================ 4기생 어비스 추가 (2026-10-13) ======================
+ABYSS_KEYS = ["toa", "rang", "hiyori", "mary"]
+
+
+def test_group_chips_are_built_from_members_json_so_a_new_generation_needs_no_html_change():
+    chips = one("groupChips")
+    assert [c["k"] for c in chips] == ["all-view", "boss", "everys", "universe", "cliche", "abyss", "all"]
+    assert [c["label"] for c in chips] == ["전체", "강지", "에버리스", "유니버스", "클리셰", "어비스", "단체"]
+
+
+def test_member_chips_follow_the_group_and_skip_one_person_or_non_groups():
+    assert one("chipMembers", "abyss") == ABYSS_KEYS
+    assert one("chipMembers", "everys") == ["yuni", "huya"]
+    assert one("chipMembers", "boss") == [] and one("chipMembers", "all") == [] and one("chipMembers", "all-view") == []
+
+
+def test_no_group_key_list_is_hard_coded_in_the_page_any_more():
+    assert "var GF=" not in HTML
+    assert not re.search(r'"everys"[^;\n]{0,40}"universe"[^;\n]{0,40}"cliche"', HTML), "그룹 key 목록이 HTML에 하드코딩돼 있다"
+    assert not re.search(r'filterG===("everys"|"universe"|"cliche")', HTML)
+
+
+def test_abyss_feed_filters_match_the_group_its_members_and_group_tagged_items():
+    items = [it("g", "영상", ["abyss"]), it("m", "영상", ["toa"]), it("a", "공지", ["all"]), it("o", "영상", ["lize"]), it("k", "영상", ["kangji"])]
+    shown = lambda g, m=None: [i["id"] for i in items if one("feedFilter", i, {"c": "all", "g": g, "m": m, "hideShorts": False})]  # noqa: E731
+    assert shown("abyss") == ["g", "m"]  # 그룹 태그 + 그 그룹 멤버 태그. 단체(all)는 그룹 필터에 걸리지 않는다
+    assert shown("abyss", "toa") == ["g", "m", "a"]  # 멤버 필터: 그룹 태그(abyss)와 단체(all)는 멤버로 펼쳐져 토아도 포함한다
+    assert shown("all-view", "rang") == ["g", "a"]
+    assert one("expand", ["abyss"]) == ABYSS_KEYS
+    assert one("expand", ["all"]) == [k for k in MEMBERS["members"] if k != "kangji"] and set(ABYSS_KEYS) <= set(one("expand", ["all"]))
+
+
+@pytest.mark.parametrize("bd, expected", [("11-22", [11, 22]), ("08-22", [8, 22]), ("1-5", [1, 5]), ("12-31", [12, 31]),
+                                          (None, None), ("", None), ("abc", None), ("13-01", None), ("00-10", None), ("05-32", None), ("05/10", None), (1122, None)])
+def test_birthdays_are_read_defensively_so_a_member_without_one_cannot_break_the_page(bd, expected):
+    assert one("bdParts", bd) == expected
+
+
+def test_every_birthday_use_goes_through_the_defensive_reader():
+    assert ".bd.split(" not in HTML and "m.bd.split" not in HTML
+    assert HTML.count("bdParts(") >= 4  # 정의 1 + 달력 그리드·다가오는 일정·멤버 카드
+
+
+def test_the_abyss_anniversary_is_on_the_first_debut_day_and_tied_to_the_group():
+    line = next(l for l in HTML.splitlines() if 'who:["abyss"]' in l)
+    assert 'md:"10-17"' in line and "y0:2026" in line and "어비스 데뷔 기념일" in line
+    assert "abyss" in {g["key"] for g in MEMBERS["groups"]}
+
+
+def test_manual_debut_broadcasts_hide_automatic_events_at_the_same_time():
+    """자동 추출이 같은 시각의 데뷔 방송을 뽑더라도(공지 14262는 현재 'none'으로 기록돼 있다) 수동 4개만 보인다."""
+    manual = [e for e in MANUAL_ALL if e["id"].startswith("ev-abyss-debut-")]
+    assert len(manual) == 4
+    autos = [auto(kind="broadcast", title=f"{n} 데뷔 스트림", start=e["start"], source="sl-14262", url="https://stellive.me/news/14262", who=[e["who"][0]], id=f"auto-sl-14262-{i}")
+             for i, (n, e) in enumerate(zip(["시즈키 토아", "코가네 랑", "하나요 히요리", "토키노 메리"], manual), 1)]
+    ids = merged_ids(manual, autos)
+    assert [i for i in ids if i.startswith("ev-abyss-debut-")] == [e["id"] for e in manual]
+    assert not any(i.startswith("auto-sl-14262-") for i in ids)  # 제목이 달라도 시각이 같으면 수동만
+    # 시각이 다른 자동 일정(예: 데뷔 다음 날 다른 방송)은 그대로 보인다
+    other = auto(kind="broadcast", title="어비스 단체 방송", start="2026-10-19T20:00:00+09:00", source="sl-14262", url="https://stellive.me/news/14262", id="auto-sl-14262-9")
+    assert "auto-sl-14262-9" in merged_ids(manual, autos + [other])

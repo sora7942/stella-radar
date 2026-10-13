@@ -21,6 +21,46 @@
    ],
    "note": "서울 광진구 광나루로 441 · 10:00–20:00",
    "url": "https://stellive.me/news/13905"
+  },
+  {
+   "id": "ev-abyss-debut-toa",
+   "start": "2026-10-17T17:00:00+09:00",
+   "title": "시즈키 토아 데뷔 방송",
+   "who": [
+    "toa"
+   ],
+   "note": "어비스 DAY 1 · 1번째 · 치지직 생방송",
+   "url": "https://stellive.me/news/14262"
+  },
+  {
+   "id": "ev-abyss-debut-rang",
+   "start": "2026-10-17T18:00:00+09:00",
+   "title": "코가네 랑 데뷔 방송",
+   "who": [
+    "rang"
+   ],
+   "note": "어비스 DAY 1 · 2번째 · 치지직 생방송",
+   "url": "https://stellive.me/news/14262"
+  },
+  {
+   "id": "ev-abyss-debut-hiyori",
+   "start": "2026-10-18T17:00:00+09:00",
+   "title": "하나요 히요리 데뷔 방송",
+   "who": [
+    "hiyori"
+   ],
+   "note": "어비스 DAY 2 · 1번째 · 치지직 생방송",
+   "url": "https://stellive.me/news/14262"
+  },
+  {
+   "id": "ev-abyss-debut-mary",
+   "start": "2026-10-18T18:00:00+09:00",
+   "title": "토키노 메리 데뷔 방송",
+   "who": [
+    "mary"
+   ],
+   "note": "어비스 DAY 2 · 2번째 · 치지직 생방송",
+   "url": "https://stellive.me/news/14262"
   }
  ]
 }

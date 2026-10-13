@@ -58,7 +58,9 @@ def test_open_date_missing_key():
 
 @pytest.mark.parametrize("mutate", [
     lambda d: d.update(code=404),
-    lambda d: d.update(content=None),
+    lambda d: d.update(code=404, content=None),   # 없는 채널(404)의 본문은 content가 null이어도 오류다
+    lambda d: d.update(code=500, content=None),
+    lambda d: d.pop("content"),                   # content 키 자체가 없는 응답은 '방송한 적 없음'이 아니라 형식 오류
     lambda d: d.update(content="x"),
     lambda d: d["content"].update(status=None),
     lambda d: d["content"].pop("status"),
@@ -69,6 +71,11 @@ def test_unexpected_shapes_are_errors_not_off(mutate):
     mutate(d)
     with pytest.raises(chzzk.LiveParseError):
         chzzk.parse_live(d, LIZE_ID)
+
+
+def test_a_channel_that_never_streamed_is_off_not_an_error():
+    """데뷔 전 채널(2026-10-13 어비스 4개 채널 실측): HTTP 200 {"code":200,"message":null,"content":null}"""
+    assert chzzk.parse_live({"code": 200, "message": None, "content": None}, LIZE_ID) == {"on": False}
 
 
 @pytest.mark.parametrize("not_a_dict", [None, [], "<html>blocked</html>", 7])
@@ -292,6 +299,31 @@ def test_the_round_retry_is_logged_without_the_url(caplog):
 ])
 def test_the_api_code_is_read_defensively(body, expected):
     assert chzzk._api_code(make_response(500, body)) == expected
+
+
+def never_streamed_getter():
+    def get(url, **kw):
+        return make_response(200, json.dumps({"code": 200, "message": None, "content": None}))
+    return get
+
+
+def test_never_streamed_members_are_off_with_no_failure_streak_and_no_warning():
+    """어비스 4명처럼 방송한 적 없는 채널이 매 실행 실패로 세어져 3회째부터 경고가 쌓이면 안 된다."""
+    seen = []
+    prev = {}
+    for run_no in range(5):  # 몇 번을 돌려도 같다
+        patches, errors = run_with_prev(never_streamed_getter(), prev, lambda *a: seen.append(a))
+        assert errors == [] and seen == []
+        assert patches == {"lize": {"live": {"on": False, "checkedAt": NOW_ISO}}, "tabi": {"live": {"on": False, "checkedAt": NOW_ISO}}}
+        prev = {k: dict(v) for k, v in patches.items()}
+
+
+def test_a_nonexistent_channel_id_is_still_a_failure():
+    """live-status는 없는 채널 ID에 HTTP 404를 준다 — 오타 난 ID가 '꺼짐'으로 조용히 묻히지 않는다."""
+    def get(url, **kw):
+        raise requests.HTTPError("404", response=make_response(404, json.dumps({"code": 404, "message": "채널이 존재하지 않습니다."})))
+    patches, errors = run_with_prev(get, {})
+    assert patches == {"lize": {"liveFails": 1}, "tabi": {"liveFails": 1}} and len(errors) == 2
 
 
 # ============================ 연속 실패 횟수 · 경고 =============================

@@ -6,7 +6,7 @@ from datetime import datetime
 import pytest
 import requests
 
-from conftest import FIXTURES, ROOT, make_response
+from conftest import FIXTURES, N_CHANNELS, ROOT, make_response
 from fakesite import Site, song
 from updater import config
 import main as app
@@ -47,10 +47,11 @@ class Net:
 
     def __init__(self, *, fail_channels=(), state_status=404, songs=None, down=False, news_fails=False,
                  live=(), chzzk_fail=(), page_fail=(), open_date="2026-10-06 20:30:10", api=None, chzzk_5xx=(), chzzk_flaky=(),
-                 chzzk_v2_geo_blocked=()):
+                 chzzk_v2_geo_blocked=(), chzzk_never_streamed=()):
         self.calls = []
         self.chzzk_5xx = set(chzzk_5xx)  # v2·v3 모두 항상 HTTP 500을 내는 치지직 채널 ID
         self.chzzk_flaky, self._flaked = set(chzzk_flaky), set()  # 첫 요청만 HTTP 500이고 다음 요청부터 정상인 채널 ID
+        self.chzzk_never_streamed = set(chzzk_never_streamed)  # 방송한 적 없는 채널(데뷔 전): HTTP 200 {code:200, content:null}
         self.chzzk_v2_geo_blocked = set(chzzk_v2_geo_blocked)  # v2만 HTTP 500 code 9004(해외 시청 불가)이고 v3는 정상인 채널 ID
         self.api = api  # fakeapi.FakeApi. None이면 YouTube API 호출이 오면 실패시킨다 (키가 없을 땐 API를 부르면 안 된다)
         self.fail_channels, self.state_status, self.down, self.news_fails = set(fail_channels), state_status, down, news_fails
@@ -94,6 +95,8 @@ class Net:
                 raise requests.ConnectionError("blocked")
             if "/polling/v2/" in url and cid in self.chzzk_v2_geo_blocked:  # 후야 사례: v2만 HTTP 500 code 9004(해외 시청 불가), v3는 정상
                 raise requests.HTTPError("500 Server Error", response=make_response(500, json.dumps({"code": 9004, "message": "해외 시청 불가능한 컨텐츠 입니다.", "content": None})))
+            if cid in self.chzzk_never_streamed:
+                return make_response(200, json.dumps({"code": 200, "message": None, "content": None}))
             if cid in self.chzzk_5xx or (cid in self.chzzk_flaky and cid not in self._flaked):
                 self._flaked.add(cid)
                 raise requests.HTTPError("500 Server Error", response=make_response(500))
@@ -778,8 +781,8 @@ def test_with_a_key_videos_come_from_the_api_and_rss_is_not_requested(data_dir):
     net = Net(api=fake)
     assert api_run(data_dir, net, T1, "--only", "youtube") == 0
     assert net.calls_to(RSS_URL) == []  # API가 기본이라 RSS는 부르지 않는다
-    # 수집: channels.list 1 + playlistItems 12(채널당 1). 이어서 쇼츠 판별: 영상이 있는 3채널 × (UUSH + UULF) = playlistItems 6 (가짜 목록이 비어 있어 전부 미정)
-    assert fake.endpoints() == ["channels"] + ["playlistItems"] * 12 + ["playlistItems"] * 6
+    # 수집: channels.list 1 + playlistItems N_CHANNELS(채널당 1). 이어서 쇼츠 판별: 영상이 있는 3채널 × (UUSH + UULF) = playlistItems 6 (가짜 목록이 비어 있어 전부 미정)
+    assert fake.endpoints() == ["channels"] + ["playlistItems"] * N_CHANNELS + ["playlistItems"] * 6
     videos = [i for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
     assert len(videos) == 15 + 15 + 15 and all(v["date"].endswith("+09:00") and v["added"] == T1 for v in videos)
     assert {v["source"] for v in videos} == {"강지 유튜브", "아카네 리제 유튜브", "스텔라이브 공식 유튜브"}
@@ -799,8 +802,8 @@ def test_upload_playlist_ids_are_cached_in_status_and_reused_next_run(data_dir):
     assert read(data_dir, "status")["updatedAt"] == T1
     fake2 = FakeApi()
     api_run(data_dir, Net(api=fake2), T2, "--only", "youtube", "--local-state")
-    # 캐시 덕분에 channels.list를 다시 부르지 않는다. playlistItems는 수집 12 + 쇼츠 판별 재시도 6 (30분 전에 처음 본 영상이라 아직 미정)
-    assert "channels" not in fake2.endpoints() and fake2.endpoints() == ["playlistItems"] * 18
+    # 캐시 덕분에 channels.list를 다시 부르지 않는다. playlistItems는 수집 N_CHANNELS + 쇼츠 판별 재시도 6 (30분 전에 처음 본 영상이라 아직 미정)
+    assert "channels" not in fake2.endpoints() and fake2.endpoints() == ["playlistItems"] * (N_CHANNELS + 6)
 
 
 def test_the_cache_survives_other_sources_rewriting_status(data_dir):
@@ -829,8 +832,8 @@ def test_quota_exceeded_on_the_first_call_falls_back_to_rss_for_every_channel(da
     net = Net(api=fake)
     with caplog.at_level("WARNING"):
         assert api_run(data_dir, net, T1, "--only", "youtube") == 0
-    assert "YouTube API 할당량 초과 — 남은 12개 채널은 RSS로 수집합니다" in caplog.text
-    assert len(net.calls_to(RSS_URL)) == 12 and fake.endpoints() == ["channels"]
+    assert f"YouTube API 할당량 초과 — 남은 {N_CHANNELS}개 채널은 RSS로 수집합니다" in caplog.text
+    assert len(net.calls_to(RSS_URL)) == N_CHANNELS and fake.endpoints() == ["channels"]
     assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"])
 
 
@@ -842,8 +845,8 @@ def test_quota_exceeded_midway_uses_rss_only_for_the_channels_left(data_dir, cap
     with caplog.at_level("WARNING"):
         assert api_run(data_dir, net, T1, "--only", "youtube") == 0
     asked = [u.split("channel_id=")[1] for u in net.calls_to(RSS_URL)]
-    assert asked == left and len(left) == 9  # 못 한 9개 채널만 RSS
-    assert "남은 9개 채널은 RSS" in caplog.text
+    assert asked == left and len(left) == N_CHANNELS - 3  # 못 한 채널만 RSS (앞 3개는 API로 했다)
+    assert f"남은 {N_CHANNELS - 3}개 채널은 RSS" in caplog.text
     ids = [i["id"] for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
     assert len(ids) == len(set(ids)) and any(i["source"] == "강지 유튜브" for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-"))
 
@@ -862,12 +865,12 @@ def test_a_rejected_key_falls_back_to_rss_and_leaves_a_warning_annotation_on_act
     net = Net(api=fake)
     with caplog.at_level("INFO"):
         assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 0  # 대체했으니 실패가 아니다
-    assert len(net.calls_to(RSS_URL)) == 12 and fake.endpoints() == ["channels"]  # API는 한 번만 부르고 12개 채널 모두 RSS로
+    assert len(net.calls_to(RSS_URL)) == N_CHANNELS and fake.endpoints() == ["channels"]  # API는 한 번만 부르고 모든 채널을 RSS로
     assert any(i["id"].startswith("yt-") for i in read(data_dir, "news")["items"])
     out = capsys.readouterr().out
     assert f"::warning title=YouTube API::YouTube API 키 확인 필요 ({detail})" in out  # Actions 실행 요약에 보이는 주석
     assert out.count("::warning") == 1  # 주석은 한 번, 한 줄
-    assert f"YouTube API 키 확인 필요 ({detail}) — 남은 12개 채널은 RSS로 수집합니다" in caplog.text
+    assert f"YouTube API 키 확인 필요 ({detail}) — 남은 {N_CHANNELS}개 채널은 RSS로 수집합니다" in caplog.text
     assert KEY not in out + caplog.text
 
 
@@ -882,7 +885,7 @@ def test_a_key_rejected_midway_uses_rss_only_for_the_channels_left(data_dir, cap
     members_ = read(data_dir, "members")
     left = [members_["members"][k]["yt_id"] for k in list(members_["members"])[3:] if members_["members"][k].get("yt_id")] + [OFFICIAL_YT_ID]
     assert api_run(data_dir, net, T1, "--only", "youtube", actions=True) == 0
-    assert [u.split("channel_id=")[1] for u in net.calls_to(RSS_URL)] == left and len(left) == 9
+    assert [u.split("channel_id=")[1] for u in net.calls_to(RSS_URL)] == left and len(left) == N_CHANNELS - 3
     assert "::warning title=YouTube API::YouTube API 키 확인 필요 (HTTP 403 forbidden)" in capsys.readouterr().out
     ids = [i["id"] for i in read(data_dir, "news")["items"] if i["id"].startswith("yt-")]
     assert len(ids) == len(set(ids))

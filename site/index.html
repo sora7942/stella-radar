@@ -377,6 +377,7 @@ var ANNIV = [
   {md:"05-18",t:"클리셰 데뷔 기념일",who:["cliche"],y0:2024},
   {md:"06-10",t:"유니버스 데뷔 기념일",who:["universe"],y0:2023},
   {md:"09-20",t:"에버리스 결성 · 후야 데뷔 기념일",who:["everys"],y0:2025},
+  {md:"10-17",t:"어비스 데뷔 기념일",who:["abyss"],y0:2026},
   {md:"12-28",t:"스텔라이브 설립 기념일",who:["all"],y0:2022}
 ];
 var QLINK_LABELS={site:"공식 홈페이지",youtube:"공식 유튜브",x:"공식 X",cafe:"공식 팬카페",shop:"굿즈샵 (팬딩)",graduation:"졸업 멤버"};
@@ -385,6 +386,11 @@ var QLINK_LABELS={site:"공식 홈페이지",youtube:"공식 유튜브",x:"공�
 var M={}, G=[], OFFICIAL={}, STATUS={members:{}}, CUR=[], CAT=[], DATA={items:[],events:[],auto:[],updatedAt:null};
 /* <logic> 화면(DOM)과 무관한 순수 로직. tests/test_site_logic.py가 이 구역만 꺼내 node로 실행한다 — M·G는 바깥에서 주입되고, 여기서는 document·window를 쓰지 않는다 */
 var membersOf=function(g){return Object.keys(M).filter(function(k){return M[k].g===g;});};
+// 생일 "MM-DD" 읽기. 없거나 읽을 수 없으면 null — 생일을 모르는 멤버가 있어도 화면 전체가 멈추지 않게 한다
+function bdParts(bd){var m=/^(\d{1,2})-(\d{1,2})$/.exec(bd==null?"":String(bd));if(!m)return null;var mo=+m[1],d=+m[2];return(mo>=1&&mo<=12&&d>=1&&d<=31)?[mo,d]:null;}
+// 그룹 칩은 members.json의 groups(순서 그대로)에서 만든다 — 새 기수가 생겨도 이 파일을 고칠 필요가 없다. 멤버 칩은 강지 혼자인 boss를 뺀 그룹에서만 보인다
+function groupChips(){return [{k:"all-view",label:"전체"}].concat((G||[]).map(function(g){return {k:g.key,label:g.label};})).concat([{k:"all",label:"단체"}]);}
+function chipMembers(g){return (g==="all-view"||g==="all"||g==="boss")?[]:membersOf(g);}
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
 // localStorage는 막혀 있거나(사생활 보호 모드·차단) 예외를 던질 수 있다 — 읽기·쓰기 모두 try/catch로 감싸 실패해도 화면은 그대로 동작한다
 var store={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
@@ -492,12 +498,11 @@ function renderLive(){
 // ---------- 소식 ----------
 var filterG="all-view", filterM=null, filterC="all", hideShorts=loadHideShorts(), feedLimit=40;
 var lastSeen=store.get("sr_lastSeen");
-var GF=[{k:"all-view",label:"전체"},{k:"boss",label:"강지"},{k:"everys",label:"에버리스"},{k:"universe",label:"유니버스"},{k:"cliche",label:"클리셰"},{k:"all",label:"단체"}];
 function renderChips(){
   $("#cchips").innerHTML=CATS.map(function(c){return '<button class="chip" data-c="'+c.k+'" aria-pressed="'+(filterC===c.k)+'">'+esc(c.label)+"</button>";}).join("")+
     '<button class="chip toggle" id="hideshorts" aria-pressed="'+hideShorts+'" title="쇼츠 영상을 소식 목록에서 숨겨요">쇼츠 숨기기</button>';
-  $("#gchips").innerHTML=GF.map(function(g){return '<button class="chip" data-g="'+g.k+'" aria-pressed="'+(filterG===g.k)+'">'+esc(g.label)+"</button>";}).join("");
-  var ms=(filterG==="everys"||filterG==="universe"||filterG==="cliche")?membersOf(filterG):[];
+  $("#gchips").innerHTML=groupChips().map(function(g){return '<button class="chip" data-g="'+g.k+'" aria-pressed="'+(filterG===g.k)+'">'+esc(g.label)+"</button>";}).join("");
+  var ms=chipMembers(filterG);
   $("#mchips").hidden=!ms.length;
   $("#mchips").innerHTML=ms.map(function(k){return '<button class="chip" data-m="'+k+'" aria-pressed="'+(filterM===k)+'"><span class="dot" style="background:'+M[k].c+'"></span>'+esc(M[k].n)+"</button>";}).join("");
 }
@@ -529,14 +534,14 @@ var showGoods=loadShowGoods();
 function evList(){return visibleEvents(mergeEvents(DATA.events,DATA.auto),showGoods);}
 function eventsOn(y,m){var res={};function add(d,e){(res[d]=res[d]||[]).push(e);}
   var dim=new Date(Date.UTC(y,m+1,0)).getUTCDate();
-  Object.keys(M).forEach(function(k){var p=M[k].bd.split("-");if(+p[0]-1===m)add(+p[1],{title:M[k].n+" 생일",short:M[k].n.split(" ").pop()+" 생일",kind:"생일",who:[k]});});
+  Object.keys(M).forEach(function(k){var p=bdParts(M[k].bd);if(p&&p[0]-1===m)add(p[1],{title:M[k].n+" 생일",short:M[k].n.split(" ").pop()+" 생일",kind:"생일",who:[k]});});
   ANNIV.forEach(function(a){var p=a.md.split("-");var n=y-a.y0;if(+p[0]-1===m&&n>=0)add(+p[1],{title:a.t+(n>0?" ("+n+"주년)":""),short:a.t.replace(" 기념일","").replace(" · 후야 데뷔",""),kind:"기념일",who:a.who});});
   evList().forEach(function(e){
     for(var d=1;d<=dim;d++){var t=Date.UTC(y,m,d);if(t>=e.s&&t<=e.en)add(d,{title:e.title,short:e.title.replace(/^20\d\d STELLIVE POP-UP /,"팝업 "),kind:e.kind,who:e.who,url:e.url,note:e.note,auto:e.auto,span:e.end?fmtMD(e.s)+"–"+fmtMD(e.en):""});}});
   return res;}
 function allEvents(){var today=kstToday(),end=today+366*DAY,out=[],y=new Date(today).getUTCFullYear();
   function nextMD(md){var p=md.split("-");var t=Date.UTC(y,+p[0]-1,+p[1]);if(t<today)t=Date.UTC(y+1,+p[0]-1,+p[1]);return t;}
-  Object.keys(M).forEach(function(k){out.push({t:nextMD(M[k].bd),title:M[k].n+" 생일",kind:"생일",who:[k]});});
+  Object.keys(M).forEach(function(k){if(bdParts(M[k].bd))out.push({t:nextMD(M[k].bd),title:M[k].n+" 생일",kind:"생일",who:[k]});});
   ANNIV.forEach(function(a){var t=nextMD(a.md);var n=new Date(t).getUTCFullYear()-a.y0;out.push({t:t,title:a.t+(n>0?" ("+n+"주년)":""),kind:"기념일",who:a.who});});
   evList().forEach(function(e){if(e.en<today)return;var ongoing=e.s<today;
     out.push({t:ongoing?today:e.s,title:e.title,kind:(ongoing&&e.kind!=="굿즈")?"진행 중":e.kind,who:e.who,note:[e.end?fmtMD(e.s)+"–"+fmtMD(e.en):"",e.tm,e.note].filter(Boolean).join(" · "),url:e.url,auto:e.auto,ongoing:ongoing});});
@@ -590,12 +595,12 @@ function avatar(k){var m=M[k],s=STATUS.members&&STATUS.members[k]||{};
   var init=esc(m.n.charAt(m.n.indexOf(" ")+1)||m.n.charAt(0));
   var img=imgTag([s.avatar]); // 아바타가 없거나 로딩에 실패하면 이니셜 원을 보인다
   return '<span class="mono-av" aria-hidden="true">'+img+'<span class="init"'+(img?" hidden":"")+'>'+init+'</span></span>';}
-function card(k){var m=M[k],bd=m.bd.split("-"),L=m.links||{},live=liveOf(k);
+function card(k){var m=M[k],bd=bdParts(m.bd),L=m.links||{},live=liveOf(k);
   var links=[["프로필",L.profile],["유튜브",L.youtube],["치지직",L.chzzk],["X",L.x],["팬카페",L.cafe]].filter(function(l){return l[1];});
   return '<article class="card'+(k==="kangji"?" boss":"")+'" style="--c:'+m.c+'">'+
     '<div class="nm">'+avatar(k)+'<span style="min-width:0">'+(k==="kangji"?'<span class="role">대표 · 설립자</span>':'')+'<b>'+esc(m.n)+'</b><small>'+esc(m.en)+'</small>'+
     (live?'<a class="livechip" href="'+esc(live.url||L.chzzk)+'" target="_blank" rel="noopener">LIVE · 방송 중</a>':"")+'</span></div>'+
-    '<dl class="facts"><dt>생일</dt><dd>'+(+bd[0])+'월 '+(+bd[1])+'일</dd>'+(m.debut?'<dt>데뷔</dt><dd class="mono">'+m.debut.replace(/-/g,".")+'</dd>':'')+(m.fan?'<dt>팬덤</dt><dd>'+esc(m.fan)+'</dd>':'')+(m.art?'<dt>팬아트</dt><dd>'+esc(m.art)+'</dd>':'')+'</dl>'+
+    '<dl class="facts">'+(bd?'<dt>생일</dt><dd>'+bd[0]+'월 '+bd[1]+'일</dd>':'')+(m.debut?'<dt>데뷔</dt><dd class="mono">'+m.debut.replace(/-/g,".")+'</dd>':'')+(m.fan?'<dt>팬덤</dt><dd>'+esc(m.fan)+'</dd>':'')+(m.art?'<dt>팬아트</dt><dd>'+esc(m.art)+'</dd>':'')+'</dl>'+
     '<div class="links">'+links.map(function(l){return '<a href="'+esc(l[1])+'" target="_blank" rel="noopener">'+esc(l[0])+'</a>';}).join("")+'</div></article>';}
 function renderMembers(){
   $("#gens").innerHTML=G.map(function(g){var ks=g.key==="boss"?["kangji"]:membersOf(g.key);

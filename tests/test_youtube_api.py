@@ -176,11 +176,45 @@ def test_a_stale_cached_id_is_re_resolved_once_and_the_cache_is_replaced(index):
     assert res.uploads == {"lize": uploads_of(LIZE)} and len(res.items) == 15 and res.errors == []
 
 
-def test_a_stale_id_that_resolves_to_the_same_id_is_an_error_not_a_loop(index):
+def test_a_stale_id_that_resolves_to_the_same_id_is_an_empty_channel_not_an_error_or_a_loop(index, caplog):
+    """channels.list가 같은 ID를 다시 주는데 그 재생목록이 404 = 영상이 하나도 없는 채널. 한 번만 다시 구하고(루프 없음) 오류로 세지 않는다."""
     fake = FakeApi(stale={uploads_of(LIZE)})
+    with caplog.at_level("INFO"):
+        res = collect([CH_LIZE], index, fake, cached={"lize": uploads_of(LIZE)})
+    assert fake.endpoints() == ["playlistItems", "channels"] and res.items == [] and res.errors == []
+    assert "아카네 리제 유튜브: 올라온 영상이 없는 채널입니다" in caplog.text
+    assert res.uploads == {}  # 캐시된 ID는 그대로 유효하다
+
+
+# 어비스처럼 데뷔 전이라 영상이 하나도 없는 채널: 업로드 재생목록 ID는 있는데 읽으면 404 playlistNotFound (2026-10-13 실측)
+CH_UNDEBUTED = Channel("UClcSEuDF_g_6g4snw_nAavw", "시즈키 토아 유튜브", "toa")
+
+
+def test_a_channel_without_any_video_is_not_an_error_and_does_not_disturb_the_others(index, caplog):
+    fake = FakeApi(stale={uploads_of(CH_UNDEBUTED.yt_id)})
+    with caplog.at_level("INFO"):
+        res = collect([CH_KANGJI, CH_UNDEBUTED, CH_LIZE, CH_OFFICIAL], index, fake)
+    assert res.errors == [] and len(res.items) == 45 and not res.quota_exceeded and not res.key_rejected
+    assert {i["source"] for i in res.items} == {"강지 유튜브", "아카네 리제 유튜브", "스텔라이브 공식 유튜브"}
+    assert res.uploads["toa"] == uploads_of(CH_UNDEBUTED.yt_id)  # 다음 실행에 쓰도록 ID는 캐시한다
+    # 방금 channels.list로 구한 ID라서 404가 나도 channels.list를 또 부르지 않는다 (유닛 낭비 없음)
+    assert fake.endpoints() == ["channels"] + ["playlistItems"] * 4
+    assert "시즈키 토아 유튜브: 올라온 영상이 없는 채널입니다" in caplog.text and "채널 실패" not in caplog.text
+
+
+def test_once_the_channel_has_videos_it_is_collected_like_any_other(index):
+    """데뷔 뒤: 같은 채널의 목록이 열리면 캐시된 ID로 그대로 영상이 들어온다."""
+    ids = fx("youtube_api_playlist_lize.json")
+    cached = {"toa": uploads_of(CH_UNDEBUTED.yt_id)}
+    res = collect([CH_UNDEBUTED], index, FakeApi(playlists={uploads_of(CH_UNDEBUTED.yt_id): ids}), cached=cached)
+    assert len(res.items) == 15 and res.errors == [] and all(i["who"] == ["toa"] for i in res.items)
+
+
+def test_a_channel_that_channels_list_no_longer_returns_is_still_an_error(index):
+    """채널이 삭제·종료돼 channels.list에서 사라진 경우는 '영상 없음'이 아니라 오류로 남는다."""
+    fake = FakeApi(stale={uploads_of(LIZE)}, missing_channels={LIZE})
     res = collect([CH_LIZE], index, fake, cached={"lize": uploads_of(LIZE)})
-    assert fake.endpoints() == ["playlistItems", "channels"] and res.items == []
-    assert res.errors == ["아카네 리제 유튜브: HTTP 404 playlistNotFound"]
+    assert res.items == [] and res.errors == ["아카네 리제 유튜브: HTTP 404 playlistNotFound"]
 
 
 def test_a_channel_missing_from_channels_list_fails_alone(index):

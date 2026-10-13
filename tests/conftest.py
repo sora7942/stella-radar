@@ -13,6 +13,15 @@ ROOT =Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
+def _count_channels():
+    """저장소 members.json의 유튜브 수집 채널 수 = yt_id가 있는 멤버 + 공식 채널. 멤버가 늘어도 채널 수를 세는 테스트가 깨지지 않게 한다."""
+    doc = json.loads((ROOT / "site" / "data" / "members.json").read_text(encoding="utf-8"))
+    return sum(1 for m in doc["members"].values() if m.get("yt_id")) + (1 if doc["official"].get("yt_id") else 0)
+
+
+N_CHANNELS = _count_channels()
+
+
 class NetworkBlocked(RuntimeError):
     pass
 

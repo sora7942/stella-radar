@@ -3,6 +3,8 @@
 
 - 채널 → 업로드 재생목록 ID는 channels.list(part=contentDetails)로 구해 status.json에 캐시한다(멤버 key별 `uploads`,
   공식 채널은 "official"). 캐시된 ID가 더는 유효하지 않으면(playlistNotFound) 그 채널만 다시 구한다.
+- **영상이 하나도 없는 채널(데뷔 전 등)**은 channels.list가 업로드 재생목록 ID를 주는데도 그 재생목록을 읽으면 404 playlistNotFound가 온다
+  (2026-10-13 어비스 4개 채널 실측). 방금 구했거나 다시 구해도 같은 ID면 오류가 아니라 '영상 0개'로 본다. 낡은 캐시만 새 ID로 바꿔 한 번 더 시도한다.
 - 채널마다 playlistItems.list(maxResults=15, part=snippet,contentDetails)로 최신 영상을 가져온다. 비용은 호출당 1유닛.
 - 게시 시각은 contentDetails.videoPublishedAt(영상 자체의 게시 시각). snippet.publishedAt은 '재생목록에 추가된 시각'이라 쓰지 않는다.
   삭제·비공개 영상은 videoPublishedAt이 없으므로 건너뛴다. 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않으며 그대로 포함한다.
@@ -191,12 +193,20 @@ def collect(channels: list[Channel], index: tagging.TagIndex, *, api_key: str, c
         try:
             try:
                 data = fetch_playlist(playlist_id, api_key, get)
-            except PlaylistNotFound:  # 캐시가 낡았다 → 이 채널만 다시 구해서 한 번 더
-                fresh = resolve_uploads([channel.yt_id], api_key, get).get(channel.yt_id)
-                if not fresh or fresh == playlist_id:
-                    raise
-                res.uploads[cache_key(channel)] = fresh
-                data = fetch_playlist(fresh, api_key, get)
+            except PlaylistNotFound:
+                if cache_key(channel) in res.uploads:  # 방금 구한 ID인데도 없다 → 영상이 하나도 없는 채널
+                    log.info("%s: 올라온 영상이 없는 채널입니다", channel.source)
+                    data = {}
+                else:  # 캐시가 낡았을 수 있다 → 이 채널만 다시 구해서 한 번 더
+                    fresh = resolve_uploads([channel.yt_id], api_key, get).get(channel.yt_id)
+                    if not fresh:
+                        raise
+                    if fresh == playlist_id:  # ID는 그대로인데 목록이 없다 → 영상이 하나도 없는 채널
+                        log.info("%s: 올라온 영상이 없는 채널입니다", channel.source)
+                        data = {}
+                    else:
+                        res.uploads[cache_key(channel)] = fresh
+                        data = fetch_playlist(fresh, api_key, get)
             parsed = parse_playlist(data, channel, index)
         except (QuotaExceeded, KeyRejected) as e:
             _hand_over(res, e, list(channels[n:]))

@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from conftest import make_response
+from conftest import N_CHANNELS, make_response
 from updater import config, tagging
 from updater.sources import youtube_rss
 from updater.sources.youtube_rss import Channel, FeedParseError
@@ -112,12 +112,12 @@ def test_broken_entries_are_skipped_not_fatal(index):
 # ============================ channels_from_members ============================
 def test_channels_from_real_members(members):
     channels = youtube_rss.channels_from_members(members)
-    assert len(channels) == 12  # 강지 + 멤버 10 + 공식
+    assert len(channels) == N_CHANNELS == 16  # 강지 + 멤버 14(기존 10 + 어비스 4) + 공식
     assert channels[-1] == Channel(members["official"]["yt_id"], "스텔라이브 공식 유튜브", None)
     by_owner = {c.owner: c for c in channels}
     assert by_owner["kangji"].source == "강지 유튜브"
     assert by_owner["lize"] == Channel("UC7-m6jQLinZQWIbwm9W-1iw", "아카네 리제 유튜브", "lize")
-    assert len({c.yt_id for c in channels}) == 12
+    assert len({c.yt_id for c in channels}) == N_CHANNELS
 
 
 def test_member_without_yt_id_is_skipped():

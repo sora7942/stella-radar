@@ -9,6 +9,8 @@
 - HTTP 5xx면 다음 후보 엔드포인트(config.CHZZK_LIVE_STATUS_URLS: v2 → v3)로 바로 넘어간다. 후야 방송이 Actions(해외 IP)에서 v2만
   HTTP 500 code 9004("해외 시청 불가능한 컨텐츠")로 막혔고 v3는 통과했다. 후보가 전부 5xx면 1초 뒤 후보 전체를 CHZZK_RETRY_5XX번 더 돈다.
   4xx·연결 오류·응답 형식 오류는 넘어가지 않는다
+- 한 번도 방송한 적 없는 채널(데뷔 전)은 HTTP 200 `{"code":200,"content":null}`로 온다(2026-10-13 어비스 4개 채널 실측, v2·v3 같음).
+  실패가 아니라 '방송 꺼짐'이다. 없는 채널 ID는 HTTP 404라서 여전히 실패로 드러난다
 - chzzk_id가 없는 멤버는 건너뛴다
 """
 from __future__ import annotations
@@ -30,6 +32,8 @@ class LiveParseError(ValueError):
 def parse_live(doc, channel_id: str) -> dict:
     """live-status JSON → {"on": False} 또는 {"on": True, "title", "url", "since"?}."""
     content = doc.get("content") if isinstance(doc, dict) else None
+    if isinstance(doc, dict) and doc.get("code") == 200 and "content" in doc and content is None:
+        return {"on": False}  # 방송 이력이 없는 채널 (데뷔 전)
     if not isinstance(doc, dict) or doc.get("code") != 200 or not isinstance(content, dict):
         raise LiveParseError(f"예상 밖의 응답 형식 (code={doc.get('code') if isinstance(doc, dict) else type(doc).__name__})")
     answered = content.get("channelId")

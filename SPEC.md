@@ -1,6 +1,6 @@
 # SPEC — stella-radar
 
-스텔라이브(강지 · 1기 에버리스 · 2기 유니버스 · 3기 클리셰 · 단체 · 멤버 개인)의 새 소식, 노래, 팬 게임, 생일·일정을 한곳에서 보는 **비공식 팬 허브 사이트**.
+스텔라이브(강지 · 1기 에버리스 · 2기 유니버스 · 3기 클리셰 · 4기 어비스 · 단체 · 멤버 개인)의 새 소식, 노래, 팬 게임, 생일·일정을 한곳에서 보는 **비공식 팬 허브 사이트**.
 GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다(외부 cron 서비스가 호출한다 — 9장) 새 소식을 모아 사이트를 다시 배포하며, 새 소식은 디스코드 웹훅으로 알린다.
 
 > 이전 버전은 Claude 아티팩트였다. 아티팩트는 외부 이미지를 못 불러오고 유튜브 RSS를 못 읽어서 옮긴다.
@@ -10,7 +10,7 @@ GitHub Pages(공개 저장소)로 서비스하고, GitHub Actions가 30분마다
 - `https://sora7942.github.io/stella-radar/`에서 사이트가 열린다
 - 멤버 프로필 사진(유튜브 채널 이미지)과 노래·영상 썸네일(유튜브)이 **링크(핫링크)로** 보인다. 이미지를 저장소에 복사하지 않는다
 - 30분마다(외부 cron이 호출하며 GitHub·네트워크 사정으로 몇 분씩 밀릴 수 있음) 다음을 반영한다
-  - 멤버 12개 유튜브 채널(강지·멤버 10명·공식)의 새 영상
+  - 멤버 16개 유튜브 채널(강지·멤버 14명·공식)의 새 영상
   - 공식 홈페이지 공지(stellive.me/news)
   - 공식 음악 카탈로그(stellive.me/music) 새 곡
   - 치지직 방송 중 여부(LIVE 표시)
@@ -78,7 +78,9 @@ stella-radar/
    "links":{"profile":"...","youtube":"...","chzzk":"...","x":"..."}}}}
 ```
 - 멤버 key: `kangji, yuni, huya, hina, mashiro, lize, tabi, shibuki, rin, nana, riko`
-- 그룹 key: `boss(강지), everys, universe, cliche`
+- 그룹 key: `boss(강지), everys, universe, cliche, abyss`
+- 4기생 어비스(2026-10-13 추가): 멤버 key `toa, rang, hiyori, mary`(시즈키 토아·코가네 랑·하나요 히요리·토키노 메리, 데뷔 10/17 17:00·18:00, 10/18 17:00·18:00). 유튜브·치지직·X는 공식 채널의 PV 영상 설명(https://youtu.be/tlCeLkw8Upc)과 공지 14262(치지직)에서 확인한 것만 넣었다. 영문명은 각 유튜브 채널 제목(`COGANE RANG` 등)을 따른다. `fan`·`art`·`clip`·`debut`은 아직 모르니 null이고, 공식 홈페이지 프로필 링크(`links.profile`)는 아직 없어 뺐다. 생일은 사용자가 준 값이며(공식 X 게시물 근거 URL은 받지 못했다) 틀리면 `bd`만 고치면 된다. **데뷔 전 채널의 모양**(2026-10-13 실측): 유튜브 업로드·쇼츠·동영상 재생목록은 모두 404 `playlistNotFound`(영상 0개), 치지직 live-status는 HTTP 200 `{"code":200,"content":null}` — 둘 다 오류가 아니라 '영상 없음'·'방송 꺼짐'으로 처리한다(5장)
+- `bd`(생일 `MM-DD`)는 null이어도 사이트가 동작한다(그 멤버는 생일 달력·카드 생일 칸이 빠질 뿐)
 - 강지 `chzzk_id`는 채널 API(이름·인증 마크)와 live-status의 `channelId`로 교차 검증해 사용자 확인 후 채웠다
 
 ### news.json (자동)
@@ -94,7 +96,7 @@ stella-radar/
 - `yt`: 유튜브 영상이면 videoId (사이트가 `i.ytimg.com/vi/<id>/mqdefault.jpg` 썸네일을 건다)
 - `short`(bool, 선택, `yt-` 영상만): 쇼츠인가. **필드가 없으면 아직 판별 전(미정)이다** — 사이트는 일반 영상으로 취급한다. `true`는 채널의 쇼츠 탭 재생목록(UUSH…)에서 확인된 영상, `false`는 동영상 탭 재생목록(UULF…)에서 확인됐거나 처음 발견(`added`) 24시간 뒤에도 둘 다에 없는 영상(라이브 다시보기·예약 영상 등). **한 번 정해지면 바꾸지 않는다** (판별 규칙은 5장 '쇼츠 판별')
 - 사이트(`index.html`)의 `short` 사용(기능 2-2): `short:true` 항목에 '쇼츠' 배지를 달고 제목·썸네일 링크를 `https://www.youtube.com/shorts/<id>`로 건다(`url` 필드는 그대로 watch 주소). 썸네일(`mqdefault.jpg`)은 가운데에 세로 화면이 있고 양옆이 흐린 320×180 이미지라서, 쇼츠는 9:16 칸(`object-fit:cover`)에 가운데만 보여 준다. 소식 탭에는 분류 칩(전체·영상·공지/이벤트·굿즈·음악, 그룹 칩 위, 그룹·멤버 필터와 AND)과 '쇼츠 숨기기' 토글(`localStorage` 키 `sr_hideShorts`, 기본 '보이기', 저장이 막혀도 동작)이 있다. `short`가 없는(미정) 항목은 일반 영상으로 보인다
-- `who` 태그: 멤버 key / 그룹 key(`everys, universe, cliche`) / `all`(단체). 정렬 순서 무관
+- `who` 태그: 멤버 key / 그룹 key(`everys, universe, cliche, abyss` — members.json의 groups에서 boss를 뺀 것) / `all`(단체). 정렬 순서 무관
 - 보관: `date` 내림차순 **최대 300개**
 - 기존 저장소의 news.json에 들어 있는 공식 공지 18개는 시드로 유지한다
 
@@ -104,7 +106,7 @@ stella-radar/
   "who":["riko"],"category":"EP","kind":"솔로","date":"2026-07-24","yt":"P_oxx3_VpIY","url":"https://stellive.me/music/12876"}]}
 ```
 - `category`: 공식 사이트 분류 그대로 (`ALBUM | EP | SINGLE | COVER | OTHERS`)
-- `kind` 변환: COVER→`커버`, OTHERS→`콜라보·OST`, 나머지는 아티스트로 판단 — STELLIVE→`단체`, 유닛명(Everys/Universe/Cliché)이나 멤버 2명 이상→`유닛`, 멤버 1명→`솔로`
+- `kind` 변환: COVER→`커버`, OTHERS→`콜라보·OST`, 나머지는 아티스트로 판단 — STELLIVE→`단체`, 유닛명(Everys/Universe/Cliché/Abyss)이나 멤버 2명 이상→`유닛`, 멤버 1명→`솔로`
 - `who`: 아티스트 영문명 → 멤버 key (`Akane Lize`→`lize` …), 유닛명→그룹 key, STELLIVE→`all`, 졸업 멤버(Airi Kanna 등)→`[]`
 - `yt`: 상세 페이지의 `youtube.com/embed/<id>` 에서 추출 (쿼리스트링 제거)
 
@@ -139,10 +141,10 @@ stella-radar/
 ## 5. 수집 소스
 | 소스 | 방법 | 비고 |
 |---|---|---|
-| 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (12개 채널 = 호출 12회 + 캐시가 없을 때 1회, 하루 약 580유닛 / 한도 10,000). RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체하는 경우는 셋뿐: ① 키(`YOUTUBE_API_KEY`)가 없을 때, ② 할당량 초과(403 `quotaExceeded`), ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked` 등). ②③이 중간에 일어나면 못 한 채널만 RSS로 수집한다. ③은 사람이 고쳐야 하므로 Actions 실행 요약에 `::warning::` 주석 "YouTube API 키 확인 필요"를 남긴다(로컬은 로그 경고). 5xx·네트워크 오류·속도 제한 같은 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다. 업데이터가 부르는 API는 `channels.list`·`playlistItems.list`(호출당 1유닛)뿐이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS`) | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함(쇼츠 여부는 아래 '쇼츠 판별'이 따로 정한다). 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
+| 유튜브 새 영상 | **YouTube Data API v3가 기본**: `channels.list(part=contentDetails)`로 채널의 업로드 재생목록 ID를 구해 status.json에 캐시하고(멤버 key별 `uploads`, 공식 채널은 `official`), `playlistItems.list(part=snippet,contentDetails, maxResults=15)`로 채널당 최신 15개 (16개 채널 = 호출 16회 + 캐시가 없을 때 1회, 하루 약 770유닛 / 한도 10,000. **영상이 하나도 없는 채널**은 업로드 재생목록이 404 `playlistNotFound`라서 '낡은 캐시인지' 확인하려고 그 채널만 `channels.list`를 한 번 더 부른다 — 어비스 4채널 × 48회 ≈ 하루 190유닛이 더해진다. 첫 영상이 올라오면 사라진다). RSS(`https://www.youtube.com/feeds/videos.xml?channel_id=<UC…>`)로 대체하는 경우는 셋뿐: ① 키(`YOUTUBE_API_KEY`)가 없을 때, ② 할당량 초과(403 `quotaExceeded`), ③ **키 거부**(400 `badRequest`·401·403 `forbidden`·`accessNotConfigured`·`ipRefererBlocked` 등). ②③이 중간에 일어나면 못 한 채널만 RSS로 수집한다. ③은 사람이 고쳐야 하므로 Actions 실행 요약에 `::warning::` 주석 "YouTube API 키 확인 필요"를 남긴다(로컬은 로그 경고). 5xx·네트워크 오류·속도 제한 같은 그 밖의 API 실패는 RSS로 돌리지 않고 해당 채널의 실패로 남긴다. 업데이터가 부르는 API는 `channels.list`·`playlistItems.list`(호출당 1유닛)뿐이며 `search.list`(호출당 100유닛)는 코드에서 거부된다(`config.YOUTUBE_API_ENDPOINTS`) | 게시 시각은 `contentDetails.videoPublishedAt`(영상 자체의 게시 시각). 쇼츠·라이브 다시보기·프리미어 커버는 응답에서 일반 영상과 구별되지 않아 그대로 포함(쇼츠 여부는 아래 '쇼츠 판별'이 따로 정한다). 공식 채널 영상은 제목에서 멤버 이름을 찾아 태그, 없으면 `all`. **키는 URL이 아니라 `X-Goog-Api-Key` 헤더로만 보낸다**(로그·예외 메시지에 남지 않게) |
 | 공식 공지 | `https://stellive.me/news` 목록 HTML | Rhymix 기반. 제목·날짜·카테고리·`/news/<번호>` 파싱. 첫 페이지만 |
 | 공식 음악 | `https://stellive.me/music` 목록 + `/music/<번호>` 상세 | 상세는 **처음 보는 번호만** 가져온다(실행당 최대 40개, 요청 간 0.5초). 최초 실행 때 전체(약 290곡)를 여러 번에 나눠 채움. 새 곡은 news에도 `음악`으로 추가 |
-| 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status`, HTTP 5xx면 `…/polling/v3/…/live-status`로 대체 (`config.CHZZK_LIVE_STATUS_URLS`) | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. v2는 해외 IP에서 방송 단위로 막힐 수 있다(후야 방송: HTTP 500 `code 9004` "해외 시청 불가능한 컨텐츠 입니다.", v3는 200 — 2026-10-07 Actions 시험). v3의 `content`는 v2와 키 51개가 같아 같은 파서를 쓴다. 두 후보가 전부 5xx면 1초 뒤 후보 전체를 1회 더 돈다. 4xx·연결 오류·형식 오류는 대체·재시도하지 않는다. 같은 멤버가 연속 3회 실패하면 `::warning::`(4장 `liveFails`). 전부 실패하면 소스 실패로 세되 연속 실패 횟수는 저장한다. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
+| 치지직 방송 | `https://api.chzzk.naver.com/polling/v2/channels/<id>/live-status`, HTTP 5xx면 `…/polling/v3/…/live-status`로 대체 (`config.CHZZK_LIVE_STATUS_URLS`) | **비공식 API**. `content.status == "OPEN"`, `content.liveTitle`. v2는 해외 IP에서 방송 단위로 막힐 수 있다(후야 방송: HTTP 500 `code 9004` "해외 시청 불가능한 컨텐츠 입니다.", v3는 200 — 2026-10-07 Actions 시험). v3의 `content`는 v2와 키 51개가 같아 같은 파서를 쓴다. 한 번도 방송한 적 없는 채널(데뷔 전)은 HTTP 200 `{"code":200,"content":null}`로 오며 실패가 아니라 '꺼짐'이다(없는 채널 ID는 HTTP 404라 여전히 실패). 두 후보가 전부 5xx면 1초 뒤 후보 전체를 1회 더 돈다. 4xx·연결 오류·형식 오류는 대체·재시도하지 않는다. 같은 멤버가 연속 3회 실패하면 `::warning::`(4장 `liveFails`). 전부 실패하면 소스 실패로 세되 연속 실패 횟수는 저장한다. Actions(해외 IP)에서 막히면 이 소스만 끄고 사용자에게 보고 |
 | 유튜브 프로필 | `https://www.youtube.com/channel/<UC…>` HTML의 `og:image` | 하루 1번 |
 
 - **공지 일정 추출**(`updater/auto_events.py`·`sources/stellive_notice_detail.py`·`sources/claude_events.py`, 기능 3): 병합된 news의 공식 공지(`sl-*`) 본문에서 Claude API(기본 `claude-haiku-4-5`, `CLAUDE_MODEL`로 변경)로 일정을 JSON으로 뽑아 `auto_events.json`에 쌓는다. 병합 뒤 단계라 `--only events`로도 돌릴 수 있다
@@ -159,9 +161,9 @@ stella-radar/
   - 조회 실패(오류·할당량 초과·키 거부)면 그 채널의 항목은 아무것도 바꾸지 않고 다음 실행에 재시도한다(채널 단위 전부-아니면-전무). 할당량 초과·키 거부는 남은 채널 조회도 멈춘다. 영상 수집이 API로 되지 않은 실행(RSS 대체·키 없음·할당량 초과·키 거부·`youtube` 소스 실패)과 `--only`에 `youtube`가 없는 실행에서는 판별을 건너뛴다. 판별 단계의 오류는 종류만 경고로 남기고 실행은 계속한다
   - 비용(추정): 평소에는 새 영상이 있는(판별 대기 항목이 있는) 채널만 부른다 → 새 영상 하루 약 7.5개 기준 하루 약 8~15유닛(기준 약 580의 2% 안팎), 최초 백필 최대 24유닛. `search.list`·`videos.list`는 쓰지 않는다
   - 알려진 한계: 첫 페이지(채널당 최신 50개)만 본다. 업데이터가 24시간 넘게 멈췄다 돌아오면 첫 페이지 밖으로 밀려난 오래된 쇼츠가 24시간 규칙으로 false가 될 수 있다. 새 쇼츠가 UUSH 목록에 나타나기까지의 지연은 측정하지 못했다(미정 → 다음 실행 재시도로 흡수되고, 알림은 그 시점에 아직 미정이면 '쇼츠' 표시 없이 나간다)
-  - 실측(2026-10-09 `--dry-run`, 실제 API): 배포본 영상 196개 → 쇼츠 50 · 일반 146 · 미정 0 (정답 기록과 196/196 일치), 조회 채널 12개·API 24회. 같은 상태에서 다시 돌리면 대상 0·API 0회
+  - 실측(2026-10-09 `--dry-run`, 실제 API): 배포본 영상 196개 → 쇼츠 50 · 일반 146 · 미정 0 (정답 기록과 196/196 일치), 조회 채널 12개·API 24회(그때는 채널 12개). 같은 상태에서 다시 돌리면 대상 0·API 0회
 - 모든 요청: `timeout=10`, 브라우저 형태의 User-Agent, 실패해도 다른 소스는 계속
-- 멤버 이름 태깅(`tagging.py`): 풀네임과 이름(예: "리제", "아카네 리제"), 유닛명(에버리스/유니버스/클리셰, 영문 포함)을 사전으로 관리. 여러 명이 걸리면 모두 태그, 하나도 없으면 `all`
+- 멤버 이름 태깅(`tagging.py`): 풀네임과 이름(예: "리제", "아카네 리제"), 유닛명(에버리스/유니버스/클리셰/어비스, 영문 포함)을 사전으로 관리(유닛은 members.json의 groups에서 읽는다). 기수 별칭은 확인된 `4기생`·`4기`만(`GROUP_ALIASES`). 이름 조각이 흔한 말과 겹치는 `토아`·`메리`·`하나요`는 단어 시작에서만 매칭하고(스토아·아메리카노 제외), `메리트`·`메리 크리스마스`·`하나요?`·`4기통`은 막는다. 여러 명이 걸리면 모두 태그, 하나도 없으면 `all`
 
 ## 6. 상태 보관 방식 (커밋 없이)
 - 데이터 변경 때문에 30분마다 커밋하지 않는다. 대신 **실행 시작 시 배포된 사이트에서 이전 상태를 읽는다**

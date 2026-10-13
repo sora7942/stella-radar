@@ -27,6 +27,13 @@
    "full": "3기생 클리셰",
    "en": "cliché",
    "note": "2024.05.18 데뷔"
+  },
+  {
+   "key": "abyss",
+   "label": "어비스",
+   "full": "4기생 어비스",
+   "en": "ABYSS",
+   "note": "2026.10.17 데뷔"
   }
  ],
  "official": {
@@ -259,6 +266,82 @@
     "chzzk": "https://chzzk.naver.com/8fd39bb8de623317de90654718638b10"
    },
    "official_img": "https://stellive.me/files/attach/images/riko/riko.png",
+   "debut": null
+  },
+  "toa": {
+   "n": "시즈키 토아",
+   "en": "Shizuki Toa",
+   "c": "#1FA3B5",
+   "g": "abyss",
+   "bd": "11-22",
+   "fan": null,
+   "art": null,
+   "clip": null,
+   "yt_id": "UClcSEuDF_g_6g4snw_nAavw",
+   "chzzk_id": "2299fad4bebb504b0978e1ec08b2f7d3",
+   "links": {
+    "youtube": "https://www.youtube.com/@ShizukiToa",
+    "chzzk": "https://chzzk.naver.com/2299fad4bebb504b0978e1ec08b2f7d3",
+    "x": "https://x.com/ShizukiToa_"
+   },
+   "official_img": null,
+   "debut": null
+  },
+  "rang": {
+   "n": "코가네 랑",
+   "en": "Cogane Rang",
+   "c": "#B02A6B",
+   "g": "abyss",
+   "bd": "08-22",
+   "fan": null,
+   "art": null,
+   "clip": null,
+   "yt_id": "UCQ6LlsI7Bbj2yhSqLMI1gGA",
+   "chzzk_id": "c657aa3592260a2b59669a72ec151936",
+   "links": {
+    "youtube": "https://www.youtube.com/@coganerang",
+    "chzzk": "https://chzzk.naver.com/c657aa3592260a2b59669a72ec151936",
+    "x": "https://x.com/CoganeRang"
+   },
+   "official_img": null,
+   "debut": null
+  },
+  "hiyori": {
+   "n": "하나요 히요리",
+   "en": "Hanayo Hiyori",
+   "c": "#7DA82A",
+   "g": "abyss",
+   "bd": "03-31",
+   "fan": null,
+   "art": null,
+   "clip": null,
+   "yt_id": "UCHAr9pWGS30akL4MQCQT4uQ",
+   "chzzk_id": "49d2c3cf8f0b2843d934ec15e82bb54c",
+   "links": {
+    "youtube": "https://www.youtube.com/@HanayoHiyori",
+    "chzzk": "https://chzzk.naver.com/49d2c3cf8f0b2843d934ec15e82bb54c",
+    "x": "https://x.com/HanayoHiyori"
+   },
+   "official_img": null,
+   "debut": null
+  },
+  "mary": {
+   "n": "토키노 메리",
+   "en": "Tokino Mary",
+   "c": "#2B3F9E",
+   "g": "abyss",
+   "bd": "06-13",
+   "fan": null,
+   "art": null,
+   "clip": null,
+   "yt_id": "UCGSt1yNG5l-jpYRLpJ5oNtA",
+   "chzzk_id": "792acf9ca28b42918710327e14b06b68",
+   "links": {
+    "youtube": "https://www.youtube.com/@TokinoMaryChannel",
+    "chzzk": "https://chzzk.naver.com/792acf9ca28b42918710327e14b06b68",
+    "x": "https://x.com/TokinoMary"
+   },
+   "official_img": null,
    "debut": null
   }
  }

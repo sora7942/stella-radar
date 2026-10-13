@@ -7,7 +7,7 @@ import pytest
 import requests
 
 import main as app
-from conftest import ROOT  # noqa: F401
+from conftest import N_CHANNELS, ROOT  # noqa: F401
 from fakeapi import KANGJI as KANGJI_YT, KEY, LIZE as LIZE_YT, FakeApi, fx, http_error, uploads_of
 from test_main import API_URL, T1, T2, Net, api_run, data_dir, read, written_text  # noqa: F401  (data_dir은 test_main의 fixture)
 from updater import config
@@ -55,10 +55,10 @@ def test_decided_values_stay_and_undecided_ones_are_confirmed_false_after_24_hou
     api_run(data_dir, Net(api=FakeApi()), "2026-10-07T10:00:00+09:00", "--only", "youtube", "--local-state")
     by = news_videos(data_dir)
     assert all(isinstance(v["short"], bool) for v in by.values()) and by[ids[0]]["short"] is True and by[ids[3]]["short"] is False
-    # 판별할 것이 없으면 목록을 부르지 않는다 (수집 12회뿐)
+    # 판별할 것이 없으면 목록을 부르지 않는다 (수집 채널 수만큼뿐)
     fake4 = FakeApi()
     api_run(data_dir, Net(api=fake4), "2026-10-07T10:30:00+09:00", "--only", "youtube", "--local-state")
-    assert shorts_calls(fake4) == [] and fake4.endpoints() == ["playlistItems"] * 12
+    assert shorts_calls(fake4) == [] and fake4.endpoints() == ["playlistItems"] * N_CHANNELS
 
 
 def test_existing_videos_without_short_are_backfilled_by_the_same_rules(data_dir):
