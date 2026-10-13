@@ -79,7 +79,7 @@ stella-radar/
 ```
 - 멤버 key: `kangji, yuni, huya, hina, mashiro, lize, tabi, shibuki, rin, nana, riko`
 - 그룹 key: `boss(강지), everys, universe, cliche, abyss`
-- 4기생 어비스(2026-10-13 추가): 멤버 key `toa, rang, hiyori, mary`(시즈키 토아·코가네 랑·하나요 히요리·토키노 메리, 데뷔 10/17 17:00·18:00, 10/18 17:00·18:00). 유튜브·치지직·X는 공식 채널의 PV 영상 설명(https://youtu.be/tlCeLkw8Upc)과 공지 14262(치지직)에서 확인한 것만 넣었다. 영문명은 각 유튜브 채널 제목(`COGANE RANG` 등)을 따른다. `fan`·`art`·`clip`·`debut`은 아직 모르니 null이고, 공식 홈페이지 프로필 링크(`links.profile`)는 아직 없어 뺐다. 생일은 사용자가 준 값이며(공식 X 게시물 근거 URL은 받지 못했다) 틀리면 `bd`만 고치면 된다. **데뷔 전 채널의 모양**(2026-10-13 실측): 유튜브 업로드·쇼츠·동영상 재생목록은 모두 404 `playlistNotFound`(영상 0개), 치지직 live-status는 HTTP 200 `{"code":200,"content":null}` — 둘 다 오류가 아니라 '영상 없음'·'방송 꺼짐'으로 처리한다(5장)
+- 4기생 어비스(2026-10-13 추가): 멤버 key `toa, rang, hiyori, mary`(시즈키 토아·코가네 랑·하나요 히요리·토키노 메리, 데뷔 10/17 17:00·18:00, 10/18 17:00·18:00). 유튜브·치지직·X는 공식 채널의 PV 영상 설명(https://youtu.be/tlCeLkw8Upc)과 공지 14262(치지직)에서 확인한 것만 넣었다. 영문명은 각 유튜브 채널 제목(`COGANE RANG` 등)을 따른다. `fan`·`art`·`clip`·`debut`은 아직 모르니 null이고, 공식 홈페이지 프로필 링크(`links.profile`)는 아직 없어 뺐다. 생일은 사용자가 공식 X에서 직접 확인한 값이다(2026-10-13, 근거 URL은 저장소에 기록하지 않음). 틀리면 `bd`만 고치면 된다. **데뷔 전 채널의 모양**(2026-10-13 실측): 유튜브 업로드·쇼츠·동영상 재생목록은 모두 404 `playlistNotFound`(영상 0개), 치지직 live-status는 HTTP 200 `{"code":200,"content":null}` — 둘 다 오류가 아니라 '영상 없음'·'방송 꺼짐'으로 처리한다(5장)
 - `bd`(생일 `MM-DD`)는 null이어도 사이트가 동작한다(그 멤버는 생일 달력·카드 생일 칸이 빠질 뿐)
 - 강지 `chzzk_id`는 채널 API(이름·인증 마크)와 live-status의 `channelId`로 교차 검증해 사용자 확인 후 채웠다
 
